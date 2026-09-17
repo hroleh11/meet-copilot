@@ -1,0 +1,23 @@
+[package]
+name = "meet-copilot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Meeting copilot that listens and drafts replies"
+
+[lib]
+name = "meet_copilot_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.1", features = [] }
+
+[dependencies]
+meet-copilot-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri = { version = "2.9.2", features = [] }
+tokio = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+meet-copilot-platform-macos = { workspace = true }
