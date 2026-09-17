@@ -11,6 +11,9 @@ import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
 import { AuthModule } from '~/modules/auth';
 import { HealthModule } from '~/modules/health';
+import { MeetingsModule } from '~/modules/meetings';
+import { SettingsModule } from '~/modules/settings';
+import { UsageModule } from '~/modules/usage';
 import { UserModule } from '~/modules/user';
 
 @Module({
@@ -27,6 +30,9 @@ import { UserModule } from '~/modules/user';
     HashingModule,
     AuthModule,
     UserModule,
+    SettingsModule,
+    UsageModule,
+    MeetingsModule,
     HealthModule,
   ],
   providers: [

@@ -144,7 +144,7 @@ UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, 
 Redis:
 
 ```
-meeting:{id}:state           hash: status, language, profile, style, lastAnswer
+meeting:{id}:state           hash: language, profile, style, lastAnswer
 meeting:{id}:window          list: свіжі фінальні сегменти як JSON
 meeting:{id}:summary         string
 meeting:{id}:summarize:lock  string з TTL
@@ -156,7 +156,7 @@ desktop:auth:{code}          userId, TTL 60 секунд
 
 ### Потік живої зустрічі
 
-1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань на момент старту, щоб системний блок промпта не змінювався протягом зустрічі.
+1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
 2. Кожне WebSocket-з'єднання відкриває потік у `SttProvider`. Фінальні сегменти пишуться в Postgres і у `window`. Проміжні лише повертаються клієнту.
 3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`.
 4. `generate` читає стан, резюме і вікно, будує промпт, стрімить відповідь, зберігає генерацію і останню відповідь.
