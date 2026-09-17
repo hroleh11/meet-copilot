@@ -1,1 +1,1 @@
-export type { AuthenticatedUser, AuthenticatedUserWithRefreshToken } from './auth.types';
+export type { AuthenticatedUser, RefreshingUser } from './auth.types';

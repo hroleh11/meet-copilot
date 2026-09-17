@@ -5,8 +5,15 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(5070),
   API_PREFIX: z.string().min(1).default('api/v1'),
   FRONTEND_URL: z.url(),
+  DESKTOP_REDIRECT_URL: z.string().min(1),
+  COOKIE_DOMAIN: z.string().min(1).optional(),
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
+  AT_SECRET: z.string().min(16),
+  RT_SECRET: z.string().min(16),
+  GOOGLE_CLIENT_ID: z.string().min(1),
+  GOOGLE_CLIENT_SECRET: z.string().min(1),
+  GOOGLE_CALLBACK_URL: z.url(),
 });
 
 export type Env = z.infer<typeof envSchema>;

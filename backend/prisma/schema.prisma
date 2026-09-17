@@ -7,3 +7,72 @@ generator client {
   output       = "../src/generated/prisma"
   moduleFormat = "cjs"
 }
+
+enum Language {
+  uk
+  en
+  ru
+}
+
+enum MeetingProfile {
+  daily
+  interview_candidate
+  client_call
+}
+
+enum AuthClient {
+  web
+  desktop
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  credentials UserCredentials?
+  settings    UserSettings?
+  sessions    AuthSession[]
+
+  @@map("users")
+}
+
+model UserCredentials {
+  id             String  @id @default(uuid())
+  userId         String  @unique @map("user_id")
+  hashedPassword String? @map("hashed_password")
+  googleId       String? @unique @map("google_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_credentials")
+}
+
+model AuthSession {
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  hashedRt  String     @map("hashed_rt")
+  client    AuthClient
+  expiresAt DateTime   @map("expires_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_sessions")
+}
+
+model UserSettings {
+  id              String         @id @default(uuid())
+  userId          String         @unique @map("user_id")
+  style           String?
+  defaultLanguage Language       @default(uk) @map("default_language")
+  defaultProfile  MeetingProfile @default(daily) @map("default_profile")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}

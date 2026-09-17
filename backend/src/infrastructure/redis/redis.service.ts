@@ -23,6 +23,14 @@ export class RedisService implements OnModuleDestroy {
     await this.client.quit();
   }
 
+  async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+    await this.client.set(key, value, 'EX', ttlSeconds);
+  }
+
+  take(key: string): Promise<string | null> {
+    return this.client.getdel(key);
+  }
+
   async isReachable(): Promise<boolean> {
     try {
       return (await this.client.ping()) === 'PONG';

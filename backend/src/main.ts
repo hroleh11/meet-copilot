@@ -2,12 +2,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import type { Env } from '~/common/config';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  app.use(cookieParser());
 
   const env = app.get<ConfigService<Env, true>>(ConfigService);
 
@@ -34,6 +36,8 @@ async function bootstrap(): Promise<void> {
       .setTitle('Meet Copilot API')
       .setDescription('Meetings, transcripts and reply generation')
       .setVersion('0.1.0')
+      .addBearerAuth()
+      .addCookieAuth('accessToken')
       .build(),
   );
   SwaggerModule.setup('docs', app, document, {

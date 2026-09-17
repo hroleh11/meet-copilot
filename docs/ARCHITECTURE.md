@@ -74,16 +74,18 @@ desktop/src
 
 ### Авторизація
 
-- `POST /auth/register` `{ email, password, name }` → `{ userId }`
+- `POST /auth/register` `{ email, name, password }` → куки, `{ message }`
 - `POST /auth/login` `{ email, password }` → куки, `{ message }`
-- `POST /auth/refresh` → куки, `{ message }`. Використовує куку refresh-токена
-- `POST /auth/logout` → очищає куки
+- `POST /auth/refresh` → куки, `{ message }`. Бере refresh-токен із куки
+- `POST /auth/logout` → видаляє сесію й очищає куки
 - `GET /auth/google` і `GET /auth/google/callback` → куки й редірект на фронтенд
-- `GET /auth/desktop/start?provider=google|password` → відкривається в браузері, після успіху редірект на `meetcopilot://auth?code=...`
+- `GET /auth/google/desktop` → відкривається в браузері, після успіху редірект на `meetcopilot://auth?code=...`
 - `POST /auth/desktop/exchange` `{ code }` → `{ accessToken, refreshToken, expiresIn }`
 - `POST /auth/desktop/refresh` `{ refreshToken }` → нова пара токенів
 
-Одноразовий код живе в Redis 60 секунд і згорає при обміні.
+Веб і застосунок розділяє параметр `state` у Google-потоці. Одноразовий код живе в Redis 60 секунд і згорає при обміні.
+
+Сесії зберігаються в таблиці `auth_sessions`, по рядку на пристрій, тому вхід із застосунку не вибиває вебсесію. Refresh-токен зберігається лише як argon2-хеш, а його ідентифікатор сесії їде в обох токенах. Повторне використання старого refresh-токена трактується як компрометація: сесія видаляється.
 
 ### Користувач і налаштування
 
@@ -128,8 +130,9 @@ desktop/src
 Postgres (Prisma, таблиці й колонки в snake_case через `@map`):
 
 ```
-User            id, email, name, confirmed, createdAt, updatedAt
-UserCredentials userId, hashedPassword?, hashedRt?, googleId?
+User            id, email, name, createdAt, updatedAt
+UserCredentials userId, hashedPassword?, googleId?
+AuthSession     id, userId, hashedRt, client, expiresAt, createdAt
 UserSettings    userId, style?, defaultLanguage, defaultProfile
 Meeting         id, userId, profile, language, title, status, summary?, startedAt, endedAt?
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt

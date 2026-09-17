@@ -51,7 +51,7 @@ backend/src
 - The access-token strategy accepts the `accessToken` cookie first, then a Bearer header, so web and desktop share one guard.
 - Refresh tokens are hashed with argon2 and stored in `UserCredentials.hashedRt`. Web gets httpOnly cookies from `CookiesService`; desktop gets tokens in the body.
 - Desktop login never shows a password form inside the app: it opens the system browser, and the backend redirects to `meetcopilot://auth?code=...` with a one-time code held in Redis for 60 seconds and consumed on exchange.
-- Never leak whether an account exists. Register, login and password reset return the same shape for known and unknown emails.
+- Login must never reveal whether an account exists: an unknown email and a wrong password return the identical error. Registration answers 409 on a taken email, which does reveal it; that stays until email verification exists, and then registration becomes a generic response too.
 
 ## DTOs and Swagger
 
@@ -124,7 +124,8 @@ yield { type: 'done', stopReason: final.stop_reason, usage: final.usage };
 ## Testing
 
 - Unit specs next to the code as `*.spec.ts`: `PromptBuilder` table-driven over profiles and modes, `ContextWindow`, `Summarizer` with fakes, guards, DTO validation.
-- e2e under `test/` with `FakeLlmProvider` and `FakeSttProvider`, real Prisma against the compose Postgres using a separate database, real Redis with a per-run key prefix. No test calls a real provider.
+- e2e under `test/`. Auth specs boot the real `AppModule` against the compose Postgres and Redis, so `docker compose up -d` must be running; they generate unique emails and clean up in `afterAll`. Specs that do not need a store bind fakes through a `@Global()` test module instead.
+- The e2e runner needs `node --experimental-vm-modules` because the generated Prisma client loads its query compiler through a dynamic import. Provider access is always faked with `FakeLlmProvider` and `FakeSttProvider`; no test calls a real provider.
 
 ## Checks
 

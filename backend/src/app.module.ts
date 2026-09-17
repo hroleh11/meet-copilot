@@ -4,11 +4,14 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from '~/common/config';
 import { AllExceptionsFilter } from '~/common/filters';
+import { AtGuard, SubscriptionGuard } from '~/common/guards';
 import { RequestIdMiddleware } from '~/common/middleware';
 import { HashingModule } from '~/infrastructure/hashing';
 import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
+import { AuthModule } from '~/modules/auth';
 import { HealthModule } from '~/modules/health';
+import { UserModule } from '~/modules/user';
 
 @Module({
   imports: [
@@ -22,10 +25,14 @@ import { HealthModule } from '~/modules/health';
     PrismaModule,
     RedisModule,
     HashingModule,
+    AuthModule,
+    UserModule,
     HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AtGuard },
+    { provide: APP_GUARD, useClass: SubscriptionGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
