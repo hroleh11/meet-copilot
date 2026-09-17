@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthSession, User, UserCredentials } from '~/generated/prisma/client';
-import type { AuthClient } from '~/generated/prisma/enums';
 import { PrismaService } from '~/infrastructure/prisma';
 
 export type UserWithCredentials = User & { credentials: UserCredentials | null };
@@ -45,7 +44,6 @@ export class AuthRepository {
     id: string;
     userId: string;
     hashedRt: string;
-    client: AuthClient;
     expiresAt: Date;
   }): Promise<AuthSession> {
     return this.prisma.authSession.create({ data });

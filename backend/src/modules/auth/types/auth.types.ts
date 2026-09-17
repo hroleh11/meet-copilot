@@ -1,5 +1,3 @@
-import type { AuthClient } from '~/generated/prisma/enums';
-
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -22,5 +20,3 @@ export interface GoogleProfile {
   email: string;
   name: string;
 }
-
-export type { AuthClient };

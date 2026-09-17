@@ -20,11 +20,6 @@ enum MeetingProfile {
   client_call
 }
 
-enum AuthClient {
-  web
-  desktop
-}
-
 enum MeetingStatus {
   live
   finished
@@ -74,12 +69,11 @@ model UserCredentials {
 }
 
 model AuthSession {
-  id        String     @id @default(uuid())
-  userId    String     @map("user_id")
-  hashedRt  String     @map("hashed_rt")
-  client    AuthClient
-  expiresAt DateTime   @map("expires_at")
-  createdAt DateTime   @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  hashedRt  String   @map("hashed_rt")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

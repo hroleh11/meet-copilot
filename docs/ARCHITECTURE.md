@@ -31,7 +31,7 @@ backend/src
     llm/           LlmProvider, AnthropicLlmProvider
     stt/           SttProvider, DeepgramSttProvider
   modules/
-    auth/          email і пароль, JWT, Google, вхід для застосунку
+    auth/          email і пароль, JWT, Google, одноразовий код для застосунку
     user/          профіль
     settings/      стиль, мова та профіль за замовчуванням
     meetings/      зустрічі, MeetingStateStore над Redis
@@ -70,22 +70,21 @@ desktop/src
 
 ## Контракт API
 
-Базовий префікс `/api/v1`. Маршрути без `@Public()` вимагають access-токен: куку `accessToken` для вебу або `Authorization: Bearer` для застосунку.
+Базовий префікс `/api/v1`. Маршрути без `@Public()` вимагають `Authorization: Bearer`. Вебверсії немає, тому немає ні кук, ні CORS: єдиний клієнт це застосунок.
 
 ### Авторизація
 
-- `POST /auth/register` `{ email, name, password }` → куки, `{ message }`
-- `POST /auth/login` `{ email, password }` → куки, `{ message }`
-- `POST /auth/refresh` → куки, `{ message }`. Бере refresh-токен із куки
-- `POST /auth/logout` → видаляє сесію й очищає куки
-- `GET /auth/google` і `GET /auth/google/callback` → куки й редірект на фронтенд
-- `GET /auth/google/desktop` → відкривається в браузері, після успіху редірект на `meetcopilot://auth?code=...`
-- `POST /auth/desktop/exchange` `{ code }` → `{ accessToken, refreshToken, expiresIn }`
-- `POST /auth/desktop/refresh` `{ refreshToken }` → нова пара токенів
+- `POST /auth/register` `{ email, name, password }` → `{ accessToken, refreshToken, expiresIn }`
+- `POST /auth/login` `{ email, password }` → пара токенів
+- `POST /auth/refresh` `{ refreshToken }` → нова пара токенів
+- `POST /auth/logout` → видаляє поточну сесію
+- `GET /auth/google` → відкривається в системному браузері
+- `GET /auth/google/callback` → редірект на `meetcopilot://auth?code=...`
+- `POST /auth/exchange` `{ code }` → пара токенів
 
-Веб і застосунок розділяє параметр `state` у Google-потоці. Одноразовий код живе в Redis 60 секунд і згорає при обміні.
+Одноразовий код живе в Redis 60 секунд і згорає при обміні.
 
-Сесії зберігаються в таблиці `auth_sessions`, по рядку на пристрій, тому вхід із застосунку не вибиває вебсесію. Refresh-токен зберігається лише як argon2-хеш, а його ідентифікатор сесії їде в обох токенах. Повторне використання старого refresh-токена трактується як компрометація: сесія видаляється.
+Сесії зберігаються в таблиці `auth_sessions`, по рядку на пристрій, тому вхід із другої машини не вибиває першу. Refresh-токен зберігається лише як argon2-хеш, а ідентифікатор сесії їде в обох токенах. Повторне використання старого refresh-токена трактується як компрометація: сесія видаляється.
 
 ### Користувач і налаштування
 
@@ -132,7 +131,7 @@ Postgres (Prisma, таблиці й колонки в snake_case через `@ma
 ```
 User            id, email, name, createdAt, updatedAt
 UserCredentials userId, hashedPassword?, googleId?
-AuthSession     id, userId, hashedRt, client, expiresAt, createdAt
+AuthSession     id, userId, hashedRt, expiresAt, createdAt
 UserSettings    userId, style?, defaultLanguage, defaultProfile
 Meeting         id, userId, profile, language, title, status, summary?, startedAt, endedAt?
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
@@ -149,7 +148,7 @@ meeting:{id}:window          list: свіжі фінальні сегменти 
 meeting:{id}:summary         string
 meeting:{id}:summarize:lock  string з TTL
 settings:{userId}            кеш налаштувань
-desktop:auth:{code}          userId, TTL 60 секунд
+login:code:{code}            userId, TTL 60 секунд
 ```
 
 Усе, що в Redis, відновлюється з Postgres, тому втрата Redis не втрачає дані, а лише живий контекст поточних зустрічей.
@@ -258,7 +257,7 @@ Idle → Starting → Listening → Stopping → Idle
 
 - Ключі провайдерів існують лише в `.env` бекенду. У застосунку є адреса бекенду й пара токенів у Keychain.
 - Уся логіка продукту на бекенді: промпти, контекст, моделі, ліміти. Єдиний спосіб щось згенерувати це генерація для власної зустрічі.
-- Вхід у застосунку йде через системний браузер і одноразовий код, а не через вбудовану форму з паролем. Так працює Google OAuth і так рекомендує RFC 8252.
+- Вхід через Google йде через системний браузер і одноразовий код, а не через вбудований webview. Так рекомендує RFC 8252, і Google інакше не дозволяє.
 - Підписка перевіряється на бекенді в `SubscriptionGuard`. `AccessPolicy` у застосунку існує лише для UI, щоб показати пейвол до 403.
 - Транскрипти зберігаються на сервері. Для комерційної версії це вимагає політики приватності та можливості видалити зустріч і акаунт.
 

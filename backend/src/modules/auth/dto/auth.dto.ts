@@ -31,3 +31,17 @@ export class LoginDto {
   @IsNotEmpty()
   password: string;
 }
+
+export class RefreshDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  refreshToken: string;
+}
+
+export class ExchangeCodeDto {
+  @ApiProperty({ description: 'One-time code delivered to the app deep link' })
+  @IsString()
+  @IsNotEmpty()
+  code: string;
+}

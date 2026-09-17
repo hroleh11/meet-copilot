@@ -68,10 +68,7 @@ describe('AuthService', () => {
     repository.user = { ...identity, credentials: { hashedPassword: 'x' } };
 
     await expect(
-      service.register(
-        { email: identity.email, name: 'Me', password: 'password1' },
-        'web',
-      ),
+      service.register({ email: identity.email, name: 'Me', password: 'password1' }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -81,7 +78,7 @@ describe('AuthService', () => {
     repository.user = null;
 
     const unknownEmail = await service
-      .login({ email: 'nobody@example.com', password: 'password1' }, 'web')
+      .login({ email: 'nobody@example.com', password: 'password1' })
       .catch((error: Error) => error.message);
 
     repository.user = {
@@ -90,7 +87,7 @@ describe('AuthService', () => {
     };
 
     const wrongPassword = await service
-      .login({ email: identity.email, password: 'password2' }, 'web')
+      .login({ email: identity.email, password: 'password2' })
       .catch((error: Error) => error.message);
 
     expect(unknownEmail).toBe(wrongPassword);
@@ -99,15 +96,14 @@ describe('AuthService', () => {
   it('stores a hashed refresh token rather than the token itself', async () => {
     const { service, repository } = await build();
 
-    const tokens = await service.issueTokens(identity, 'desktop');
+    const tokens = await service.issueTokens(identity);
 
     expect(repository.session?.hashedRt).not.toBe(tokens.refreshToken);
-    expect(repository.session?.client).toBe('desktop');
   });
 
   it('drops the session when a stale refresh token is replayed', async () => {
     const { service, repository } = await build();
-    const tokens = await service.issueTokens(identity, 'web');
+    const tokens = await service.issueTokens(identity);
     const session = repository.session as AuthSession;
 
     await expect(
@@ -122,7 +118,7 @@ describe('AuthService', () => {
 
   it('rotates the stored token on a valid refresh', async () => {
     const { service, repository } = await build();
-    const tokens = await service.issueTokens(identity, 'web');
+    const tokens = await service.issueTokens(identity);
     const session = repository.session as AuthSession;
     const previousHash = session.hashedRt;
 

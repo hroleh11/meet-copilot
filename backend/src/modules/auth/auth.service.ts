@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
-import type { AuthClient } from '~/generated/prisma/enums';
 import { HashingService } from '~/infrastructure/hashing';
 import { AuthRepository } from './auth.repository';
 import type { LoginDto, RegisterDto } from './dto/auth.dto';
@@ -17,7 +16,7 @@ export class AuthService {
     private readonly jwtTokenService: JwtTokenService,
   ) {}
 
-  async register(dto: RegisterDto, client: AuthClient): Promise<Tokens> {
+  async register(dto: RegisterDto): Promise<Tokens> {
     const existing = await this.authRepository.findUserWithCredentialsByEmail(dto.email);
 
     if (existing) {
@@ -30,10 +29,10 @@ export class AuthService {
       hashedPassword: await this.hashingService.hash(dto.password),
     });
 
-    return this.issueTokens(user, client);
+    return this.issueTokens(user);
   }
 
-  async login(dto: LoginDto, client: AuthClient): Promise<Tokens> {
+  async login(dto: LoginDto): Promise<Tokens> {
     const user = await this.authRepository.findUserWithCredentialsByEmail(dto.email);
     const hashedPassword = user?.credentials?.hashedPassword;
 
@@ -45,10 +44,10 @@ export class AuthService {
       throw new ForbiddenException(INVALID_CREDENTIALS);
     }
 
-    return this.issueTokens(user, client);
+    return this.issueTokens(user);
   }
 
-  async issueTokens(identity: Identity, client: AuthClient): Promise<Tokens> {
+  async issueTokens(identity: Identity): Promise<Tokens> {
     const sessionId = randomUUID();
     const tokens = await this.jwtTokenService.sign({
       sub: identity.id,
@@ -60,7 +59,6 @@ export class AuthService {
       id: sessionId,
       userId: identity.id,
       hashedRt: await this.hashingService.hash(tokens.refreshToken),
-      client,
       expiresAt: this.jwtTokenService.refreshTokenExpiresAt(),
     });
 
