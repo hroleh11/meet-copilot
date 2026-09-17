@@ -7,6 +7,8 @@ import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
+
   const env = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.setGlobalPrefix(env.getOrThrow<string>('API_PREFIX'));
