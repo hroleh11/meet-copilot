@@ -1,7 +1,15 @@
-import type { Language, MeetingProfile } from '~/generated/prisma/enums';
+import type { Language, MeetingProfile, Speaker } from '~/generated/prisma/enums';
 
 export interface MeetingLiveState {
   language: Language;
   profile: MeetingProfile;
   style: string;
+}
+
+export interface WindowSegment {
+  id: string;
+  speaker: Speaker;
+  text: string;
+  startMs: number;
+  durationMs: number;
 }

@@ -47,6 +47,14 @@ export class RedisService implements OnModuleDestroy {
     return this.client.hgetall(key);
   }
 
+  async pushToList(key: string, value: string): Promise<void> {
+    await this.client.rpush(key, value);
+  }
+
+  readList(key: string): Promise<string[]> {
+    return this.client.lrange(key, 0, -1);
+  }
+
   async expire(key: string, ttlSeconds: number): Promise<void> {
     await this.client.expire(key, ttlSeconds);
   }

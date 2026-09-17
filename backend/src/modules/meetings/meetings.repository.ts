@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Generation, Meeting, Segment } from '~/generated/prisma/client';
-import type { Language, MeetingProfile } from '~/generated/prisma/enums';
+import type { Language, MeetingProfile, Speaker } from '~/generated/prisma/enums';
 import { PrismaService } from '~/infrastructure/prisma';
 
 export type MeetingWithContent = Meeting & {
@@ -50,6 +50,16 @@ export class MeetingsRepository {
       where: { userId },
       orderBy: { startedAt: 'desc' },
     });
+  }
+
+  appendSegment(data: {
+    meetingId: string;
+    speaker: Speaker;
+    text: string;
+    startMs: number;
+    durationMs: number;
+  }): Promise<Segment> {
+    return this.prisma.segment.create({ data });
   }
 
   finish(meetingId: string): Promise<Meeting> {

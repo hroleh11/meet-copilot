@@ -3,9 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '~/common/config';
 import type { Language, MeetingProfile } from '~/generated/prisma/enums';
 import { RedisService } from '~/infrastructure/redis';
-import type { MeetingLiveState } from './types/meetings.types';
+import type { MeetingLiveState, WindowSegment } from './types/meetings.types';
 
 const stateKey = (meetingId: string): string => `meeting:${meetingId}:state`;
+const windowKey = (meetingId: string): string => `meeting:${meetingId}:window`;
 
 @Injectable()
 export class MeetingStateStore {
@@ -36,10 +37,22 @@ export class MeetingStateStore {
     };
   }
 
-  expire(meetingId: string): Promise<void> {
-    return this.redis.expire(
-      stateKey(meetingId),
-      this.configService.getOrThrow<number>('FINISHED_MEETING_TTL_SECONDS'),
-    );
+  appendToWindow(meetingId: string, segment: WindowSegment): Promise<void> {
+    return this.redis.pushToList(windowKey(meetingId), JSON.stringify(segment));
+  }
+
+  async readWindow(meetingId: string): Promise<WindowSegment[]> {
+    const stored = await this.redis.readList(windowKey(meetingId));
+
+    return stored.map((entry) => JSON.parse(entry) as WindowSegment);
+  }
+
+  async expire(meetingId: string): Promise<void> {
+    const ttl = this.configService.getOrThrow<number>('FINISHED_MEETING_TTL_SECONDS');
+
+    await Promise.all([
+      this.redis.expire(stateKey(meetingId), ttl),
+      this.redis.expire(windowKey(meetingId), ttl),
+    ]);
   }
 }

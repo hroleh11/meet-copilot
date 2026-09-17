@@ -9,10 +9,12 @@ import { RequestIdMiddleware } from '~/common/middleware';
 import { HashingModule } from '~/infrastructure/hashing';
 import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
+import { SttProviderModule } from '~/infrastructure/stt';
 import { AuthModule } from '~/modules/auth';
 import { HealthModule } from '~/modules/health';
 import { MeetingsModule } from '~/modules/meetings';
 import { SettingsModule } from '~/modules/settings';
+import { SttModule } from '~/modules/stt';
 import { UsageModule } from '~/modules/usage';
 import { UserModule } from '~/modules/user';
 
@@ -28,11 +30,13 @@ import { UserModule } from '~/modules/user';
     PrismaModule,
     RedisModule,
     HashingModule,
+    SttProviderModule,
     AuthModule,
     UserModule,
     SettingsModule,
     UsageModule,
     MeetingsModule,
+    SttModule,
     HealthModule,
   ],
   providers: [
