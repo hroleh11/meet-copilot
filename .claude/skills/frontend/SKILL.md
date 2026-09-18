@@ -64,6 +64,8 @@ Two Vite entries, one per window. Both share `shared/`, neither imports from the
 - Minimal: current answer text streaming in, a copy button, a generating indicator, a close button.
 - Copy uses the Tauri clipboard plugin, not `navigator.clipboard`.
 - The window must not take keyboard focus; keep it free of inputs.
+- It is a second Vite entry (`overlay.html` → `src/overlay.tsx` → `OverlayApp`) sharing `shared/`. Both entries are listed in `build.rollupOptions.input`.
+- The overlay subscribes to the generation events itself through `useGenerationEvents`; the main window does not mirror the answer.
 
 ## Language
 

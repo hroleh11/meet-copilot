@@ -29,6 +29,7 @@ export type {
   Profile,
   SessionState,
   Speaker,
+  TokenUsage,
   TranscriptSegment,
   UserSettings,
   Usage,

@@ -8,18 +8,19 @@ use crate::{
     backend::{
         api::BackendApi,
         endpoint::{BackendEndpoint, Health, Tokens},
+        generate::DeltaStream,
         stt::{SttGateway, SttLane},
     },
     backend_failure::BackendFailure,
     domain::{
-        Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile, Speaker,
-        UserSettings,
+        GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile,
+        Speaker, UserSettings,
     },
     error::{Error, Result},
     settings::SecretStore,
 };
 
-use super::{credentials::CredentialHolder, speech, transport::Transport};
+use super::{credentials::CredentialHolder, generation, speech, transport::Transport};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -129,6 +130,10 @@ impl BackendApi for BackendClient {
         self.transport
             .authorized(Method::GET, &format!("meetings/{id}"), None::<&()>)
             .await
+    }
+
+    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
+        generation::generate(self.transport(), id, mode)
     }
 }
 

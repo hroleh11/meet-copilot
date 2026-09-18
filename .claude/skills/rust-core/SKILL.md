@@ -63,7 +63,9 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - STT: `tokio-tungstenite` to `<ws base>/v1/meetings/:id/stt?speaker=<me|other>&token=<token>`. Send frame samples as little-endian bytes in binary messages. Parse JSON text messages into `SttEvent::{Partial, Final, Failed}`. The socket is split into `SttSink` and `SttEvents` so one lane can write audio and read transcript at the same time; `SttGateway::open` hands out both.
 - Reconnect STT with exponential backoff up to 5 attempts; a reconnect keeps the meeting and opens a new lane. Close codes 4401 and 4404 are not retried.
 - Closing a lane sends `{"type":"finish"}` and keeps reading until the backend closes with 1000, up to five seconds. Dropping the socket instead loses the last utterance, which the backend only flushes after the request. Close code 1000 ends the stream; every other code is an `SttEvent::Failed`.
-- Generate: streaming body, parse SSE `event:` and `data:` lines into `Delta::{Text, Done, Error}`. A new generation cancels the previous one by cancelling its token. Retries only for connection errors before the first byte, up to 3 attempts; after the first byte a failure ends the generation and the UI keeps the partial text.
+- Generate: a second `reqwest` client with only a connect timeout, because the answer streams for as long as it takes. Parse SSE `event:` and `data:` lines into `Delta::{Text, Done}`; an `error` event and an unknown event both become `Err`. The `done` usage carries token counts only, never audio seconds.
+- `Generator` owns the current answer: start cancels the previous token, checks `AccessPolicy`, then streams `GenerationEvent::{Started, Delta, Finished, Failed}` into an `mpsc`. Cancelling drops the stream, which is what tells the backend to stop and store the partial answer. A body that ends without `done` is a `Failed`, and the text written so far stays on screen.
+- Hotkeys register through `tauri-plugin-global-shortcut` from `LocalSettings`, once at setup and again whenever settings are saved. A handler only acts on `ShortcutState::Pressed`.
 
 ## Settings and secrets
 

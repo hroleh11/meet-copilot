@@ -14,17 +14,20 @@ const SETTINGS_FILE: &str = "settings.json";
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let directory = app.path().app_config_dir()?;
-            let state = AppState::load(
-                LocalSettingsStore::new(directory.join(SETTINGS_FILE)),
-                secrets::secret_store(&directory),
-            )?;
+            let settings_store = LocalSettingsStore::new(directory.join(SETTINGS_FILE));
+            let hotkeys = settings_store.load().hotkeys;
+            let state = AppState::load(settings_store, secrets::secret_store(&directory))?;
 
             app.manage(state);
             deep_link::register(app.handle());
+            app::overlay::prepare(app.handle());
+            app::hotkeys::register(app.handle(), &hotkeys);
 
             Ok(())
         })
@@ -44,6 +47,8 @@ pub fn run() {
             commands::session_state,
             commands::start_session,
             commands::stop_session,
+            commands::generate,
+            commands::cancel_generation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

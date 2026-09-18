@@ -56,6 +56,12 @@ export interface MeetingDetails extends Meeting {
   usage: Usage;
 }
 
+export interface TokenUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+}
+
 export interface UserSettings {
   style: string | null;
   defaultLanguage: Language;

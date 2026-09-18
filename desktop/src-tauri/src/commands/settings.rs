@@ -1,7 +1,10 @@
 use meet_copilot_core::{backend::BackendApi, domain::UserSettings, settings::LocalSettings};
-use tauri::State;
+use tauri::{AppHandle, State};
 
-use crate::{app::AppState, command_error::CommandError};
+use crate::{
+    app::{hotkeys, AppState},
+    command_error::CommandError,
+};
 
 #[tauri::command]
 pub async fn get_local_settings(state: State<'_, AppState>) -> Result<LocalSettings, CommandError> {
@@ -11,9 +14,17 @@ pub async fn get_local_settings(state: State<'_, AppState>) -> Result<LocalSetti
 #[tauri::command]
 pub async fn save_local_settings(
     settings: LocalSettings,
+    app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<LocalSettings, CommandError> {
-    Ok(state.save_local_settings(settings).await?)
+    let rebind = state.local_settings().await.hotkeys != settings.hotkeys;
+    let saved = state.save_local_settings(settings).await?;
+
+    if rebind {
+        hotkeys::register(&app, &saved.hotkeys);
+    }
+
+    Ok(saved)
 }
 
 #[tauri::command]

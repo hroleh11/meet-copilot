@@ -5,7 +5,7 @@ import type {
   Profile,
   SessionState,
   Speaker,
-  Usage,
+  TokenUsage,
 } from './types';
 
 export const APP_EVENT = {
@@ -53,7 +53,7 @@ export interface GenerationDeltaEvent {
 
 export interface GenerationFinishedEvent {
   generationId: string;
-  usage: Usage;
+  usage: TokenUsage;
 }
 
 export interface GenerationFailedEvent {

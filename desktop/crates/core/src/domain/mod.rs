@@ -7,7 +7,7 @@ mod session;
 mod settings;
 mod speaker;
 
-pub use generation::{Generation, GenerationMode, Usage};
+pub use generation::{Generation, GenerationMode, TokenUsage, Usage};
 pub use language::Language;
 pub use meeting::{Meeting, MeetingDetails, MeetingId, MeetingStatus};
 pub use profile::MeetingProfile;

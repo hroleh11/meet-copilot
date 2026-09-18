@@ -1,11 +1,17 @@
 use async_trait::async_trait;
 
 use crate::{
-    domain::{Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile, UserSettings},
+    domain::{
+        GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile,
+        UserSettings,
+    },
     error::Result,
 };
 
-use super::endpoint::{Health, Tokens};
+use super::{
+    endpoint::{Health, Tokens},
+    generate::DeltaStream,
+};
 
 #[async_trait]
 pub trait BackendApi: Send + Sync {
@@ -26,4 +32,6 @@ pub trait BackendApi: Send + Sync {
     async fn list_meetings(&self) -> Result<Vec<Meeting>>;
 
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
+
+    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_>;
 }

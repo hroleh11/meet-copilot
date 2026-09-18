@@ -1,5 +1,5 @@
 use meet_copilot_core::{
-    domain::{GenerationMode, Profile, SessionState, Speaker, Usage},
+    domain::{GenerationMode, Profile, SessionState, Speaker, TokenUsage},
     BackendFailure,
 };
 use serde::Serialize;
@@ -61,7 +61,7 @@ pub struct GenerationDeltaEvent {
 #[serde(rename_all = "camelCase")]
 pub struct GenerationFinishedEvent {
     pub generation_id: String,
-    pub usage: Usage,
+    pub usage: TokenUsage,
 }
 
 #[derive(Debug, Clone, Serialize)]

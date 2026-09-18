@@ -16,10 +16,12 @@ use super::{
 };
 
 const JSON_TIMEOUT: Duration = Duration::from_secs(10);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct Transport {
     endpoint: BackendEndpoint,
     http: reqwest::Client,
+    streaming: reqwest::Client,
     credentials: Arc<CredentialHolder>,
     refreshing: Mutex<()>,
 }
@@ -31,9 +33,15 @@ impl Transport {
             .build()
             .map_err(transport_error)?;
 
+        let streaming = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .build()
+            .map_err(transport_error)?;
+
         Ok(Self {
             endpoint,
             http,
+            streaming,
             credentials,
             refreshing: Mutex::new(()),
         })
@@ -83,6 +91,31 @@ impl Transport {
         decode(retried).await
     }
 
+    pub async fn authorized_stream(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<&impl Serialize>,
+    ) -> Result<Response> {
+        let token = expect_signed_in(self.credentials.current().await)?.access;
+        let opened = self
+            .dispatch(self.build_on(&self.streaming, method.clone(), path, body, Some(&token)))
+            .await?;
+
+        if opened.status() != StatusCode::UNAUTHORIZED {
+            return accept(opened).await;
+        }
+
+        self.refresh(&token).await?;
+
+        let renewed = expect_signed_in(self.credentials.current().await)?.access;
+        let retried = self
+            .dispatch(self.build_on(&self.streaming, method, path, body, Some(&renewed)))
+            .await?;
+
+        accept(retried).await
+    }
+
     fn build(
         &self,
         method: Method,
@@ -90,7 +123,18 @@ impl Transport {
         body: Option<&impl Serialize>,
         token: Option<&Secret>,
     ) -> RequestBuilder {
-        let mut request = self.http.request(method, self.endpoint.http(path));
+        self.build_on(&self.http, method, path, body, token)
+    }
+
+    fn build_on(
+        &self,
+        client: &reqwest::Client,
+        method: Method,
+        path: &str,
+        body: Option<&impl Serialize>,
+        token: Option<&Secret>,
+    ) -> RequestBuilder {
+        let mut request = client.request(method, self.endpoint.http(path));
 
         if let Some(token) = token {
             request = request.bearer_auth(token.expose());
@@ -129,6 +173,14 @@ impl Transport {
 
         self.credentials.store(&tokens).await
     }
+}
+
+async fn accept(response: Response) -> Result<Response> {
+    if response.status().is_success() {
+        return Ok(response);
+    }
+
+    Err(into_error(response).await)
 }
 
 async fn decode<T: DeserializeOwned>(response: Response) -> Result<T> {

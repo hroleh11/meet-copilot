@@ -2,8 +2,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter as TauriEmitter};
 
 use crate::events::{
-    AppErrorEvent, AudioLevelEvent, AuthStateEvent, SessionStateEvent, TranscriptSegmentEvent,
-    APP_ERROR, AUDIO_LEVEL, AUTH_STATE, SESSION_STATE, TRANSCRIPT_SEGMENT,
+    AppErrorEvent, AudioLevelEvent, AuthStateEvent, GenerationDeltaEvent, GenerationFailedEvent,
+    GenerationFinishedEvent, GenerationStartedEvent, SessionStateEvent, TranscriptSegmentEvent,
+    APP_ERROR, AUDIO_LEVEL, AUTH_STATE, GENERATION_DELTA, GENERATION_FAILED, GENERATION_FINISHED,
+    GENERATION_STARTED, SESSION_STATE, TRANSCRIPT_SEGMENT,
 };
 
 #[derive(Clone)]
@@ -34,6 +36,22 @@ impl Emitter {
 
     pub fn transcript_segment(&self, event: TranscriptSegmentEvent) {
         self.send(TRANSCRIPT_SEGMENT, event);
+    }
+
+    pub fn generation_started(&self, event: GenerationStartedEvent) {
+        self.send(GENERATION_STARTED, event);
+    }
+
+    pub fn generation_delta(&self, event: GenerationDeltaEvent) {
+        self.send(GENERATION_DELTA, event);
+    }
+
+    pub fn generation_finished(&self, event: GenerationFinishedEvent) {
+        self.send(GENERATION_FINISHED, event);
+    }
+
+    pub fn generation_failed(&self, event: GenerationFailedEvent) {
+        self.send(GENERATION_FAILED, event);
     }
 
     fn send<T: Serialize + Clone>(&self, name: &str, payload: T) {

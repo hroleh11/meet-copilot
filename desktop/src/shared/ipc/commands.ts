@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AudioDevice,
+  GenerationMode,
   Language,
   LocalSettings,
   MeetingProfile,
@@ -61,3 +62,8 @@ export const startSession = (
 ): Promise<StartedMeeting> => invoke('start_session', { profile, language });
 
 export const stopSession = (): Promise<void> => invoke('stop_session');
+
+export const generate = (mode: GenerationMode): Promise<void> =>
+  invoke('generate', { mode });
+
+export const cancelGeneration = (): Promise<void> => invoke('cancel_generation');

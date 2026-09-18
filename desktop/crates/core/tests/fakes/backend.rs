@@ -1,19 +1,51 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
+    },
+    time::Duration,
+};
 
 use async_trait::async_trait;
+use futures_util::{stream, StreamExt};
 use meet_copilot_core::{
-    backend::{BackendApi, Health, Tokens},
+    backend::{BackendApi, Delta, DeltaStream, Health, Tokens},
+    backend_failure::BackendFailure,
     domain::{
-        Generation, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, MeetingStatus,
-        Profile, TranscriptSegment, Usage, UserSettings,
+        Generation, GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile,
+        MeetingStatus, Profile, TokenUsage, TranscriptSegment, Usage, UserSettings,
     },
     error::{Error, Result},
 };
+
+#[derive(Debug, Clone)]
+pub enum Answer {
+    Text(String),
+    Done(String),
+    Failed(String),
+}
+
+impl Answer {
+    fn into_delta(self) -> Result<Delta> {
+        match self {
+            Self::Text(text) => Ok(Delta::Text(text)),
+            Self::Done(generation_id) => Ok(Delta::Done {
+                generation_id,
+                stop_reason: None,
+                usage: TokenUsage::default(),
+            }),
+            Self::Failed(message) => Err(Error::backend(BackendFailure::Unexpected, Some(message))),
+        }
+    }
+}
 
 #[derive(Default)]
 pub struct FakeBackend {
     created: AtomicUsize,
     finished: AtomicUsize,
+    answer: Mutex<Vec<Answer>>,
+    pace: Mutex<Duration>,
+    asked: Mutex<Vec<GenerationMode>>,
 }
 
 impl FakeBackend {
@@ -23,6 +55,18 @@ impl FakeBackend {
 
     pub fn finished_meetings(&self) -> usize {
         self.finished.load(Ordering::SeqCst)
+    }
+
+    pub fn answer_with(&self, answer: Vec<Answer>) {
+        *self.answer.lock().expect("lock") = answer;
+    }
+
+    pub fn pace_answer(&self, pace: Duration) {
+        *self.pace.lock().expect("lock") = pace;
+    }
+
+    pub fn modes_asked(&self) -> Vec<GenerationMode> {
+        self.asked.lock().expect("lock").clone()
     }
 }
 
@@ -85,6 +129,21 @@ impl BackendApi for FakeBackend {
 
     async fn list_meetings(&self) -> Result<Vec<Meeting>> {
         Ok(vec![meeting(MeetingStatus::Finished)])
+    }
+
+    fn generate(&self, _id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
+        self.asked.lock().expect("lock").push(mode);
+
+        let answer = self.answer.lock().expect("lock").clone();
+        let pace = *self.pace.lock().expect("lock");
+
+        Box::pin(stream::iter(answer).then(move |step| async move {
+            if !pace.is_zero() {
+                tokio::time::sleep(pace).await;
+            }
+
+            step.into_delta()
+        }))
     }
 
     async fn meeting(&self, _id: &MeetingId) -> Result<MeetingDetails> {

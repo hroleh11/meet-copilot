@@ -18,6 +18,20 @@
         "height": 720,
         "minWidth": 880,
         "minHeight": 600
+      },
+      {
+        "label": "overlay",
+        "title": "Meet Copilot",
+        "url": "overlay.html",
+        "width": 560,
+        "height": 240,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "focus": false,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false
       }
     ],
     "security": {

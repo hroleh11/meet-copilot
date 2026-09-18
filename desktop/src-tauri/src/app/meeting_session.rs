@@ -3,7 +3,7 @@ use std::sync::Arc;
 use meet_copilot_core::{
     access::AlwaysAllowed,
     backend::{BackendClient, SttEvent},
-    domain::{Language, MeetingProfile, SessionState, Speaker},
+    domain::{Language, MeetingId, MeetingProfile, SessionState, Speaker},
     error::Result,
     session::{Session, SessionDeps, StartRequest, StartedSession},
 };
@@ -36,6 +36,10 @@ impl MeetingSession {
 
     pub fn state(&self) -> SessionState {
         self.session.state()
+    }
+
+    pub fn meeting_id(&self) -> Option<MeetingId> {
+        self.session.meeting_id()
     }
 
     pub async fn start(

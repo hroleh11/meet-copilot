@@ -7,7 +7,7 @@ use meet_copilot_core::{
 };
 use tokio::sync::{Mutex, RwLock};
 
-use super::{AudioCheck, AudioCheckStatus, Emitter, MeetingSession};
+use super::{Answers, AudioCheck, AudioCheckStatus, Emitter, MeetingSession};
 
 pub struct AppState {
     settings_store: LocalSettingsStore,
@@ -16,6 +16,7 @@ pub struct AppState {
     backend: RwLock<Arc<BackendClient>>,
     audio_check: Mutex<Option<AudioCheck>>,
     session: Mutex<MeetingSession>,
+    answers: Mutex<Answers>,
 }
 
 impl AppState {
@@ -28,6 +29,7 @@ impl AppState {
             secrets,
             settings: RwLock::new(settings),
             session: Mutex::new(MeetingSession::new(Arc::clone(&backend))),
+            answers: Mutex::new(Answers::new(Arc::clone(&backend))),
             backend: RwLock::new(backend),
             audio_check: Mutex::new(None),
         })
@@ -49,6 +51,7 @@ impl AppState {
         if rebuild {
             let backend = build_backend(&settings, Arc::clone(&self.secrets))?;
             *self.session.lock().await = MeetingSession::new(Arc::clone(&backend));
+            *self.answers.lock().await = Answers::new(Arc::clone(&backend));
             *self.backend.write().await = backend;
         }
 
@@ -76,6 +79,10 @@ impl AppState {
 
     pub async fn session(&self) -> &Mutex<MeetingSession> {
         &self.session
+    }
+
+    pub async fn answers(&self) -> &Mutex<Answers> {
+        &self.answers
     }
 
     pub async fn stop_audio_check(&self) -> Result<()> {

@@ -7,6 +7,14 @@ const host = process.env['TAURI_DEV_HOST'];
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        overlay: fileURLToPath(new URL('./overlay.html', import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       '~': fileURLToPath(new URL('./src', import.meta.url)),

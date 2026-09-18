@@ -3,6 +3,7 @@ import { uk } from '~/shared/i18n/uk';
 import { useResettableDraft } from '~/shared/lib/useResettableDraft';
 import { Button, Field, Panel } from '~/shared/ui';
 import { AudioField } from './AudioField';
+import { HotkeysField } from './HotkeysField';
 
 export interface LocalSettingsPanelProps {
   settings: LocalSettings;
@@ -17,6 +18,7 @@ export function LocalSettingsPanel({
 }: LocalSettingsPanelProps) {
   const [backendUrl, setBackendUrl] = useResettableDraft(settings.backendUrl);
   const [inputDevice, setInputDevice] = useResettableDraft(settings.inputDevice);
+  const [hotkeys, setHotkeys] = useResettableDraft(settings.hotkeys);
 
   return (
     <Panel title={uk.settings.local}>
@@ -32,10 +34,12 @@ export function LocalSettingsPanel({
 
       <AudioField deviceId={inputDevice} onDeviceChange={setInputDevice} />
 
+      <HotkeysField hotkeys={hotkeys} onChange={setHotkeys} />
+
       <div className="flex gap-2">
         <Button
           onClick={() => {
-            onSave({ ...settings, backendUrl, inputDevice });
+            onSave({ ...settings, backendUrl, inputDevice, hotkeys });
           }}
         >
           {uk.settings.save}

@@ -3,7 +3,7 @@ use std::pin::Pin;
 use futures_core::Stream;
 use serde::Deserialize;
 
-use crate::{domain::Usage, error::Result};
+use crate::{domain::TokenUsage, error::Result};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Delta {
@@ -11,7 +11,7 @@ pub enum Delta {
     Done {
         generation_id: String,
         stop_reason: Option<String>,
-        usage: Usage,
+        usage: TokenUsage,
     },
 }
 
@@ -26,7 +26,7 @@ pub struct DeltaPayload {
 pub struct DonePayload {
     pub generation_id: String,
     pub stop_reason: Option<String>,
-    pub usage: Usage,
+    pub usage: TokenUsage,
 }
 
 #[derive(Debug, Deserialize)]
