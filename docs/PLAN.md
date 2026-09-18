@@ -71,6 +71,8 @@ desktop/src                  React UI: головне вікно, оверлей
 
 Кожна задача завершується робочим станом, який можна запустити й перевірити. Наступна задача не починається, поки попередня не проходить усі перевірки з `CLAUDE.md`.
 
+Зроблено: задачі 1–13. Наступна: 14. Рядок оновлюється тим самим комітом, що й код задачі.
+
 ### 1. Скелет монорепо та інфраструктура
 - Корінь: `pnpm-workspace.yaml`, `docker-compose.yml` з Postgres і Redis, спільні `.editorconfig`, `.prettierrc`, `.gitignore`, скрипти, ініціалізація git.
 - `backend/`: NestJS 11 через `nest new`, аліас `~`, строгий TypeScript, ESLint, Prettier, Jest, Swagger, `ConfigModule` з валідацією env через zod, Prisma з генерацією клієнта в `src/generated/prisma`, `.env.example`.
