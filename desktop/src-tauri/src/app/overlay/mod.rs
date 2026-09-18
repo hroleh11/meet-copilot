@@ -1,12 +1,16 @@
 #[cfg(target_os = "macos")]
 mod macos;
 
-use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use tauri::{AppHandle, Manager, Monitor, PhysicalPosition, WebviewWindow};
 
 pub const LABEL: &str = "overlay";
 
 const TOP_MARGIN: f64 = 56.0;
 const RIGHT_MARGIN: f64 = 64.0;
+
+static PLACED: AtomicBool = AtomicBool::new(false);
 
 pub fn prepare(app: &AppHandle) {
     let Some(window) = window(app) else { return };
@@ -19,18 +23,22 @@ pub fn prepare(app: &AppHandle) {
         tracing::warn!("could not keep the overlay on every space: {error}");
     }
 
-    #[cfg(target_os = "macos")]
-    macos::float_above_everything(&window);
+    show(app);
 }
 
 pub fn show(app: &AppHandle) {
     let Some(window) = window(app) else { return };
 
-    place(&window);
+    if !PLACED.swap(true, Ordering::SeqCst) {
+        place(app, &window);
+    }
 
     if let Err(error) = window.show() {
         tracing::warn!("could not show the overlay: {error}");
     }
+
+    #[cfg(target_os = "macos")]
+    macos::float_above_everything(&window);
 }
 
 pub fn hide(app: &AppHandle) {
@@ -61,8 +69,11 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
     window
 }
 
-fn place(window: &WebviewWindow) {
-    let Ok(Some(monitor)) = window.primary_monitor() else {
+/// The overlay opens on the display the user is working on, not on the one the
+/// main window happens to sit on, and only the first time: after that the
+/// position is whatever the user dragged it to.
+fn place(app: &AppHandle, window: &WebviewWindow) {
+    let Some(monitor) = active_monitor(app, window) else {
         return;
     };
 
@@ -81,4 +92,17 @@ fn place(window: &WebviewWindow) {
     if let Err(error) = window.set_position(position) {
         tracing::warn!("could not place the overlay: {error}");
     }
+}
+
+fn active_monitor(app: &AppHandle, window: &WebviewWindow) -> Option<Monitor> {
+    let cursor = app
+        .cursor_position()
+        .inspect_err(|error| tracing::warn!("could not read the cursor position: {error}"))
+        .ok();
+
+    let under_cursor = cursor
+        .and_then(|point| window.monitor_from_point(point.x, point.y).ok())
+        .flatten();
+
+    under_cursor.or_else(|| window.primary_monitor().ok().flatten())
 }

@@ -15,6 +15,7 @@ export interface AudioDevice {
   id: string;
   name: string;
   isDefault: boolean;
+  bluetooth: boolean;
 }
 
 export interface Usage {

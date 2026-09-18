@@ -12,6 +12,9 @@ const selectClass =
 
 export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
   const { devices, running, levels, systemAudioProblem, error, toggle } = useAudioCheck();
+  const bluetoothChosen = devices.some(
+    (device) => device.id === deviceId && device.bluetooth,
+  );
 
   return (
     <Field label={uk.settings.audio}>
@@ -26,7 +29,7 @@ export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
           <option value="">{uk.settings.microphoneDefault}</option>
           {devices.map((device) => (
             <option key={device.id} value={device.id}>
-              {device.name}
+              {device.bluetooth ? `${device.name} (Bluetooth)` : device.name}
             </option>
           ))}
         </select>
@@ -57,6 +60,9 @@ export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
           </Button>
         </div>
 
+        {bluetoothChosen ? (
+          <p className="text-body text-danger">{uk.settings.bluetoothMicrophone}</p>
+        ) : null}
         {systemAudioProblem ? (
           <p className="text-body text-danger">{uk.settings.screenRecordingNeeded}</p>
         ) : null}

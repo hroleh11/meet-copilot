@@ -3,11 +3,13 @@ use meet_copilot_core::{
     session::AudioSources,
 };
 
+use super::microphone_choice;
+
 pub struct PlatformSources;
 
 impl AudioSources for PlatformSources {
     fn microphone(&self, device_id: Option<String>) -> Box<dyn AudioSource> {
-        Box::new(MicrophoneSource::new(device_id))
+        Box::new(MicrophoneSource::new(microphone_choice::resolve(device_id)))
     }
 
     #[cfg(target_os = "macos")]

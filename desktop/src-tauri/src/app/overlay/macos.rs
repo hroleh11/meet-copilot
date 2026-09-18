@@ -10,6 +10,7 @@ pub fn float_above_everything(window: &WebviewWindow) {
     };
 
     native.setLevel(CG_SCREEN_SAVER_WINDOW_LEVEL as NSWindowLevel);
+    native.setHidesOnDeactivate(false);
     native.setCollectionBehavior(
         NSWindowCollectionBehavior::CanJoinAllSpaces
             | NSWindowCollectionBehavior::FullScreenAuxiliary

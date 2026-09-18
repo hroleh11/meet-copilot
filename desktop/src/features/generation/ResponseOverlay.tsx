@@ -34,7 +34,7 @@ export function ResponseOverlay({
 }: ResponseOverlayProps) {
   return (
     <main className="flex h-screen flex-col gap-3 rounded-lg border border-separator bg-surface-elevated/55 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-[30px] backdrop-saturate-[1.8]">
-      <header className="flex items-center justify-between">
+      <header data-tauri-drag-region className="flex items-center justify-between">
         <StatusIndicator state={listening} />
         <span className="rounded-sm bg-ink-secondary/15 px-2 py-0.5 text-caption text-ink-secondary">
           {formatShortcut(hotkey)}
