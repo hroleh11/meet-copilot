@@ -20,6 +20,12 @@ export interface LlmCompletion {
   usage: LlmUsage;
 }
 
+export type LlmEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'done'; stopReason: string | null; usage: LlmUsage };
+
 export abstract class LlmProvider {
   abstract complete(request: LlmRequest): Promise<LlmCompletion>;
+
+  abstract stream(request: LlmRequest, signal: AbortSignal): AsyncIterable<LlmEvent>;
 }

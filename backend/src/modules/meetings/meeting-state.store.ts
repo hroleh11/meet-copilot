@@ -40,6 +40,16 @@ export class MeetingStateStore {
     };
   }
 
+  async readLastAnswer(meetingId: string): Promise<string | null> {
+    const stored = await this.redis.readHash(stateKey(meetingId));
+
+    return stored.lastAnswer ?? null;
+  }
+
+  writeLastAnswer(meetingId: string, answer: string): Promise<void> {
+    return this.redis.writeHash(stateKey(meetingId), { lastAnswer: answer });
+  }
+
   appendToWindow(meetingId: string, segment: WindowSegment): Promise<void> {
     return this.redis.pushToList(windowKey(meetingId), JSON.stringify(segment));
   }

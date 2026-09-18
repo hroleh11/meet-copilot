@@ -13,6 +13,7 @@ import { RedisModule } from '~/infrastructure/redis';
 import { SttProviderModule } from '~/infrastructure/stt';
 import { AuthModule } from '~/modules/auth';
 import { ContextModule } from '~/modules/context';
+import { GenerationModule } from '~/modules/generation';
 import { HealthModule } from '~/modules/health';
 import { MeetingsModule } from '~/modules/meetings';
 import { SettingsModule } from '~/modules/settings';
@@ -40,6 +41,7 @@ import { UserModule } from '~/modules/user';
     UsageModule,
     MeetingsModule,
     ContextModule,
+    GenerationModule,
     SttModule,
     HealthModule,
   ],

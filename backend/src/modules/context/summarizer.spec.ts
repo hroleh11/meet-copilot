@@ -69,6 +69,10 @@ class FakeLlmProvider extends LlmProvider {
   calls: LlmRequest[] = [];
   text = 'Обговорили онбординг.';
 
+  stream(): AsyncIterable<never> {
+    throw new Error('The summarizer never streams');
+  }
+
   complete(request: LlmRequest) {
     this.calls.push(request);
 
