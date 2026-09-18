@@ -28,7 +28,7 @@ backend/src
     prisma/        PrismaService на @prisma/adapter-pg, @Global
     redis/         RedisService на ioredis, @Global
     hashing/       HashingService на argon2
-    llm/           LlmProvider, AnthropicLlmProvider
+    llm/           LlmProvider, OpenAiLlmProvider
     stt/           SttProvider, DeepgramSttProvider
   modules/
     auth/          email і пароль, JWT, Google, одноразовий код для застосунку
@@ -103,7 +103,9 @@ desktop/src
 
 ### WebSocket `/meetings/:id/stt?speaker=me`
 
-Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, start, duration }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 4401 невірний токен, 4403 немає підписки, 4404 невідома або завершена зустріч.
+Токен передається як `?token=`. Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 4401 невірний токен, 4404 невідома або завершена зустріч чи невідомий спікер, 4500 збій розпізнавання.
+
+Це звичайний WebSocket-сервер, приєднаний до події `upgrade` HTTP-сервера, а не шлюз Nest: сирий PCM не має конверта `event`/`data`, якого чекає адаптер Nest, і ідентифікатор зустрічі потрібен у шляху. Deepgram теж викликається прямим WebSocket, без їхнього SDK.
 
 ### `POST /meetings/:id/generate` → SSE
 
@@ -135,8 +137,8 @@ AuthSession     id, userId, hashedRt, expiresAt, createdAt
 UserSettings    userId, style?, defaultLanguage, defaultProfile
 Meeting         id, userId, profile, language, title, status, summary?, startedAt, endedAt?
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
-Generation      id, meetingId, mode, output, stopReason, inputTokens, cacheReadTokens,
-                cacheCreationTokens, outputTokens, createdAt
+Generation      id, meetingId, mode, output, stopReason, inputTokens, cachedInputTokens,
+                outputTokens, createdAt
 UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, createdAt
 ```
 
@@ -157,13 +159,13 @@ login:code:{code}            userId, TTL 60 секунд
 
 1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
 2. Кожне WebSocket-з'єднання відкриває потік у `SttProvider`. Фінальні сегменти пишуться в Postgres і у `window`. Проміжні лише повертаються клієнту.
-3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`. Розпізнавання на це не чекає.
+3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`. Розпізнавання на це не чекає. Розпізнавання на це не чекає.
 4. `generate` читає стан, резюме і вікно, будує промпт, стрімить відповідь, зберігає генерацію і останню відповідь.
 5. `finish` закриває активні потоки, ставить статус і TTL на ключі.
 
 ### PromptBuilder
 
-Порядок від стабільного до змінного, щоб кеш промпта працював: системний блок (персона, промпт профілю, стиль зі стану зустрічі) із `cache_control`, потім резюме, вікно сегментів як рядки `[me] ...` і `[other] ...`, попередня відповідь для `alternative`, інструкція режиму, інструкція мови. Персона, промпти профілів і дефолтний стиль лежать у `modules/generation/prompts/` як файли даних.
+Порядок від стабільного до змінного, щоб кеш промпта працював: системний блок (персона, промпт профілю, стиль зі стану зустрічі), потім резюме, вікно сегментів як рядки `[me] ...` і `[other] ...`, попередня відповідь для `alternative`, інструкція режиму, інструкція мови. OpenAI кешує префікс автоматично, тому розмічати нічого не треба, але системний текст має лишатися незмінним байт у байт протягом зустрічі. Персона, промпти профілів і дефолтний стиль лежать у `modules/generation/prompts/` як файли даних.
 
 ## Застосунок
 

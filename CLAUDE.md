@@ -1,13 +1,13 @@
 # Meet Copilot
 
-Monorepo with two parts. `backend/` is a NestJS server that owns all product state: users, meetings, transcripts, summaries, settings, prompts, provider keys. It does speech recognition (Deepgram) and reply generation (Anthropic). `desktop/` is a thin Tauri app: it captures audio, streams it to the backend, shows the live transcript, and on a global hotkey asks for a reply and shows it in an overlay. The desktop never talks to providers and has no local database.
+Monorepo with two parts. `backend/` is a NestJS server that owns all product state: users, meetings, transcripts, summaries, settings, prompts, provider keys. It does speech recognition (Deepgram) and reply generation (OpenAI). `desktop/` is a thin Tauri app: it captures audio, streams it to the backend, shows the live transcript, and on a global hotkey asks for a reply and shows it in an overlay. The desktop never talks to providers and has no local database.
 
 Read `docs/PLAN.md` for scope and ordered tasks, `docs/ARCHITECTURE.md` for module layout, the API contract, data model, types and traits. Follow them; if a decision there turns out wrong, change the doc in the same change as the code.
 
 ## Stack
 
 - Root: pnpm workspace with `desktop` and `backend`; `docker-compose.yml` runs Postgres and Redis for development.
-- Backend: NestJS 11, TypeScript strict, Prisma 7 with `@prisma/adapter-pg`, PostgreSQL, ioredis, passport JWT and Google OAuth, argon2, zod for env, Swagger, Jest.
+- Backend: NestJS 11, TypeScript strict, Prisma 7 with `@prisma/adapter-pg`, PostgreSQL, ioredis, passport JWT and Google OAuth, argon2, zod for env, Swagger, Jest. Providers: `openai` for generation, Deepgram over a plain `ws` connection for speech.
 - Desktop: Tauri 2, Rust 2021, cargo workspace `crates/core`, `crates/platform-macos`, `src-tauri`. React 19, TypeScript strict, Vite, Tailwind, zustand, Vitest. Audio: `cpal`, `rubato`. Secrets: `keyring`. Backend client: `reqwest`, `tokio-tungstenite`.
 
 ## Commands

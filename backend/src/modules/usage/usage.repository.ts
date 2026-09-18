@@ -4,8 +4,7 @@ import type { UsageRecord, UsageTotals } from './types/usage.types';
 
 const EMPTY: UsageTotals = {
   inputTokens: 0,
-  cacheReadTokens: 0,
-  cacheCreationTokens: 0,
+  cachedInputTokens: 0,
   outputTokens: 0,
   audioSeconds: 0,
 };
@@ -22,8 +21,7 @@ export class UsageRepository {
         kind: record.kind,
         model: record.model ?? null,
         inputTokens: record.inputTokens ?? 0,
-        cacheReadTokens: record.cacheReadTokens ?? 0,
-        cacheCreationTokens: record.cacheCreationTokens ?? 0,
+        cachedInputTokens: record.cachedInputTokens ?? 0,
         outputTokens: record.outputTokens ?? 0,
         audioSeconds: record.audioSeconds ?? 0,
       },
@@ -35,8 +33,7 @@ export class UsageRepository {
       where: { meetingId },
       _sum: {
         inputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
+        cachedInputTokens: true,
         outputTokens: true,
         audioSeconds: true,
       },
@@ -44,8 +41,7 @@ export class UsageRepository {
 
     return {
       inputTokens: totals._sum.inputTokens ?? EMPTY.inputTokens,
-      cacheReadTokens: totals._sum.cacheReadTokens ?? EMPTY.cacheReadTokens,
-      cacheCreationTokens: totals._sum.cacheCreationTokens ?? EMPTY.cacheCreationTokens,
+      cachedInputTokens: totals._sum.cachedInputTokens ?? EMPTY.cachedInputTokens,
       outputTokens: totals._sum.outputTokens ?? EMPTY.outputTokens,
       audioSeconds: totals._sum.audioSeconds ?? EMPTY.audioSeconds,
     };

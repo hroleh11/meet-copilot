@@ -130,16 +130,15 @@ model Segment {
 }
 
 model Generation {
-  id                  String         @id @default(uuid())
-  meetingId           String         @map("meeting_id")
-  mode                GenerationMode
-  output              String
-  stopReason          String?        @map("stop_reason")
-  inputTokens         Int            @default(0) @map("input_tokens")
-  cacheReadTokens     Int            @default(0) @map("cache_read_tokens")
-  cacheCreationTokens Int            @default(0) @map("cache_creation_tokens")
-  outputTokens        Int            @default(0) @map("output_tokens")
-  createdAt           DateTime       @default(now()) @map("created_at")
+  id                String         @id @default(uuid())
+  meetingId         String         @map("meeting_id")
+  mode              GenerationMode
+  output            String
+  stopReason        String?        @map("stop_reason")
+  inputTokens       Int            @default(0) @map("input_tokens")
+  cachedInputTokens Int            @default(0) @map("cached_input_tokens")
+  outputTokens      Int            @default(0) @map("output_tokens")
+  createdAt         DateTime       @default(now()) @map("created_at")
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
 
@@ -148,17 +147,16 @@ model Generation {
 }
 
 model UsageEvent {
-  id                  String    @id @default(uuid())
-  userId              String    @map("user_id")
-  meetingId           String?   @map("meeting_id")
-  kind                UsageKind
-  model               String?
-  inputTokens         Int       @default(0) @map("input_tokens")
-  cacheReadTokens     Int       @default(0) @map("cache_read_tokens")
-  cacheCreationTokens Int       @default(0) @map("cache_creation_tokens")
-  outputTokens        Int       @default(0) @map("output_tokens")
-  audioSeconds        Int       @default(0) @map("audio_seconds")
-  createdAt           DateTime  @default(now()) @map("created_at")
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  meetingId         String?   @map("meeting_id")
+  kind              UsageKind
+  model             String?
+  inputTokens       Int       @default(0) @map("input_tokens")
+  cachedInputTokens Int       @default(0) @map("cached_input_tokens")
+  outputTokens      Int       @default(0) @map("output_tokens")
+  audioSeconds      Int       @default(0) @map("audio_seconds")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   meeting Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)

@@ -1,269 +1,138 @@
-# Архітектура
+---
+name: backend
+description: Conventions for the NestJS backend of Meet Copilot (backend/): module layout, repository pattern, Prisma and Redis, auth guards, Swagger DTOs, the Deepgram speech stream, context and summarization, OpenAI generation over SSE. Load before writing or changing anything under backend/ or docker-compose.yml.
+---
 
-## Принципи
+# Backend conventions
 
-- Бекенд є джерелом істини. Користувачі, зустрічі, транскрипти, резюме, налаштування та промпти живуть на сервері. Застосунок є тонким клієнтом: звук, гарячі клавіші, оверлей, показ.
-- Дві частини, один контракт. Застосунок і бекенд спілкуються лише через API, описаний нижче. Провайдери відомі тільки бекенду.
-- Postgres для того, що має пережити все. Redis для того, що читається на кожен запит під час живої зустрічі, і для короткоживучих кодів.
-- Ядро застосунку не знає про Tauri. `desktop/crates/core` компілюється й тестується без UI та без macOS.
-- Усе платформне або зовнішнє ховається за інтерфейсом. Реалізацію обирає композиційний корінь.
-- Файл робить одну річ і не перевищує приблизно 200 рядків. Модуль зростає розбиттям, а не подовженням.
+These are carried over from the user's reference project and must stay consistent.
 
-## Структура репозиторію
+## Layout
 
 ```
-docker-compose.yml             Postgres, Redis для розробки
-
-backend/prisma/                schema.prisma, migrations
+backend/prisma/             schema.prisma, migrations
 backend/src
-  main.ts, app.module.ts
+  main.ts                   bootstrap: global prefix, ValidationPipe, Swagger
+  app.module.ts             ConfigModule.forRoot({ validate: validateEnv }), Throttler, APP_GUARD chain
   common/
-    config/        env.schema.ts через zod, validateEnv
-    decorators/    Public, GetCurrentUserId, GetCurrentUser
-    dto/           спільні response-класи
-    filters/       глобальний фільтр помилок
-    guards/        AtGuard, RtGuard, GoogleGuard, SubscriptionGuard
-    types/         express.d.ts
-  infrastructure/
-    prisma/        PrismaService на @prisma/adapter-pg, @Global
-    redis/         RedisService на ioredis, @Global
-    hashing/       HashingService на argon2
-    llm/           LlmProvider, AnthropicLlmProvider
-    stt/           SttProvider, DeepgramSttProvider
-  modules/
-    auth/          email і пароль, JWT, Google, вхід для застосунку
-    user/          профіль
-    settings/      стиль, мова та профіль за замовчуванням
-    meetings/      зустрічі, MeetingStateStore над Redis
-    stt/           WebSocket-шлюз
-    context/       ContextWindow, Summarizer
-    generation/    SSE-генерація, PromptBuilder, prompts
-    usage/         UsageRecorder
-    health/
-
-desktop/crates/core/src
-  domain/        Meeting, TranscriptSegment, Speaker, Language, MeetingProfile, Generation, GenerationMode, UserSettings
-  audio/         AudioSource, AudioFrame, resample, level
-  backend/       BackendApi, BackendEndpoint, auth, http, stt_stream, sse
-  session/       Session, SessionState, transcript view
-  settings/      LocalSettings, defaults, SecretStore
-  access/        AccessPolicy, Entitlement, always_allowed
-  error.rs
-
-desktop/crates/platform-macos/src
-  system_audio/  AudioSource на ScreenCaptureKit
-  permissions/   дозволи мікрофона та запису екрана
-
-desktop/src-tauri/src
-  app/           AppState, композиція ядра, життєвий цикл
-  commands/      тонкі Tauri-команди, по файлу на область
-  events.rs      назви подій та payload-типи
-  windows/       головне вікно, оверлей, content protection
-  hotkeys/       глобальні комбінації
-  deep_link/     обробка meetcopilot://auth
-
-desktop/src
-  app/           маршрутизація, провайдери
-  features/      auth, session, transcript, answer, settings, history, access
-  shared/        ipc, ui, store, lib, i18n
+    config/                 env.schema.ts (zod) + index.ts
+    decorators/             public, current-user, current-user-id, refresh-session
+    dto/                    common.responses.ts
+    filters/                all-exceptions.filter.ts
+    guards/                 at.guard.ts, rt.guard.ts, google.guard.ts, subscription.guard.ts
+    middleware/             request-id.middleware.ts
+    types/                  auth.types.ts, express.d.ts
+  infrastructure/           prisma, redis, hashing, llm, stt
+  modules/                  auth, user, settings, meetings, stt, context, generation, usage, health
 ```
 
-## Контракт API
+## Module rules
 
-Базовий префікс `/api/v1`. Маршрути без `@Public()` вимагають access-токен: куку `accessToken` для вебу або `Authorization: Bearer` для застосунку.
+- A module lives in `src/modules/<name>/` and exposes its public surface through `index.ts`. Never deep-import another module's files: `~/modules/user`, not `~/modules/user/user.repository`.
+- Files: `<name>.module.ts`, `<name>.controller.ts`, `<name>.service.ts`, `<name>.repository.ts`, plus `dto/`, `types/`, `constants/`, `prompts/` when needed.
+- **All Prisma queries live in the repository.** Services hold business rules and call repositories; a service never injects `PrismaService`.
+- Inside a module import relatively (`./auth.service`); across modules import through the alias (`~/modules/user`). Never mix the two for the same module.
+- Infrastructure modules are `@Global()` so they need no re-import.
 
-### Авторизація
+## Imports and aliases
 
-- `POST /auth/register` `{ email, name, password }` → куки, `{ message }`
-- `POST /auth/login` `{ email, password }` → куки, `{ message }`
-- `POST /auth/refresh` → куки, `{ message }`. Бере refresh-токен із куки
-- `POST /auth/logout` → видаляє сесію й очищає куки
-- `GET /auth/google` і `GET /auth/google/callback` → куки й редірект на фронтенд
-- `GET /auth/google/desktop` → відкривається в браузері, після успіху редірект на `meetcopilot://auth?code=...`
-- `POST /auth/desktop/exchange` `{ code }` → `{ accessToken, refreshToken, expiresIn }`
-- `POST /auth/desktop/refresh` `{ refreshToken }` → нова пара токенів
+- Path alias `~/*` → `src/*` in `tsconfig.json`. Always import via `~/...`, never `../../..`.
+- The Prisma client is generated into `src/generated/prisma`. Import from `~/generated/prisma/client` and `~/generated/prisma/enums`, never `@prisma/client`. `src/generated` is git-ignored.
 
-Веб і застосунок розділяє параметр `state` у Google-потоці. Одноразовий код живе в Redis 60 секунд і згорає при обміні.
+## Config
 
-Сесії зберігаються в таблиці `auth_sessions`, по рядку на пристрій, тому вхід із застосунку не вибиває вебсесію. Refresh-токен зберігається лише як argon2-хеш, а його ідентифікатор сесії їде в обох токенах. Повторне використання старого refresh-токена трактується як компрометація: сесія видаляється.
+- One zod schema in `common/config/env.schema.ts` exporting `Env` and `validateEnv`. Wired through `ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnv })`.
+- Inject as `ConfigService<Env, true>` and read with `getOrThrow<T>`; without the type argument the value is `any` and ESLint rejects it.
+- Every new variable goes into the schema and into `.env.example`, not just `.env`.
+- Keys: `NODE_ENV`, `PORT`, `API_PREFIX`, `DESKTOP_REDIRECT_URL`, `DATABASE_URL`, `REDIS_URL`, `AT_SECRET`, `RT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, `DEEPGRAM_API_KEY`, `OPENAI_API_KEY`, `REPLY_MODEL`, `REPLY_EFFORT`, `SUMMARY_MODEL`, `SUMMARY_EFFORT`, `WINDOW_MAX_CHARS`, `SUMMARY_TRIGGER_CHARS`, `FINISHED_MEETING_TTL_SECONDS`.
 
-### Користувач і налаштування
+## Auth
 
-- `GET /users/me` → профіль
-- `GET /settings` → `{ style, defaultLanguage, defaultProfile }`
-- `PUT /settings` з тим самим тілом
+- There is no web client. The desktop app is the only consumer, so there are no cookies, no CSRF and no CORS: tokens travel in request bodies and the `Authorization: Bearer` header.
+- `AtGuard` (passport `jwt`) is global via `APP_GUARD`; `@Public()` opts a route out. `SubscriptionGuard` runs after it and in the first version lets everyone through. It exists so the subscription check has exactly one home later.
+- Refresh tokens are hashed with argon2 and stored per session in `auth_sessions`, one row per device. The session id rides in both tokens. Replaying a rotated refresh token deletes the session rather than issuing new ones.
+- Google sign-in opens the system browser; the callback redirects to `meetcopilot://auth?code=...` with a one-time code held in Redis for 60 seconds and consumed on exchange. Never an embedded webview, per RFC 8252.
+- Login must never reveal whether an account exists: an unknown email and a wrong password return the identical error. Registration answers 409 on a taken email, which does reveal it; that stays until email verification exists.
 
-### Зустрічі
+## DTOs and Swagger
 
-- `POST /meetings` `{ profile, language, title? }` → `{ id, status, startedAt }`
-- `POST /meetings/:id/finish` → `{ id, status, endedAt }`
-- `GET /meetings` → список без транскриптів, новіші першими
-- `GET /meetings/:id` → зустріч, `summary`, `segments`, `generations`, `usage`
+- Request DTOs use `class-validator` in `dto/*.dto.ts`. Response DTOs use `@ApiProperty` in `dto/*.responses.ts`. Keep them in separate files.
+- Response classes are named `<Thing>Response`. Controllers declare `@ApiTags`, `@ApiOperation` and `@ApiOkResponse({ type })`.
+- The global `ValidationPipe` runs with `whitelist`, `transform`, `forbidNonWhitelisted`.
 
-Значення: `profile` це `daily | interview_candidate | client_call`, `language` це `uk | en | ru`, `mode` це `reply | alternative`, `speaker` це `me | other`.
+## Storage
 
-### WebSocket `/meetings/:id/stt?speaker=me`
+- `PrismaService extends PrismaClient` using `@prisma/adapter-pg` with `DATABASE_URL`.
+- Prisma models use camelCase fields with `@map` to snake_case columns and `@@map` to plural table names. Ids are `uuid`. Enum values are spelled exactly as they appear on the wire (`uk`, `daily`, `interview_candidate`), so no mapping layer is needed anywhere.
+- `RedisService` wraps one ioredis client with typed helpers and closes on shutdown. Raw client access stays inside `infrastructure/redis`.
+- Redis holds only what can be rebuilt from Postgres, plus short-lived codes. `MeetingStateStore` owns the `meeting:{id}:*` keys and exposes intent-named methods. Use `MULTI` when two keys must change together.
 
-Токен передається як `?token=`. Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 4401 невірний токен, 4404 невідома або завершена зустріч чи невідомий спікер, 4500 збій розпізнавання.
+## STT (Deepgram)
 
-Це звичайний WebSocket-сервер, приєднаний до події `upgrade` HTTP-сервера, а не шлюз Nest: сирий PCM не має конверта `event`/`data`, якого чекає адаптер Nest, і ідентифікатор зустрічі потрібен у шляху.
+- The speech stream is a raw `ws` server attached to the Nest HTTP server's `upgrade` event, not a Nest gateway. Nest's WsAdapter expects a JSON `event`/`data` envelope, which raw PCM frames do not have, and it cannot carry the meeting id as a path parameter.
+- Path `/{prefix}/meetings/{uuid}/stt?token=...&speaker=me|other`. Rejections complete the handshake and then close with 4401 (bad token) or 4404 (meeting missing, finished, or bad speaker), so the client reads a real close code instead of a failed handshake.
+- Deepgram is reached over a plain `ws` connection, not `@deepgram/sdk`. The v5 SDK's `listen.v1.connect` returns an already-closed socket in every configuration tried, while the documented endpoint works: `wss://api.deepgram.com/v1/listen` with the settings as query parameters and `Authorization: Token <key>` as a header. Control messages are JSON: `{"type":"KeepAlive"}` every 8 s and `{"type":"CloseStream"}` to finish.
+- Closing must send `CloseStream` and then wait for Deepgram to close the socket itself, with a short timeout as a backstop. Deepgram only emits the last segment of a meeting on that flush, so hanging up immediately loses it. `SttStream.close()` is therefore async and the connection awaits it before recording usage.
+- The connection registers its socket message handler before opening the provider stream and queues frames until the stream exists, so no audio is lost during the handshake.
+- Final segments are written to Postgres and the Redis window, then `Summarizer.maybeRun` is called without awaiting. Interim results only go back to the client. Empty transcripts are dropped.
+- Usage with audio seconds is recorded on close, counted as received bytes over 32000.
 
-### `POST /meetings/:id/generate` → SSE
+## Context and summarization
 
-Тіло `{ mode }`. Події: `delta { text }`, `done { generationId, stopReason, usage }`, `error { message }`. Для `alternative` бекенд бере попередню відповідь із власного стану.
+- `ContextWindow.read(meetingId)` splits the Redis window into `recent` and `stale` by a character budget alone. Ordering comes from the Redis list, which is arrival order across both speaker lanes; segment `startMs` is per lane and resets on reconnect, so it must never be used to order or age the window.
+- The newest segment is never staled, even when it alone exceeds the budget, so a long monologue cannot empty the live context.
+- `Summarizer.maybeRun(meetingId, userId)` returns early unless `stale` passes `SUMMARY_TRIGGER_CHARS` and the Redis lock is claimed. It summarizes with the summary model, merges with the previous notes, writes the result to Redis and `Meeting.summary`, trims the window to the recent segments, records usage and releases the lock in a `finally`. Failures log and release; the next final segment retries.
+- Summaries are written in the meeting language as dense factual prose: topics, decisions, open questions.
 
-### `GET /health`
+## Generation (OpenAI)
 
-Публічний, `{ status, postgres, redis }`.
+The provider is the `openai` SDK's Responses API, behind the `LlmProvider` interface so the rest of the code never sees it.
 
-## Бекенд
-
-### Межі
-
-- `AtGuard` глобальний через `APP_GUARD`, `@Public()` знімає його. Далі `SubscriptionGuard`, який у першій версії пропускає всіх, а потім читає статус підписки. Ніякий інший код не читає заголовки чи куки авторизації.
-- Сервіси містять правила, репозиторії містять усі запити Prisma. Сервіс ніколи не інжектить `PrismaService`.
-- Кожен метод, що працює зі зустріччю, приймає `userId` і шукає `where: { id, userId }`. Промах це `NotFoundException`, не 403.
-- `UsageRecorder` викликається після кожної генерації, резюмування та STT-потоку.
-- `MeetingStateStore` є єдиним місцем, яке знає ключі Redis зустрічей.
-- Модулі імпортують один одного лише через `index.ts`.
-
-### Дані
-
-Postgres (Prisma, таблиці й колонки в snake_case через `@map`):
-
-```
-User            id, email, name, createdAt, updatedAt
-UserCredentials userId, hashedPassword?, googleId?
-AuthSession     id, userId, hashedRt, client, expiresAt, createdAt
-UserSettings    userId, style?, defaultLanguage, defaultProfile
-Meeting         id, userId, profile, language, title, status, summary?, startedAt, endedAt?
-Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
-Generation      id, meetingId, mode, output, stopReason, inputTokens, cacheReadTokens,
-                cacheCreationTokens, outputTokens, createdAt
-UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, createdAt
-```
-
-Redis:
-
-```
-meeting:{id}:state           hash: language, profile, style, lastAnswer
-meeting:{id}:window          list: свіжі фінальні сегменти як JSON
-meeting:{id}:summary         string
-meeting:{id}:summarize:lock  string з TTL
-settings:{userId}            кеш налаштувань
-desktop:auth:{code}          userId, TTL 60 секунд
+```ts
+const response = await this.client.responses.create({
+  model,
+  instructions: system,
+  input: blocks.join('\n\n'),
+  reasoning: { effort },
+  max_output_tokens: maxTokens,
+});
+// response.output_text, response.status, response.incomplete_details?.reason
+// response.usage.input_tokens / .input_tokens_details.cached_tokens / .output_tokens
 ```
 
-Усе, що в Redis, відновлюється з Postgres, тому втрата Redis не втрачає дані, а лише живий контекст поточних зустрічей.
+- Model ids and effort come from config; never hardcoded. `REPLY_MODEL` is `gpt-5.2` and `SUMMARY_MODEL` is `gpt-5-mini` by default, both at `low` effort, because a hotkey reply is judged on latency and a summary is an easy task.
+- Effort levels are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`. Raise it only with a measured reason.
+- Prompt caching is automatic on prefixes above roughly a thousand tokens, so there is no `cache_control` to place. What still matters is prefix stability: the system text must stay byte-identical for the whole meeting, and everything volatile goes into the input blocks after it. `usage.input_tokens_details.cached_tokens` is the only signal that it is working.
+- Usage is recorded as `inputTokens`, `cachedInputTokens` and `outputTokens`. There is no separate cache-write charge, so there is no fourth counter.
+- Reasoning models spend output tokens on thinking before the visible answer, so `max_output_tokens` has to leave room for both. A reply that comes back with `incomplete_details.reason === 'max_output_tokens'` means the budget was too tight, not that the model failed.
+- Catch the SDK's typed errors most-specific first: `AuthenticationError` and `APIConnectionError` map to 502, `RateLimitError` to 429, any other `APIError` to 502. Never string-match messages.
+- Client disconnect aborts the provider stream through `AbortSignal`; the partial output is still saved with the cancelled stop reason.
 
-### Потік живої зустрічі
+## PromptBuilder
 
-1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
-2. Кожне WebSocket-з'єднання відкриває потік у `SttProvider`. Фінальні сегменти пишуться в Postgres і у `window`. Проміжні лише повертаються клієнту.
-3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`.
-4. `generate` читає стан, резюме і вікно, будує промпт, стрімить відповідь, зберігає генерацію і останню відповідь.
-5. `finish` закриває активні потоки, ставить статус і TTL на ключі.
+- Input comes from `MeetingStateStore` and `ContextWindow`. Output is `{ system, blocks }`.
+- System text = persona + profile prompt + style. Nothing that varies per request, so the cached prefix stays byte-identical across a meeting.
+- Blocks in order: summary, recent segments as `[me] ...` / `[other] ...`, previous answer for alternative mode, mode instruction, language instruction.
+- Persona, profile prompts and the default style live in `modules/generation/prompts/*.ts` as exported constants, one file per profile. Tune wording there, not in the builder.
+- Reply constraints in the persona: spoken style, first person, readable aloud in 15 seconds, no headings or lists, no preamble. Answer in the meeting language regardless of the transcript language.
 
-### PromptBuilder
+## Style
 
-Порядок від стабільного до змінного, щоб кеш промпта працював: системний блок (персона, промпт профілю, стиль зі стану зустрічі) із `cache_control`, потім резюме, вікно сегментів як рядки `[me] ...` і `[other] ...`, попередня відповідь для `alternative`, інструкція режиму, інструкція мови. Персона, промпти профілів і дефолтний стиль лежать у `modules/generation/prompts/` як файли даних.
+- Prettier: single quotes, width 90, trailing commas, two spaces. ESLint with type-checked rules; `no-floating-promises` and `no-explicit-any` are errors, not warnings.
+- TypeScript runs with full `strict`. No `any`, no non-null assertions outside tests.
+- No commented-out code and no TODO placeholders left behind. If something is not implemented yet, it is not in the file.
 
-## Застосунок
+## Testing
 
-### Ключові типи
+- Unit specs next to the code as `*.spec.ts`: `PromptBuilder` table-driven over profiles and modes, `ContextWindow` budgets, `Summarizer` with fakes, guards, DTO validation, provider mappers.
+- e2e under `test/` share `AppHarness`, which boots the real `AppModule` against the compose Postgres and Redis, signs up throwaway accounts and deletes them on shutdown, so `docker compose up -d` must be running. Specs that do not need a store bind fakes through a `@Global()` test module instead.
+- The e2e runner needs `node --experimental-vm-modules` because the generated Prisma client loads its query compiler through a dynamic import. Provider access is always faked with `FakeLlmProvider` and `FakeSttProvider`; no test calls a real provider.
 
-```rust
-enum Speaker { Me, Other(Option<SpeakerId>) }
-enum Language { Uk, En, Ru }
-enum MeetingProfile { Daily, InterviewCandidate, ClientCall }
-enum GenerationMode { Reply, Alternative }
-
-struct AudioFrame { speaker: Speaker, samples: Vec<i16>, captured_at: Instant }
-struct TranscriptSegment { id, speaker, text, start_ms, duration_ms, is_final }
-struct Meeting { id, profile, language, title, status, started_at, ended_at }
-struct MeetingDetails { meeting, summary, segments, generations, usage }
-struct UserSettings { style, default_language, default_profile }
-struct LocalSettings { backend_url, hotkeys, input_device }
-struct Tokens { access_token, refresh_token, expires_in }
-enum Entitlement { Allowed, Denied(DenialReason) }
-```
-
-### Трейти
-
-```rust
-trait AudioSource {
-    fn start(&mut self, sink: mpsc::Sender<AudioFrame>) -> Result<()>;
-    fn stop(&mut self) -> Result<()>;
-}
-
-trait BackendApi {
-    async fn health(&self) -> Result<Health>;
-    async fn exchange_code(&self, code: &str) -> Result<Tokens>;
-    async fn me(&self) -> Result<Profile>;
-    async fn settings(&self) -> Result<UserSettings>;
-    async fn save_settings(&self, settings: &UserSettings) -> Result<()>;
-    async fn create_meeting(&self, profile: MeetingProfile, language: Language) -> Result<Meeting>;
-    async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting>;
-    async fn list_meetings(&self) -> Result<Vec<Meeting>>;
-    async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
-    async fn open_stt(&self, id: &MeetingId, speaker: Speaker) -> Result<Box<dyn SttStream>>;
-    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> BoxStream<'_, Result<Delta>>;
-}
-
-trait SttStream {
-    async fn send(&mut self, frame: &AudioFrame) -> Result<()>;
-    async fn next(&mut self) -> Option<SttEvent>;
-    async fn close(self: Box<Self>) -> Result<()>;
-}
-
-trait AccessPolicy {
-    async fn check(&self) -> Result<Entitlement>;
-}
-
-trait SecretStore {
-    fn get(&self, key: SecretKey) -> Result<Option<SecretString>>;
-    fn set(&self, key: SecretKey, value: SecretString) -> Result<()>;
-    fn delete(&self, key: SecretKey) -> Result<()>;
-}
-```
-
-`BackendApi` має одну реалізацію на `reqwest` і `tokio-tungstenite` та фейк для тестів. Вона сама оновлює access-токен по refresh при 401 і зберігає нову пару в `SecretStore`.
-
-### Сесія
-
-`Session` володіє всім, що живе між стартом і стопом: джерелами звуку, STT-потоками, транскриптом для показу. Стан:
+## Checks
 
 ```
-Idle → Starting → Listening → Stopping → Idle
+pnpm --filter backend lint
+pnpm --filter backend typecheck
+pnpm --filter backend test
+pnpm --filter backend test:e2e
 ```
-
-Кожен перехід публікується подією `session:state`. Помилка на етапі `Starting` повертає в `Idle` з описом причини і завершує зустріч на бекенді, якщо вона вже створена. Перед `Starting` викликається `AccessPolicy::check`.
-
-Аудіоконвеєр на кожне джерело: `AudioSource` → ресемплер у 16 kHz mono i16 → фрейми по 100 мс → `SttStream`.
-
-### IPC
-
-Команди UI → Rust: `login`, `logout`, `auth_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`.
-
-Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
-
-Назви подій і форми payload визначені один раз у `desktop/src-tauri/src/events.rs` і продубльовані типами в `desktop/src/shared/ipc/events.ts`.
-
-### Вікна
-
-- Головне вікно: вхід, керування сесією, транскрипт, історія, налаштування.
-- Оверлей: маленьке вікно поверх усіх, без рамки, `set_content_protected(true)`, не забирає фокус.
-
-## Безпека та підписка
-
-Застосунок на диску користувача не є довіреним: будь-що всередині бінарника можна дістати, будь-яку локальну перевірку можна вирізати. Тому:
-
-- Ключі провайдерів існують лише в `.env` бекенду. У застосунку є адреса бекенду й пара токенів у Keychain.
-- Уся логіка продукту на бекенді: промпти, контекст, моделі, ліміти. Єдиний спосіб щось згенерувати це генерація для власної зустрічі.
-- Вхід у застосунку йде через системний браузер і одноразовий код, а не через вбудовану форму з паролем. Так працює Google OAuth і так рекомендує RFC 8252.
-- Підписка перевіряється на бекенді в `SubscriptionGuard`. `AccessPolicy` у застосунку існує лише для UI, щоб показати пейвол до 403.
-- Транскрипти зберігаються на сервері. Для комерційної версії це вимагає політики приватності та можливості видалити зустріч і акаунт.
-
-## Кросплатформність
-
-Платформний код застосунку живе в `desktop/crates/platform-*`. Композиційний корінь обирає реалізацію через `cfg(target_os)`. Для Linux і Windows додається новий crate із `AudioSource` для системного звуку і, за потреби, свій модуль дозволів. Решта коду не змінюється.

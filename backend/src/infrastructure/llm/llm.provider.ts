@@ -1,9 +1,8 @@
-export type LlmEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type LlmEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface LlmUsage {
   inputTokens: number;
-  cacheReadTokens: number;
-  cacheCreationTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
 }
 

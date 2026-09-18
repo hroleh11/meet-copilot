@@ -75,12 +75,7 @@ class FakeLlmProvider extends LlmProvider {
     return Promise.resolve({
       text: this.text,
       stopReason: 'end_turn',
-      usage: {
-        inputTokens: 10,
-        cacheReadTokens: 0,
-        cacheCreationTokens: 0,
-        outputTokens: 5,
-      },
+      usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 },
     });
   }
 }

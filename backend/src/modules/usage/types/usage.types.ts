@@ -2,8 +2,7 @@ import type { UsageKind } from '~/generated/prisma/enums';
 
 export interface UsageTotals {
   inputTokens: number;
-  cacheReadTokens: number;
-  cacheCreationTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   audioSeconds: number;
 }

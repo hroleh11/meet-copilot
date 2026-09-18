@@ -66,10 +66,7 @@ export class UsageResponse {
   inputTokens: number;
 
   @ApiProperty()
-  cacheReadTokens: number;
-
-  @ApiProperty()
-  cacheCreationTokens: number;
+  cachedInputTokens: number;
 
   @ApiProperty()
   outputTokens: number;
