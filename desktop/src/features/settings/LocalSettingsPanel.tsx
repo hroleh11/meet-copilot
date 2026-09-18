@@ -2,7 +2,7 @@ import type { LocalSettings } from '~/shared/ipc';
 import { uk } from '~/shared/i18n/uk';
 import { useResettableDraft } from '~/shared/lib/useResettableDraft';
 import { Button, Field, Panel } from '~/shared/ui';
-import { MicrophoneField } from './MicrophoneField';
+import { AudioField } from './AudioField';
 
 export interface LocalSettingsPanelProps {
   settings: LocalSettings;
@@ -30,7 +30,7 @@ export function LocalSettingsPanel({
         />
       </Field>
 
-      <MicrophoneField deviceId={inputDevice} onDeviceChange={setInputDevice} />
+      <AudioField deviceId={inputDevice} onDeviceChange={setInputDevice} />
 
       <div className="flex gap-2">
         <Button

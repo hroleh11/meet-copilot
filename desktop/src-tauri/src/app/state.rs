@@ -7,14 +7,14 @@ use meet_copilot_core::{
 };
 use tokio::sync::{Mutex, RwLock};
 
-use super::{Emitter, MicrophoneTest};
+use super::{AudioCheck, AudioCheckStatus, Emitter};
 
 pub struct AppState {
     settings_store: LocalSettingsStore,
     secrets: Arc<dyn SecretStore>,
     settings: RwLock<LocalSettings>,
     backend: RwLock<Arc<BackendClient>>,
-    microphone_test: Mutex<Option<MicrophoneTest>>,
+    audio_check: Mutex<Option<AudioCheck>>,
 }
 
 impl AppState {
@@ -27,7 +27,7 @@ impl AppState {
             secrets,
             settings: RwLock::new(settings),
             backend: RwLock::new(backend),
-            microphone_test: Mutex::new(None),
+            audio_check: Mutex::new(None),
         })
     }
 
@@ -53,25 +53,26 @@ impl AppState {
         Ok(settings)
     }
 
-    pub async fn start_microphone_test(
+    pub async fn start_audio_check(
         &self,
         device_id: Option<String>,
         emitter: Emitter,
-    ) -> Result<()> {
-        let mut slot = self.microphone_test.lock().await;
+    ) -> Result<AudioCheckStatus> {
+        let mut slot = self.audio_check.lock().await;
 
         if let Some(previous) = slot.take() {
             previous.stop()?;
         }
 
-        *slot = Some(MicrophoneTest::start(device_id, emitter)?);
+        let (check, status) = AudioCheck::start(device_id, emitter)?;
+        *slot = Some(check);
 
-        Ok(())
+        Ok(status)
     }
 
-    pub async fn stop_microphone_test(&self) -> Result<()> {
-        if let Some(test) = self.microphone_test.lock().await.take() {
-            test.stop()?;
+    pub async fn stop_audio_check(&self) -> Result<()> {
+        if let Some(check) = self.audio_check.lock().await.take() {
+            check.stop()?;
         }
 
         Ok(())

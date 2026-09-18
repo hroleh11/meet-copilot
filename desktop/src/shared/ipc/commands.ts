@@ -31,7 +31,11 @@ export const checkBackend = (): Promise<string> => invoke('check_backend');
 export const listAudioDevices = (): Promise<AudioDevice[]> =>
   invoke('list_audio_devices');
 
-export const startMicrophoneTest = (deviceId: string | null): Promise<void> =>
-  invoke('start_microphone_test', { deviceId });
+export interface AudioCheckStatus {
+  systemAudioProblem: string | null;
+}
 
-export const stopMicrophoneTest = (): Promise<void> => invoke('stop_microphone_test');
+export const startAudioCheck = (deviceId: string | null): Promise<AudioCheckStatus> =>
+  invoke('start_audio_check', { deviceId });
+
+export const stopAudioCheck = (): Promise<void> => invoke('stop_audio_check');

@@ -45,7 +45,13 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - The cpal data callback converts samples to `f32` and downmixes to mono in one pass, then `try_send`s an owned `Vec<f32>` into a bounded `tokio::sync::mpsc` channel; a separate `tokio::spawn`ed task owns the `MonoResampler` and does the actual resampling off the audio thread. The callback still allocates once per buffer to cross the channel boundary — accepted here as pragmatic (not hard real-time DSP), not lock-free.
 - `MonoResampler` (`crates/core/src/audio/resampler.rs`) wraps `rubato::Fft<f32>` with `FixedSync::Output`: the resampler's internal chunk sizes are whatever `rubato` computes for the sample-rate pair, decoupled from our 1600-sample `AudioFrame` boundary by an internal `frame_carry` buffer. Never assume the resampler's `output_frames_next()` equals `SAMPLES_PER_FRAME`.
 - `rubato` 1.x buffers go through `audioadapter_buffers::direct::InterleavedSlice`, not raw slices; for mono that's `InterleavedSlice::new(&samples, 1, len)`.
-- Level meter is RMS over the frame, published at most 10 times per second.
+- `SystemAudioSource` (`crates/platform-macos/src/system_audio`) captures the far side of the call with ScreenCaptureKit through the `objc2-screen-capture-kit` bindings. The higher-level `screencapturekit` crate is not usable here: it drags in `apple-metal`, whose build script shells out to `swiftc` and fails.
+- ScreenCaptureKit always captures video, so the configuration asks for a 2x2 frame at 1 fps and simply never registers a screen output. Only the audio output is attached, on its own dispatch queue.
+- The delegate is a real Objective-C class built with `define_class!`, implementing both `SCStreamOutput` (samples) and `SCStreamDelegate` (stop reason). Its ivars hold the `Sender` that feeds the resampler task.
+- Audio arrives as a `CMSampleBuffer`. `sample_buffer.rs` pulls the PCM out in two passes of `CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer` (first for the size, then for the data), folds planar channels to mono, and hands the returned block buffer to `CFRetained::from_raw` so it is released.
+- The generated bindings mark no ScreenCaptureKit type `Send`, so `ThreadSafe<T>` asserts it once, in one file, instead of scattering `unsafe impl` around. That one `// SAFETY:` line is the sanctioned exception to the no-comments rule.
+- Never gate capture on `CGPreflightScreenCaptureAccess`: it answers `false` for processes that ScreenCaptureKit happily serves. Start the capture, and only if it fails ask whether the permission is missing and say so.
+- Level meter is RMS over the frame, published at most 10 times per second, throttled per `Speaker` so one lane cannot starve the other.
 
 ## Backend client
 

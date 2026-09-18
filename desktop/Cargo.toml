@@ -21,6 +21,15 @@ cpal = "0.17.3"
 rubato = "1.0.1"
 tokio-util = "0.7.19"
 audioadapter-buffers = "2.0.0"
+block2 = "0.6.2"
+dispatch2 = "0.3.1"
+objc2 = "0.6.4"
+objc2-core-audio-types = "0.3.2"
+objc2-core-foundation = "0.3.2"
+objc2-core-graphics = { version = "0.3.2", features = ["CGWindow"] }
+objc2-core-media = { version = "0.3.2", features = ["CMSampleBuffer", "CMBlockBuffer", "CMFormatDescription", "CMTime", "objc2-core-audio-types"] }
+objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSError", "NSString", "NSValue"] }
+objc2-screen-capture-kit = { version = "0.3.2", features = ["SCStream", "SCShareableContent", "SCError", "block2", "objc2-core-media"] }
 
 [profile.release]
 codegen-units = 1

@@ -26,11 +26,14 @@ export const uk = {
     defaultProfile: 'Тип зустрічі за замовчуванням',
     save: 'Зберегти',
     saved: 'Збережено',
+    audio: 'Звук',
     microphone: 'Мікрофон',
-    microphoneDevice: 'Пристрій',
+    systemAudio: 'Звук зустрічі',
     microphoneDefault: 'за замовчуванням',
-    testMicrophone: 'Перевірити мікрофон',
-    stopTest: 'Зупинити',
+    checkAudio: 'Перевірити звук',
+    stopCheck: 'Зупинити',
+    screenRecordingNeeded:
+      'Щоб чути співрозмовників, дозвольте запис екрана: Системні налаштування → Конфіденційність і безпека → Запис екрана.',
   },
 
   language: {

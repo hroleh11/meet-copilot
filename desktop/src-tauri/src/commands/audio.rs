@@ -2,7 +2,7 @@ use meet_copilot_core::audio::{list_input_devices, AudioDevice};
 use tauri::{AppHandle, State};
 
 use crate::{
-    app::{AppState, Emitter},
+    app::{AppState, AudioCheckStatus, Emitter},
     command_error::CommandError,
 };
 
@@ -12,21 +12,19 @@ pub fn list_audio_devices() -> Result<Vec<AudioDevice>, CommandError> {
 }
 
 #[tauri::command]
-pub async fn start_microphone_test(
+pub async fn start_audio_check(
     device_id: Option<String>,
     app: AppHandle,
     state: State<'_, AppState>,
-) -> Result<(), CommandError> {
-    state
-        .start_microphone_test(device_id, Emitter::new(app))
-        .await?;
-
-    Ok(())
+) -> Result<AudioCheckStatus, CommandError> {
+    Ok(state
+        .start_audio_check(device_id, Emitter::new(app))
+        .await?)
 }
 
 #[tauri::command]
-pub async fn stop_microphone_test(state: State<'_, AppState>) -> Result<(), CommandError> {
-    state.stop_microphone_test().await?;
+pub async fn stop_audio_check(state: State<'_, AppState>) -> Result<(), CommandError> {
+    state.stop_audio_check().await?;
 
     Ok(())
 }
