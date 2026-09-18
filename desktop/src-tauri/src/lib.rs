@@ -38,6 +38,9 @@ pub fn run() {
             commands::get_user_settings,
             commands::save_user_settings,
             commands::check_backend,
+            commands::list_audio_devices,
+            commands::start_microphone_test,
+            commands::stop_microphone_test,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -13,6 +13,7 @@ export type {
   TranscriptSegmentEvent,
 } from './events';
 export type {
+  AudioDevice,
   BackendFailure,
   CommandError,
   ErrorKind,

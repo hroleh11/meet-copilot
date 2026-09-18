@@ -26,6 +26,11 @@ export const uk = {
     defaultProfile: 'Тип зустрічі за замовчуванням',
     save: 'Зберегти',
     saved: 'Збережено',
+    microphone: 'Мікрофон',
+    microphoneDevice: 'Пристрій',
+    microphoneDefault: 'за замовчуванням',
+    testMicrophone: 'Перевірити мікрофон',
+    stopTest: 'Зупинити',
   },
 
   language: {
@@ -44,5 +49,7 @@ export const uk = {
     login: 'Не вдалося увійти',
     settings: 'Не вдалося зберегти налаштування',
     backend: 'Сервер недоступний',
+    microphone:
+      'Мікрофон недоступний. Дозвольте доступ у Системних налаштуваннях → Конфіденційність і безпека → Мікрофон.',
   },
 } as const;

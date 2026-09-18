@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { LocalSettings, Profile, UserSettings } from './types';
+import type { AudioDevice, LocalSettings, Profile, UserSettings } from './types';
 
 export interface AuthState {
   signedIn: boolean;
@@ -27,3 +27,11 @@ export const saveUserSettings = (settings: UserSettings): Promise<UserSettings> 
   invoke('save_user_settings', { settings });
 
 export const checkBackend = (): Promise<string> => invoke('check_backend');
+
+export const listAudioDevices = (): Promise<AudioDevice[]> =>
+  invoke('list_audio_devices');
+
+export const startMicrophoneTest = (deviceId: string | null): Promise<void> =>
+  invoke('start_microphone_test', { deviceId });
+
+export const stopMicrophoneTest = (): Promise<void> => invoke('stop_microphone_test');

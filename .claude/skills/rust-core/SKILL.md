@@ -39,7 +39,12 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 ## Audio
 
 - Canonical frame: 16 kHz, mono, `i16`, 100 ms (1600 samples), tagged with `Speaker`.
-- Resampling with `rubato` inside the source adapter, so every consumer sees canonical frames only.
+- `MicrophoneSource` (`crates/core/src/audio/microphone.rs`) is cross-platform on `cpal`: it stays in core, not `platform-macos`, because `cpal` already abstracts CoreAudio/WASAPI/ALSA. Only permission UX is platform-specific and belongs in `platform-macos/src/permissions`.
+- `cpal::Stream` is guaranteed `Send` (see `cpal::assert_stream_send!`), so `MicrophoneSource` holds it directly in a struct field; no dedicated OS thread is needed to satisfy `AudioSource: Send`.
+- Device selection uses `cpal`'s `DeviceId` (`device.id()`, `host.device_by_id()`), not the deprecated `name()`. `AudioDevice.id` is `DeviceId::to_string()`, round-tripped with `FromStr` in `LocalSettings.input_device`. `name()`/`description()` is display-only.
+- The cpal data callback converts samples to `f32` and downmixes to mono in one pass, then `try_send`s an owned `Vec<f32>` into a bounded `tokio::sync::mpsc` channel; a separate `tokio::spawn`ed task owns the `MonoResampler` and does the actual resampling off the audio thread. The callback still allocates once per buffer to cross the channel boundary — accepted here as pragmatic (not hard real-time DSP), not lock-free.
+- `MonoResampler` (`crates/core/src/audio/resampler.rs`) wraps `rubato::Fft<f32>` with `FixedSync::Output`: the resampler's internal chunk sizes are whatever `rubato` computes for the sample-rate pair, decoupled from our 1600-sample `AudioFrame` boundary by an internal `frame_carry` buffer. Never assume the resampler's `output_frames_next()` equals `SAMPLES_PER_FRAME`.
+- `rubato` 1.x buffers go through `audioadapter_buffers::direct::InterleavedSlice`, not raw slices; for mono that's `InterleavedSlice::new(&samples, 1, len)`.
 - Level meter is RMS over the frame, published at most 10 times per second.
 
 ## Backend client

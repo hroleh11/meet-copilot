@@ -11,6 +11,12 @@ export interface Profile {
   name: string;
 }
 
+export interface AudioDevice {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
 export interface Usage {
   inputTokens: number;
   cachedInputTokens: number;

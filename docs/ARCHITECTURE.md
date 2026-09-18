@@ -245,7 +245,7 @@ Idle → Starting → Listening → Stopping → Idle
 
 ### IPC
 
-Команди UI → Rust: `login`, `logout`, `auth_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`.
+Команди UI → Rust: `login`, `logout`, `auth_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_microphone_test`, `stop_microphone_test`.
 
 Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
 
