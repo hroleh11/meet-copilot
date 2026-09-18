@@ -11,6 +11,7 @@ import { HttpAdapterHost } from '@nestjs/core';
 import { type WebSocket, WebSocketServer } from 'ws';
 import type { Env } from '~/common/config';
 import { SttProvider } from '~/infrastructure/stt';
+import { Summarizer } from '~/modules/context';
 import { MeetingStateStore, MeetingsRepository } from '~/modules/meetings';
 import { UsageRecorder } from '~/modules/usage';
 import { SttConnection } from './stt-connection';
@@ -33,6 +34,7 @@ export class SttServer implements OnApplicationBootstrap, OnApplicationShutdown 
     private readonly meetingsRepository: MeetingsRepository,
     private readonly meetingStateStore: MeetingStateStore,
     private readonly usageRecorder: UsageRecorder,
+    private readonly summarizer: Summarizer,
   ) {
     this.route = buildSttRoute(configService.getOrThrow<string>('API_PREFIX'));
   }
@@ -71,7 +73,8 @@ export class SttServer implements OnApplicationBootstrap, OnApplicationShutdown 
         meetingsRepository: this.meetingsRepository,
         meetingStateStore: this.meetingStateStore,
         usageRecorder: this.usageRecorder,
-        onFinalSegment: () => undefined,
+        onFinalSegment: () =>
+          void this.summarizer.maybeRun(context.meetingId, context.userId),
       });
 
       await connection.start();

@@ -13,6 +13,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: z.string().min(1),
   GOOGLE_CALLBACK_URL: z.url(),
   DEEPGRAM_API_KEY: z.string().min(1),
+  ANTHROPIC_API_KEY: z.string().min(1),
+  SUMMARY_MODEL: z.string().min(1).default('claude-sonnet-5'),
+  SUMMARY_EFFORT: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('medium'),
+  WINDOW_MAX_CHARS: z.coerce.number().int().positive().default(6_000),
+  SUMMARY_TRIGGER_CHARS: z.coerce.number().int().positive().default(3_000),
   FINISHED_MEETING_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
 });
 

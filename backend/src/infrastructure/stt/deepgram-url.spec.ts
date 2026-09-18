@@ -12,7 +12,9 @@ describe('buildDeepgramUrl', () => {
   });
 
   it('passes the meeting language through', () => {
-    expect(new URL(buildDeepgramUrl(Language.ru)).searchParams.get('language')).toBe('ru');
+    expect(new URL(buildDeepgramUrl(Language.ru)).searchParams.get('language')).toBe(
+      'ru',
+    );
   });
 
   it('keeps interim results on so the app can show live text', () => {

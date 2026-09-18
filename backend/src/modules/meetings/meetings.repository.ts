@@ -62,6 +62,10 @@ export class MeetingsRepository {
     return this.prisma.segment.create({ data });
   }
 
+  async updateSummary(meetingId: string, summary: string): Promise<void> {
+    await this.prisma.meeting.update({ where: { id: meetingId }, data: { summary } });
+  }
+
   finish(meetingId: string): Promise<Meeting> {
     return this.prisma.meeting.update({
       where: { id: meetingId },

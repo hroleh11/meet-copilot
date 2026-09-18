@@ -16,7 +16,7 @@ export interface SttConnectionDeps {
   meetingsRepository: MeetingsRepository;
   meetingStateStore: MeetingStateStore;
   usageRecorder: UsageRecorder;
-  onFinalSegment: (meetingId: string) => void;
+  onFinalSegment: () => void;
 }
 
 export class SttConnection {
@@ -105,7 +105,7 @@ export class SttConnection {
         ...toPayload(result),
       });
 
-      this.deps.onFinalSegment(this.context.meetingId);
+      this.deps.onFinalSegment();
     } catch (error) {
       this.logger.error(
         `Failed to store a segment for meeting ${this.context.meetingId}`,

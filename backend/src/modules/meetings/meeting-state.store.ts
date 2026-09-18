@@ -7,6 +7,9 @@ import type { MeetingLiveState, WindowSegment } from './types/meetings.types';
 
 const stateKey = (meetingId: string): string => `meeting:${meetingId}:state`;
 const windowKey = (meetingId: string): string => `meeting:${meetingId}:window`;
+const summaryKey = (meetingId: string): string => `meeting:${meetingId}:summary`;
+const summarizeLockKey = (meetingId: string): string =>
+  `meeting:${meetingId}:summarize:lock`;
 
 @Injectable()
 export class MeetingStateStore {
@@ -47,12 +50,37 @@ export class MeetingStateStore {
     return stored.map((entry) => JSON.parse(entry) as WindowSegment);
   }
 
+  trimWindow(meetingId: string, keepLast: number): Promise<void> {
+    return this.redis.trimList(windowKey(meetingId), keepLast);
+  }
+
+  async readSummary(meetingId: string): Promise<string | null> {
+    return this.redis.read(summaryKey(meetingId));
+  }
+
+  writeSummary(meetingId: string, summary: string): Promise<void> {
+    return this.redis.set(
+      summaryKey(meetingId),
+      summary,
+      this.configService.getOrThrow<number>('FINISHED_MEETING_TTL_SECONDS'),
+    );
+  }
+
+  claimSummarize(meetingId: string, ttlSeconds: number): Promise<boolean> {
+    return this.redis.claim(summarizeLockKey(meetingId), ttlSeconds);
+  }
+
+  releaseSummarize(meetingId: string): Promise<void> {
+    return this.redis.delete(summarizeLockKey(meetingId));
+  }
+
   async expire(meetingId: string): Promise<void> {
     const ttl = this.configService.getOrThrow<number>('FINISHED_MEETING_TTL_SECONDS');
 
     await Promise.all([
       this.redis.expire(stateKey(meetingId), ttl),
       this.redis.expire(windowKey(meetingId), ttl),
+      this.redis.expire(summaryKey(meetingId), ttl),
     ]);
   }
 }

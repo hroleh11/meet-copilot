@@ -7,10 +7,12 @@ import { AllExceptionsFilter } from '~/common/filters';
 import { AtGuard, SubscriptionGuard } from '~/common/guards';
 import { RequestIdMiddleware } from '~/common/middleware';
 import { HashingModule } from '~/infrastructure/hashing';
+import { LlmProviderModule } from '~/infrastructure/llm';
 import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
 import { SttProviderModule } from '~/infrastructure/stt';
 import { AuthModule } from '~/modules/auth';
+import { ContextModule } from '~/modules/context';
 import { HealthModule } from '~/modules/health';
 import { MeetingsModule } from '~/modules/meetings';
 import { SettingsModule } from '~/modules/settings';
@@ -31,11 +33,13 @@ import { UserModule } from '~/modules/user';
     RedisModule,
     HashingModule,
     SttProviderModule,
+    LlmProviderModule,
     AuthModule,
     UserModule,
     SettingsModule,
     UsageModule,
     MeetingsModule,
+    ContextModule,
     SttModule,
     HealthModule,
   ],

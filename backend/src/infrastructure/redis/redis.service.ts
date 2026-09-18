@@ -55,6 +55,14 @@ export class RedisService implements OnModuleDestroy {
     return this.client.lrange(key, 0, -1);
   }
 
+  async trimList(key: string, keepLast: number): Promise<void> {
+    await this.client.ltrim(key, -keepLast, -1);
+  }
+
+  async claim(key: string, ttlSeconds: number): Promise<boolean> {
+    return (await this.client.set(key, '1', 'EX', ttlSeconds, 'NX')) === 'OK';
+  }
+
   async expire(key: string, ttlSeconds: number): Promise<void> {
     await this.client.expire(key, ttlSeconds);
   }
