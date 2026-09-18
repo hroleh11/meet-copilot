@@ -212,7 +212,7 @@ fn spawn_processing_task(
         let mut resampler = match MonoResampler::new(CAPTURE_RATE_HZ as u32, SAMPLE_RATE_HZ) {
             Ok(resampler) => resampler,
             Err(error) => {
-                eprintln!("could not build the system audio resampler: {error}");
+                tracing::warn!("could not build the system audio resampler: {error}");
                 return;
             }
         };
@@ -228,7 +228,7 @@ fn spawn_processing_task(
             let frames = match resampler.push(&chunk) {
                 Ok(frames) => frames,
                 Err(error) => {
-                    eprintln!("could not resample system audio: {error}");
+                    tracing::warn!("could not resample system audio: {error}");
                     continue;
                 }
             };

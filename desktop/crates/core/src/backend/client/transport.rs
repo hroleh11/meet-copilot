@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::sleep};
 
 use crate::{
     backend::endpoint::{BackendEndpoint, Tokens},
@@ -17,6 +17,8 @@ use super::{
 
 const JSON_TIMEOUT: Duration = Duration::from_secs(10);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const SEND_ATTEMPTS: u32 = 3;
+const RETRY_BASE_DELAY: Duration = Duration::from_millis(300);
 
 pub struct Transport {
     endpoint: BackendEndpoint,
@@ -147,6 +149,20 @@ impl Transport {
     }
 
     async fn dispatch(&self, request: RequestBuilder) -> Result<Response> {
+        for attempt in 1..SEND_ATTEMPTS {
+            let Some(probe) = request.try_clone() else {
+                break;
+            };
+
+            match probe.send().await {
+                Ok(response) if !is_retryable_status(response.status()) => return Ok(response),
+                Err(error) if !is_retryable_error(&error) => return Err(transport_error(error)),
+                _ => {}
+            }
+
+            sleep(RETRY_BASE_DELAY * 2_u32.saturating_pow(attempt - 1)).await;
+        }
+
         request.send().await.map_err(transport_error)
     }
 
@@ -173,6 +189,14 @@ impl Transport {
 
         self.credentials.store(&tokens).await
     }
+}
+
+fn is_retryable_status(status: StatusCode) -> bool {
+    status.is_server_error() && status != StatusCode::NOT_IMPLEMENTED
+}
+
+fn is_retryable_error(error: &reqwest::Error) -> bool {
+    error.is_timeout() || error.is_connect()
 }
 
 async fn accept(response: Response) -> Result<Response> {

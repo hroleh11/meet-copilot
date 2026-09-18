@@ -45,7 +45,7 @@ define_class!(
     unsafe impl SCStreamDelegate for SystemAudioOutput {
         #[unsafe(method(stream:didStopWithError:))]
         fn did_stop_with_error(&self, _stream: &SCStream, error: &NSError) {
-            eprintln!("system audio stream stopped: {error}");
+            tracing::warn!("system audio stream stopped: {error}");
         }
     }
 );

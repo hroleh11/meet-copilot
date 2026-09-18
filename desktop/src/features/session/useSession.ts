@@ -52,15 +52,6 @@ export function useSession(): UseSessionResult {
       .catch(() => undefined);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (useSessionStore.getState().state !== 'idle') {
-        void stopSession();
-      }
-    },
-    [],
-  );
-
   return {
     state,
     notice,

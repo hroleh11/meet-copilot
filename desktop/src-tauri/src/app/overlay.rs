@@ -8,7 +8,7 @@ pub fn prepare(app: &AppHandle) {
     let Some(window) = window(app) else { return };
 
     if let Err(error) = window.set_content_protected(true) {
-        eprintln!("could not hide the overlay from screen sharing: {error}");
+        tracing::warn!("could not hide the overlay from screen sharing: {error}");
     }
 }
 
@@ -18,7 +18,7 @@ pub fn show(app: &AppHandle) {
     place(&window);
 
     if let Err(error) = window.show() {
-        eprintln!("could not show the overlay: {error}");
+        tracing::warn!("could not show the overlay: {error}");
     }
 }
 
@@ -26,7 +26,7 @@ pub fn hide(app: &AppHandle) {
     let Some(window) = window(app) else { return };
 
     if let Err(error) = window.hide() {
-        eprintln!("could not hide the overlay: {error}");
+        tracing::warn!("could not hide the overlay: {error}");
     }
 }
 
@@ -36,7 +36,7 @@ pub fn toggle(app: &AppHandle) {
     match window.is_visible() {
         Ok(true) => hide(app),
         Ok(false) => show(app),
-        Err(error) => eprintln!("could not read the overlay state: {error}"),
+        Err(error) => tracing::warn!("could not read the overlay state: {error}"),
     }
 }
 
@@ -44,7 +44,7 @@ fn window(app: &AppHandle) -> Option<WebviewWindow> {
     let window = app.get_webview_window(LABEL);
 
     if window.is_none() {
-        eprintln!("the overlay window is missing");
+        tracing::warn!("the overlay window is missing");
     }
 
     window
@@ -68,6 +68,6 @@ fn place(window: &WebviewWindow) {
     );
 
     if let Err(error) = window.set_position(position) {
-        eprintln!("could not place the overlay: {error}");
+        tracing::warn!("could not place the overlay: {error}");
     }
 }

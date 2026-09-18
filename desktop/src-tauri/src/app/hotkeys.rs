@@ -15,7 +15,7 @@ enum Action {
 
 pub fn register(app: &AppHandle, hotkeys: &Hotkeys) {
     if let Err(error) = app.global_shortcut().unregister_all() {
-        eprintln!("could not release the previous hotkeys: {error}");
+        tracing::warn!("could not release the previous hotkeys: {error}");
     }
 
     bind(app, &hotkeys.reply, Action::Ask(GenerationMode::Reply));
@@ -37,7 +37,7 @@ fn bind(app: &AppHandle, shortcut: &str, action: Action) {
         });
 
     if let Err(error) = registered {
-        eprintln!("could not register the hotkey {shortcut}: {error}");
+        tracing::warn!("could not register the hotkey {shortcut}: {error}");
     }
 }
 

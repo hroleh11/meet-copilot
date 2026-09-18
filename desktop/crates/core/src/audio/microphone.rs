@@ -102,7 +102,7 @@ where
                 let mono = to_mono_f32(data, channels);
                 let _ = raw_tx.try_send(mono);
             },
-            |error| eprintln!("microphone stream error: {error}"),
+            |error| tracing::warn!("microphone stream error: {error}"),
             None,
         )
         .map_err(|error| Error::Permission(format!("Could not open the microphone: {error}")))
@@ -128,7 +128,7 @@ fn spawn_processing_task(
         let mut resampler = match MonoResampler::new(input_rate, SAMPLE_RATE_HZ) {
             Ok(resampler) => resampler,
             Err(error) => {
-                eprintln!("could not build the microphone resampler: {error}");
+                tracing::warn!("could not build the microphone resampler: {error}");
                 return;
             }
         };
@@ -144,7 +144,7 @@ fn spawn_processing_task(
             let frames = match resampler.push(&chunk) {
                 Ok(frames) => frames,
                 Err(error) => {
-                    eprintln!("could not resample microphone audio: {error}");
+                    tracing::warn!("could not resample microphone audio: {error}");
                     continue;
                 }
             };

@@ -61,7 +61,7 @@ impl Emitter {
 
     fn send<T: Serialize + Clone>(&self, name: &str, payload: T) {
         if let Err(error) = self.handle.emit(name, payload) {
-            eprintln!("could not emit {name}: {error}");
+            tracing::warn!("could not emit {name}: {error}");
         }
     }
 }

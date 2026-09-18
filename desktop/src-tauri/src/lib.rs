@@ -3,6 +3,7 @@ pub mod command_error;
 pub mod commands;
 pub mod deep_link;
 pub mod events;
+pub mod logging;
 pub mod secrets;
 
 use meet_copilot_core::settings::LocalSettingsStore;
@@ -19,6 +20,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
+            if let Some(guard) = logging::start(&log_directory(app.handle())?) {
+                app.manage(guard);
+            }
+
             let directory = app.path().app_config_dir()?;
             let settings_store = LocalSettingsStore::new(directory.join(SETTINGS_FILE));
             let hotkeys = settings_store.load().hotkeys;
@@ -52,6 +57,18 @@ pub fn run() {
             commands::generate,
             commands::cancel_generation,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building the application")
+        .run(|handle, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                app::on_exit(handle);
+            }
+        });
+}
+
+fn log_directory(handle: &tauri::AppHandle) -> Result<std::path::PathBuf, tauri::Error> {
+    let directory = handle.path().app_log_dir()?;
+    std::fs::create_dir_all(&directory)?;
+
+    Ok(directory)
 }
