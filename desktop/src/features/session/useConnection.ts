@@ -8,7 +8,7 @@ interface UseConnectionResult {
   check: () => void;
 }
 
-export function useConnection(): UseConnectionResult {
+export function useConnection(watch?: string): UseConnectionResult {
   const [state, setState] = useState<ConnectionState>('unknown');
 
   const probe = useCallback(() => {
@@ -26,7 +26,7 @@ export function useConnection(): UseConnectionResult {
     probe();
   }, [probe]);
 
-  useEffect(probe, [probe]);
+  useEffect(probe, [probe, watch]);
 
   return { state, check };
 }

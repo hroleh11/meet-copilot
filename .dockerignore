@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/target
+**/coverage
+backend/src/generated
+desktop
+docs
+.git
+.github
+*.log
+**/.env
+**/.env.*
+!**/.env.example

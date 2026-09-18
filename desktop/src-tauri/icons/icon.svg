@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="1" stop-color="#0a0a0a"/>
+    </linearGradient>
+    <linearGradient id="mark" gradientUnits="userSpaceOnUse" x1="292" y1="276" x2="804" y2="832">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="1" stop-color="#10b981"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="url(#plate)"/>
+  <rect x="72" y="72" width="880" height="880" rx="200" fill="none" stroke="#3f3f46" stroke-width="4"/>
+
+  <path
+    d="M292 276h440a72 72 0 0 1 72 72v296a72 72 0 0 1-72 72H556l-132 116V716h-132a72 72 0 0 1-72-72V348a72 72 0 0 1 72-72z"
+    fill="none" stroke="url(#mark)" stroke-width="40" stroke-linejoin="round"/>
+
+  <g stroke="url(#mark)" stroke-width="40" stroke-linecap="round">
+    <line x1="404" y1="452" x2="404" y2="540"/>
+    <line x1="500" y1="396" x2="500" y2="596"/>
+    <line x1="596" y1="438" x2="596" y2="554"/>
+    <line x1="692" y1="474" x2="692" y2="518"/>
+  </g>
+</svg>

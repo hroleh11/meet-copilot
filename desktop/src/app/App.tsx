@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { SignInScreen } from '~/features/auth/SignInScreen';
 import { useAuth } from '~/features/auth/useAuth';
 import { HistoryScreen } from '~/features/history/HistoryScreen';
+import { OnboardingScreen } from '~/features/onboarding/OnboardingScreen';
 import { useSettings } from '~/features/settings/useSettings';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
 import { AppHeader } from './AppHeader';
@@ -17,8 +18,22 @@ export function App() {
 
   useAppEvents(useCallback((message: string) => setEventError(message), []));
 
-  if (!auth.ready) {
+  if (!auth.ready || !settings.local) {
     return <main className="h-full bg-neutral-950" />;
+  }
+
+  if (!settings.local.onboarded) {
+    return (
+      <OnboardingScreen
+        settings={settings.local}
+        signedIn={auth.signedIn}
+        profileEmail={auth.profileEmail}
+        opening={auth.opening}
+        error={auth.error ?? settings.error ?? eventError}
+        onSave={settings.saveLocal}
+        onSignIn={auth.signIn}
+      />
+    );
   }
 
   if (!auth.signedIn) {

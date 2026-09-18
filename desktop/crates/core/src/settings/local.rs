@@ -26,6 +26,7 @@ pub struct LocalSettings {
     pub backend_url: String,
     pub input_device: Option<String>,
     pub hotkeys: Hotkeys,
+    pub onboarded: bool,
 }
 
 impl Default for LocalSettings {
@@ -34,6 +35,7 @@ impl Default for LocalSettings {
             backend_url: DEFAULT_BACKEND_URL.to_owned(),
             input_device: None,
             hotkeys: Hotkeys::default(),
+            onboarded: false,
         }
     }
 }
