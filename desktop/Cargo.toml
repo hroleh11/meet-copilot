@@ -10,6 +10,8 @@ rust-version = "1.82"
 [workspace.dependencies]
 meet-copilot-core = { path = "crates/core" }
 meet-copilot-platform-macos = { path = "crates/platform-macos" }
+async-trait = "0.1.89"
+futures-core = "0.3.31"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 thiserror = "2.0.17"

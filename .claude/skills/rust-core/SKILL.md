@@ -18,7 +18,8 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - Every external dependency is behind a trait in core: `AudioSource`, `BackendApi`, `SttStream`, `SecretStore`, `AccessPolicy`.
 - `BackendApi` is the only way to reach the server. Its one real implementation lives in `backend/` and uses `BackendEndpoint { base_url, token }`. A `FakeBackendApi` lives under `#[cfg(test)]` helpers for session tests.
 - `AccessPolicy::check` is called in exactly two places: session start and generation. Nowhere else may branch on subscription state.
-- Traits are object-safe where the composition root needs `Box<dyn Trait>`. Async trait methods use `async fn` in traits with `Send` bounds; if object safety is needed, return `Pin<Box<dyn Future + Send>>` via a small helper type alias.
+- Async traits use `#[async_trait]`. Native `async fn` in traits is not yet dyn-compatible, and the composition root needs `Box<dyn BackendApi>` and `Box<dyn SttStream>`; the boxed future per call costs nothing next to a network round trip.
+- `BackendApi::generate` is the exception: it returns `DeltaStream<'_>`, an alias for `Pin<Box<dyn Stream<Item = Result<Delta>> + Send + '_>>`, because a stream is the return value rather than the call itself.
 - Session owns everything that lives between start and stop. Nothing outside session touches audio or STT handles.
 - Shared state in `src-tauri` is `Arc<AppState>` with `tokio::sync::Mutex` or `RwLock` inside, held for the shortest scope possible. Never hold a lock across an `.await` on network I/O.
 
@@ -44,7 +45,9 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 ## Backend client
 
 - `reqwest` client built once with the token as a default `Authorization` header and a 10 s timeout for JSON calls; the generate call has no timeout and is cancelled through its token.
-- Request and response types mirror the DTOs in `docs/ARCHITECTURE.md` with `#[serde(rename_all = "camelCase")]`. One file per resource: `health.rs`, `settings.rs`, `meetings.rs`, `generate.rs`.
+- Domain types mirror the backend DTOs with `#[serde(rename_all = "camelCase")]` on structs and `#[serde(rename_all = "snake_case")]` on enums, which reproduces the backend's wire spelling (`uk`, `interview_candidate`, `me`) without a mapping layer. `MeetingDetails` uses `#[serde(flatten)]` because the backend class extends the meeting response.
+- Timestamps stay `String`. They arrive as ISO text and the UI formats them, so a date crate would buy nothing.
+- `crates/core/tests/wire_contract.rs` pins every shape against literal JSON. It is the one place to look when the backend DTOs change, so it stays an integration test rather than being scattered through the modules.
 - STT: `tokio-tungstenite` to `<ws base>/v1/meetings/:id/stt?speaker=<me|other>&token=<token>`. Send frame samples as little-endian bytes in binary messages. Parse JSON text messages into `SttEvent::{Partial, Final, Error}`.
 - Reconnect STT with exponential backoff up to 5 attempts; a reconnect keeps the meeting and opens a new lane. Close codes 4401 and 4404 are not retried.
 - Generate: streaming body, parse SSE `event:` and `data:` lines into `Delta::{Text, Done, Error}`. A new generation cancels the previous one by cancelling its token. Retries only for connection errors before the first byte, up to 3 attempts; after the first byte a failure ends the generation and the UI keeps the partial text.
@@ -53,7 +56,8 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 
 - `LocalSettings` serialize to JSON with `serde` in the app data dir, unknown fields ignored, missing fields defaulted. They hold only what is local to the machine: backend URL, hotkeys, input device.
 - `UserSettings` (style, default language, default profile) are never stored locally; they are read from and written to the backend.
-- Only the backend token is a secret. `keyring` service name `meet-copilot`, account `backend-token`. Later the account session token uses the same store.
+- Tokens are the only secrets. `keyring` service name `meet-copilot`, accounts `access-token` and `refresh-token` from `SecretKey`.
+- Secrets are carried in `Secret`, whose `Debug` prints `Secret(***)`, so a token cannot reach a log through a struct dump.
 
 ## Tauri boundary
 

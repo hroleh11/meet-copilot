@@ -5,5 +5,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
+futures-core = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -174,18 +174,19 @@ login:code:{code}            userId, TTL 60 секунд
 ### Ключові типи
 
 ```rust
-enum Speaker { Me, Other(Option<SpeakerId>) }
+enum Speaker { Me, Other }
 enum Language { Uk, En, Ru }
 enum MeetingProfile { Daily, InterviewCandidate, ClientCall }
 enum GenerationMode { Reply, Alternative }
 
 struct AudioFrame { speaker: Speaker, samples: Vec<i16>, captured_at: Instant }
-struct TranscriptSegment { id, speaker, text, start_ms, duration_ms, is_final }
+struct TranscriptSegment { id, speaker, text, start_ms, duration_ms }
 struct Meeting { id, profile, language, title, status, started_at, ended_at }
 struct MeetingDetails { meeting, summary, segments, generations, usage }
 struct UserSettings { style, default_language, default_profile }
 struct LocalSettings { backend_url, hotkeys, input_device }
 struct Tokens { access_token, refresh_token, expires_in }
+struct Secret(String)  // Debug prints Secret(***)
 enum Entitlement { Allowed, Denied(DenialReason) }
 ```
 
