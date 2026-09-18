@@ -13,35 +13,35 @@ export interface MeetingDetailsPanelProps {
 export function MeetingDetailsPanel({ details }: MeetingDetailsPanelProps) {
   return (
     <Panel title={details.title ?? uk.profile[details.profile]}>
-      <p className="text-xs text-neutral-500">
+      <p className="text-caption text-ink-tertiary">
         {formatDateTime(details.startedAt)} · {uk.language[details.language]}
       </p>
 
       {details.summary ? (
         <section className="flex flex-col gap-1">
-          <h3 className="text-xs tracking-wide text-neutral-500 uppercase">
+          <h3 className="text-caption tracking-wide text-ink-tertiary uppercase">
             {uk.history.summary}
           </h3>
-          <p className="text-sm text-neutral-300">{details.summary}</p>
+          <p className="text-body text-ink-secondary">{details.summary}</p>
         </section>
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs tracking-wide text-neutral-500 uppercase">
+        <h3 className="text-caption tracking-wide text-ink-tertiary uppercase">
           {uk.history.transcript}
         </h3>
         <SegmentList segments={details.segments} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs tracking-wide text-neutral-500 uppercase">
+        <h3 className="text-caption tracking-wide text-ink-tertiary uppercase">
           {uk.history.answers}
         </h3>
         <AnswerList generations={details.generations} />
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="text-xs tracking-wide text-neutral-500 uppercase">
+        <h3 className="text-caption tracking-wide text-ink-tertiary uppercase">
           {uk.history.usage}
         </h3>
         <UsageSummary usage={details.usage} />

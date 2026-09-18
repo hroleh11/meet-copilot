@@ -13,7 +13,7 @@ pub struct Hotkeys {
 impl Default for Hotkeys {
     fn default() -> Self {
         Self {
-            reply: "CommandOrControl+Shift+Space".to_owned(),
+            reply: "Alt+R".to_owned(),
             alternative: "CommandOrControl+Shift+A".to_owned(),
             hide: "CommandOrControl+Shift+H".to_owned(),
         }

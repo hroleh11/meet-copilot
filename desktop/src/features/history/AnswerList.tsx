@@ -7,23 +7,23 @@ export interface AnswerListProps {
 }
 
 const MODE: Record<GenerationMode, string> = {
-  reply: uk.answer.reply,
+  reply: uk.answer.title,
   alternative: uk.answer.alternative,
 };
 
 export function AnswerList({ generations }: AnswerListProps) {
   if (generations.length === 0) {
-    return <p className="text-sm text-neutral-500">{uk.history.noAnswers}</p>;
+    return <p className="text-body text-ink-tertiary">{uk.history.noAnswers}</p>;
   }
 
   return (
     <div className="flex max-h-72 flex-col gap-3 overflow-y-auto">
       {generations.map((generation) => (
         <article key={generation.id} className="flex flex-col gap-1">
-          <span className="text-xs tracking-wide text-neutral-500 uppercase">
+          <span className="text-caption tracking-wide text-ink-tertiary uppercase">
             {MODE[generation.mode]} · {formatDateTime(generation.createdAt)}
           </span>
-          <p className="text-sm whitespace-pre-wrap text-neutral-200">
+          <p className="text-body whitespace-pre-wrap text-ink-primary">
             {generation.output}
           </p>
         </article>

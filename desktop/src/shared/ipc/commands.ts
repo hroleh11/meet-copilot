@@ -19,6 +19,9 @@ export interface AuthState {
 
 export const authState = (): Promise<AuthState> => invoke('auth_state');
 
+export const signIn = (email: string, password: string): Promise<AuthState> =>
+  invoke('sign_in', { email, password });
+
 export const startLogin = (): Promise<void> => invoke('start_login');
 
 export const completeLogin = (code: string): Promise<AuthState> =>

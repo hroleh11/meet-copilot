@@ -38,7 +38,7 @@ describe('MeetingDetailsPanel', () => {
 
     expect(screen.getByText('Які терміни?')).toBeInTheDocument();
     expect(screen.getByText('Два тижні на перший етап.')).toBeInTheDocument();
-    expect(screen.getByText('Співрозмовник')).toBeInTheDocument();
+    expect(screen.getByText('Інші')).toBeInTheDocument();
   });
 
   it('reports what the meeting cost', () => {

@@ -1,0 +1,72 @@
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-surface-primary: #ececec;
+  --color-surface-secondary: #f6f6f6;
+  --color-surface-elevated: #ffffff;
+  --color-ink-primary: #1d1d1f;
+  --color-ink-secondary: #6e6e73;
+  --color-ink-tertiary: #a1a1a6;
+  --color-accent: #007aff;
+  --color-success: #34c759;
+  --color-danger: #ff3b30;
+  --color-separator: rgba(0,0,0,0.1);
+
+  --text-title: 20px;
+  --text-title--line-height: 25px;
+  --text-title--font-weight: 600;
+  --text-headline: 15px;
+  --text-headline--line-height: 20px;
+  --text-headline--font-weight: 600;
+  --text-body: 13px;
+  --text-body--line-height: 18px;
+  --text-body--font-weight: 400;
+  --text-body-emphasized: 13px;
+  --text-body-emphasized--line-height: 18px;
+  --text-body-emphasized--font-weight: 600;
+  --text-caption: 11px;
+  --text-caption--line-height: 13px;
+  --text-caption--font-weight: 400;
+  --text-transcript-mono: 12px;
+  --text-transcript-mono--line-height: 17px;
+  --text-transcript-mono--font-weight: 400;
+
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-surface-primary: #1e1e1e;
+    --color-surface-secondary: #262626;
+    --color-surface-elevated: #2c2c2e;
+    --color-ink-primary: #f5f5f7;
+    --color-ink-secondary: #98989d;
+    --color-ink-tertiary: #6e6e73;
+    --color-accent: #0a84ff;
+    --color-success: #30d158;
+    --color-danger: #ff453a;
+    --color-separator: rgba(255,255,255,0.12);
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-surface-primary: #1e1e1e;
+  --color-surface-secondary: #262626;
+  --color-surface-elevated: #2c2c2e;
+  --color-ink-primary: #f5f5f7;
+  --color-ink-secondary: #98989d;
+  --color-ink-tertiary: #6e6e73;
+  --color-accent: #0a84ff;
+  --color-success: #30d158;
+  --color-danger: #ff453a;
+  --color-separator: rgba(255,255,255,0.12);
+}

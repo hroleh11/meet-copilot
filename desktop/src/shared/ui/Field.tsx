@@ -8,12 +8,10 @@ export interface FieldProps {
 
 export function Field({ label, hint, children }: FieldProps) {
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium tracking-wide text-neutral-400 uppercase">
-        {label}
-      </span>
+    <label className="flex flex-col gap-1">
+      <span className="text-caption font-semibold text-ink-secondary">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-neutral-500">{hint}</span> : null}
+      {hint ? <span className="text-caption text-ink-tertiary">{hint}</span> : null}
     </label>
   );
 }

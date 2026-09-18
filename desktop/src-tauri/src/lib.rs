@@ -38,6 +38,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::auth_state,
+            commands::sign_in,
             commands::start_login,
             commands::complete_login,
             commands::logout,

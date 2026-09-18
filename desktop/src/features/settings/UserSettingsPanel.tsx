@@ -12,7 +12,7 @@ const LANGUAGES: Language[] = ['uk', 'en', 'ru'];
 const PROFILES: MeetingProfile[] = ['daily', 'interview_candidate', 'client_call'];
 
 const selectClass =
-  'rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500';
+  'rounded-md border border-separator bg-surface-primary px-3 py-2 text-body text-ink-primary outline-none focus:border-accent';
 
 export function UserSettingsPanel({ settings, onSave }: UserSettingsPanelProps) {
   const [draft, setDraft] = useResettableDraft(settings);

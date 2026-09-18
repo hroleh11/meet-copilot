@@ -41,7 +41,7 @@ describe('OnboardingScreen', () => {
     });
 
     expect(screen.getByRole('button', { name: /Готово/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Увійти через Google/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Продовжити з Google/ })).toBeDisabled();
   });
 
   it('remembers that the first run is over once both steps are done', async () => {

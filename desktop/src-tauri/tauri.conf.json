@@ -14,29 +14,33 @@
       {
         "label": "main",
         "title": "Meet Copilot",
-        "width": 1040,
-        "height": 720,
+        "width": 1200,
+        "height": 800,
         "minWidth": 880,
-        "minHeight": 600
+        "minHeight": 600,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       },
       {
         "label": "overlay",
         "title": "Meet Copilot",
         "url": "overlay.html",
-        "width": 560,
-        "height": 240,
+        "width": 420,
+        "height": 460,
         "resizable": false,
         "decorations": false,
         "alwaysOnTop": true,
         "focus": false,
         "visible": false,
         "skipTaskbar": true,
-        "shadow": false
+        "shadow": false,
+        "transparent": true
       }
     ],
     "security": {
       "csp": null
-    }
+    },
+    "macOSPrivateApi": true
   },
   "bundle": {
     "active": true,

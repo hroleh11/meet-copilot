@@ -1,34 +1,58 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { SignInScreen } from '~/features/auth/SignInScreen';
+import type { SignInScreenProps } from '~/features/auth/SignInScreen';
+
+const props = (over: Partial<SignInScreenProps> = {}): SignInScreenProps => ({
+  submitting: false,
+  opening: false,
+  error: null,
+  onSubmit: () => undefined,
+  onSignIn: () => undefined,
+  ...over,
+});
 
 describe('SignInScreen', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('keeps the sign-in button out of reach until both fields are filled', () => {
+    render(<SignInScreen {...props()} />);
+
+    expect(screen.getByRole('button', { name: 'Увійти' })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'me@example.com' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Увійти' })).toBeDisabled();
   });
 
-  it('invites the user to sign in through the browser', () => {
-    render(<SignInScreen opening={false} error={null} onSignIn={() => undefined} />);
+  it('signs in with what the user typed', () => {
+    const onSubmit = vi.fn();
+    render(<SignInScreen {...props({ onSubmit })} />);
 
-    expect(screen.getByRole('button', { name: /Увійти через Google/ })).toBeEnabled();
-    expect(screen.getByText(/Вхід відкриється в браузері/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'me@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Пароль'), {
+      target: { value: 'password1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Увійти' }));
+
+    expect(onSubmit).toHaveBeenCalledWith('me@example.com', 'password1');
   });
 
-  it('disables the button while the browser is opening', () => {
-    render(<SignInScreen opening error={null} onSignIn={() => undefined} />);
+  it('opens the browser for Google and says so', () => {
+    const onSignIn = vi.fn();
+    render(<SignInScreen {...props({ onSignIn })} />);
 
-    expect(screen.getByRole('button', { name: /Відкриваємо браузер/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Продовжити з Google/ }));
+
+    expect(onSignIn).toHaveBeenCalled();
+    expect(screen.getByText(/Відкриється у браузері/)).toBeInTheDocument();
   });
 
   it('shows why a sign-in failed', () => {
-    render(
-      <SignInScreen
-        opening={false}
-        error="Сервер недоступний"
-        onSignIn={() => undefined}
-      />,
-    );
+    render(<SignInScreen {...props({ error: 'Невірний email або пароль' })} />);
 
-    expect(screen.getByText('Сервер недоступний')).toBeInTheDocument();
+    expect(screen.getByText('Невірний email або пароль')).toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@ export interface HotkeysFieldProps {
 }
 
 const inputClass =
-  'rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500';
+  'rounded-md border border-separator bg-surface-primary px-3 py-2 text-body text-ink-primary outline-none focus:border-accent';
 
 const LABELS: Record<keyof Hotkeys, string> = {
   reply: uk.settings.hotkeyReply,
@@ -24,7 +24,7 @@ export function HotkeysField({ hotkeys, onChange }: HotkeysFieldProps) {
       <div className="flex flex-col gap-2">
         {KEYS.map((key) => (
           <label key={key} className="flex items-center gap-3">
-            <span className="w-56 text-sm text-neutral-400">{LABELS[key]}</span>
+            <span className="w-56 text-body text-ink-secondary">{LABELS[key]}</span>
             <input
               value={hotkeys[key]}
               onChange={(event) => {

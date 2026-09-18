@@ -17,6 +17,8 @@ use super::{
 pub trait BackendApi: Send + Sync {
     async fn health(&self) -> Result<Health>;
 
+    async fn sign_in(&self, email: &str, password: &str) -> Result<Tokens>;
+
     async fn exchange_code(&self, code: &str) -> Result<Tokens>;
 
     async fn me(&self) -> Result<Profile>;

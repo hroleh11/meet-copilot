@@ -14,13 +14,13 @@ interface UseHistoryResult {
   reload: () => void;
 }
 
-export function useHistory(): UseHistoryResult {
+export function useHistory(initialId: string | null = null): UseHistoryResult {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialId);
   const [details, setDetails] = useState<MeetingDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const wanted = useRef<string | null>(null);
+  const wanted = useRef<string | null>(initialId);
 
   const load = useCallback(() => {
     listMeetings()
@@ -41,12 +41,7 @@ export function useHistory(): UseHistoryResult {
 
   useEffect(load, [load]);
 
-  const select = useCallback((id: string) => {
-    wanted.current = id;
-    setSelectedId(id);
-    setDetails(null);
-    setError(null);
-
+  const loadDetails = useCallback((id: string) => {
     getMeeting(id)
       .then((loaded) => {
         if (wanted.current === id) {
@@ -58,6 +53,19 @@ export function useHistory(): UseHistoryResult {
           setError(errorMessage(cause, uk.errors.history));
         }
       });
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) {
+      loadDetails(selectedId);
+    }
+  }, [loadDetails, selectedId]);
+
+  const select = useCallback((id: string) => {
+    wanted.current = id;
+    setSelectedId(id);
+    setDetails(null);
+    setError(null);
   }, []);
 
   return { meetings, selectedId, details, loading, error, select, reload };

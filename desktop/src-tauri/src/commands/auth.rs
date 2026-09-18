@@ -37,6 +37,17 @@ pub async fn start_login(app: AppHandle, state: State<'_, AppState>) -> Result<(
 }
 
 #[tauri::command]
+pub async fn sign_in(
+    email: String,
+    password: String,
+    state: State<'_, AppState>,
+) -> Result<AuthState, CommandError> {
+    state.backend().await.sign_in(&email, &password).await?;
+
+    Ok(current_auth_state(&state).await)
+}
+
+#[tauri::command]
 pub async fn complete_login(
     code: String,
     state: State<'_, AppState>,

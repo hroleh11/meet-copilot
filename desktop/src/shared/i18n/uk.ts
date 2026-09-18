@@ -3,16 +3,21 @@ export const uk = {
   appTagline: 'Слухає зустріч і готує відповідь',
 
   nav: {
-    meeting: 'Зустріч',
-    history: 'Історія',
+    back: 'Назад',
     settings: 'Налаштування',
   },
 
   auth: {
-    title: 'Увійдіть, щоб почати',
-    explanation:
-      'Вхід відкриється в браузері. Після підтвердження застосунок підхопить сесію сам.',
-    signIn: 'Увійти через Google',
+    tagline: 'Асистент для зустрічей на macOS',
+    email: 'Email',
+    emailPlaceholder: 'you@company.com',
+    password: 'Пароль',
+    passwordPlaceholder: '••••••••',
+    submit: 'Увійти',
+    submitting: 'Входимо…',
+    or: 'або',
+    google: 'Продовжити з Google',
+    googleHint: 'Відкриється у браузері за замовчуванням',
     opening: 'Відкриваємо браузер…',
     signOut: 'Вийти',
     signedInAs: 'Ви увійшли як',
@@ -48,8 +53,15 @@ export const uk = {
 
   meeting: {
     title: 'Зустріч',
-    profile: 'Тип зустрічі',
-    language: 'Мова',
+    profile: 'Профіль',
+    language: 'Мова відповіді',
+    sources: 'Джерела звуку',
+    microphone: 'Мікрофон',
+    systemAudio: 'Системний звук',
+    sourceConnected: 'Підключено',
+    sourceMissing: 'Немає доступу',
+    sourceUnchecked: 'Не перевірено',
+    hotkeyHint: '{hotkey} під час зустрічі — відповідь в оверлей',
     start: 'Почати слухати',
     stop: 'Зупинити',
     starting: 'Запускаємо…',
@@ -58,7 +70,7 @@ export const uk = {
     idle: 'Не слухаю',
     emptyTranscript: 'Транскрипт з’явиться, щойно хтось заговорить.',
     me: 'Я',
-    other: 'Співрозмовник',
+    other: 'Інші',
     connection: 'З’єднання',
     sourceActive: 'Працює',
     sourceOff: 'Вимкнено',
@@ -93,6 +105,11 @@ export const uk = {
 
   history: {
     title: 'Історія',
+    recent: 'Останні зустрічі',
+    all: 'Усі',
+    today: 'Сьогодні',
+    yesterday: 'Вчора',
+    minutes: 'хв',
     empty: 'Тут з’являться завершені зустрічі.',
     loading: 'Завантажуємо…',
     refresh: 'Оновити',
@@ -111,13 +128,15 @@ export const uk = {
   },
 
   answer: {
-    reply: 'Відповідь',
+    transcript: 'Транскрипт',
+    title: 'Відповідь',
     alternative: 'Інший варіант',
-    writing: 'пишу…',
     waiting: 'Готую відповідь…',
-    copy: 'Копіювати',
+    copy: 'Скопіювати',
     copied: 'Скопійовано',
-    close: 'Закрити',
+    listening: 'Слухаю',
+    recording: 'Записую',
+    idle: 'Не слухаю',
   },
 
   language: {
@@ -128,12 +147,13 @@ export const uk = {
 
   profile: {
     daily: 'Дейлі',
-    interview_candidate: 'Співбесіда, я кандидат',
-    client_call: 'Дзвінок з клієнтом',
+    interview_candidate: 'Співбесіда',
+    client_call: 'Клієнт',
   },
 
   errors: {
     login: 'Не вдалося увійти',
+    badCredentials: 'Невірний email або пароль',
     settings: 'Не вдалося зберегти налаштування',
     backend: 'Сервер недоступний',
     session: 'Не вдалося керувати зустріччю',

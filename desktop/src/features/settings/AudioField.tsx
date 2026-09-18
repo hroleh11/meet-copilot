@@ -8,7 +8,7 @@ export interface AudioFieldProps {
 }
 
 const selectClass =
-  'rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500';
+  'rounded-md border border-separator bg-surface-primary px-3 py-2 text-body text-ink-primary outline-none focus:border-accent';
 
 export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
   const { devices, running, levels, systemAudioProblem, error, toggle } = useAudioCheck();
@@ -33,13 +33,13 @@ export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <span className="w-28 shrink-0 text-xs text-neutral-400">
+            <span className="w-28 shrink-0 text-caption text-ink-secondary">
               {uk.settings.microphone}
             </span>
             <LevelMeter level={levels.me} />
           </div>
           <div className="flex items-center gap-3">
-            <span className="w-28 shrink-0 text-xs text-neutral-400">
+            <span className="w-28 shrink-0 text-caption text-ink-secondary">
               {uk.settings.systemAudio}
             </span>
             <LevelMeter level={levels.other} />
@@ -58,9 +58,9 @@ export function AudioField({ deviceId, onDeviceChange }: AudioFieldProps) {
         </div>
 
         {systemAudioProblem ? (
-          <p className="text-sm text-amber-400">{uk.settings.screenRecordingNeeded}</p>
+          <p className="text-body text-danger">{uk.settings.screenRecordingNeeded}</p>
         ) : null}
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {error ? <p className="text-body text-danger">{error}</p> : null}
       </div>
     </Field>
   );

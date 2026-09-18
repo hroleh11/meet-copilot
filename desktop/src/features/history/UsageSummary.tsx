@@ -19,11 +19,11 @@ export function UsageSummary({ usage }: UsageSummaryProps) {
   ];
 
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-body">
       {rows.map((row) => (
         <div key={row.label} className="flex justify-between gap-3">
-          <dt className="text-neutral-500">{row.label}</dt>
-          <dd className="text-neutral-200">{row.value}</dd>
+          <dt className="text-ink-tertiary">{row.label}</dt>
+          <dd className="text-ink-primary">{row.value}</dd>
         </div>
       ))}
     </dl>

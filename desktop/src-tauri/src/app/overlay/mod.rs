@@ -1,8 +1,12 @@
+#[cfg(target_os = "macos")]
+mod macos;
+
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewWindow};
 
 pub const LABEL: &str = "overlay";
 
-const BOTTOM_MARGIN: f64 = 96.0;
+const TOP_MARGIN: f64 = 56.0;
+const RIGHT_MARGIN: f64 = 64.0;
 
 pub fn prepare(app: &AppHandle) {
     let Some(window) = window(app) else { return };
@@ -10,6 +14,13 @@ pub fn prepare(app: &AppHandle) {
     if let Err(error) = window.set_content_protected(true) {
         tracing::warn!("could not hide the overlay from screen sharing: {error}");
     }
+
+    if let Err(error) = window.set_visible_on_all_workspaces(true) {
+        tracing::warn!("could not keep the overlay on every space: {error}");
+    }
+
+    #[cfg(target_os = "macos")]
+    macos::float_above_everything(&window);
 }
 
 pub fn show(app: &AppHandle) {
@@ -62,9 +73,9 @@ fn place(window: &WebviewWindow) {
     let screen = monitor.size();
     let scale = monitor.scale_factor();
     let position = PhysicalPosition::new(
-        monitor.position().x + ((screen.width as f64 - size.width as f64) / 2.0) as i32,
-        monitor.position().y
-            + (screen.height as f64 - size.height as f64 - BOTTOM_MARGIN * scale) as i32,
+        monitor.position().x
+            + (screen.width as f64 - size.width as f64 - RIGHT_MARGIN * scale) as i32,
+        monitor.position().y + (TOP_MARGIN * scale) as i32,
     );
 
     if let Err(error) = window.set_position(position) {

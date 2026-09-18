@@ -25,13 +25,17 @@ export function isCommandError(value: unknown): value is CommandError {
   );
 }
 
-export function errorMessage(value: unknown, fallback: string): string {
+export function errorMessage(
+  value: unknown,
+  fallback: string,
+  overrides: Partial<Record<BackendFailure, string>> = {},
+): string {
   if (!isCommandError(value)) {
     return fallback;
   }
 
   if (value.failure) {
-    return BY_FAILURE[value.failure];
+    return overrides[value.failure] ?? BY_FAILURE[value.failure];
   }
 
   return BY_KIND[value.kind] ?? fallback;

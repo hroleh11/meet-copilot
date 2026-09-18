@@ -20,13 +20,15 @@ export function MeetingList({ meetings, selectedId, onSelect }: MeetingListProps
               onSelect(meeting.id);
             }}
             className={`w-full rounded-md px-3 py-2 text-left transition ${
-              meeting.id === selectedId ? 'bg-neutral-800' : 'hover:bg-neutral-800/50'
+              meeting.id === selectedId
+                ? 'bg-surface-secondary'
+                : 'hover:bg-surface-secondary'
             }`}
           >
-            <span className="block text-sm text-neutral-100">
+            <span className="block text-body text-ink-primary">
               {meeting.title ?? uk.profile[meeting.profile]}
             </span>
-            <span className="block text-xs text-neutral-500">
+            <span className="block text-caption text-ink-tertiary">
               {formatDateTime(meeting.startedAt)}
               {meeting.status === 'live' ? ` · ${uk.history.live}` : ''}
             </span>

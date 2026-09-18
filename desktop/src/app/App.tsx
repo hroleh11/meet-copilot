@@ -4,22 +4,31 @@ import { useAuth } from '~/features/auth/useAuth';
 import { HistoryScreen } from '~/features/history/HistoryScreen';
 import { OnboardingScreen } from '~/features/onboarding/OnboardingScreen';
 import { useSettings } from '~/features/settings/useSettings';
+import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
-import { AppHeader } from './AppHeader';
-import type { Tab } from './AppHeader';
-import { MeetingScreen } from './MeetingScreen';
+import { MainWindow } from './MainWindow';
 import { SettingsScreen } from './SettingsScreen';
+import { TitleBar } from './TitleBar';
+
+type View =
+  { name: 'main' } | { name: 'history'; meetingId: string | null } | { name: 'settings' };
+
+const TITLE: Record<View['name'], string> = {
+  main: uk.appName,
+  history: uk.history.title,
+  settings: uk.nav.settings,
+};
 
 export function App() {
   const auth = useAuth();
   const settings = useSettings(auth.signedIn);
-  const [tab, setTab] = useState<Tab>('meeting');
+  const [view, setView] = useState<View>({ name: 'main' });
   const [eventError, setEventError] = useState<string | null>(null);
 
   useAppEvents(useCallback((message: string) => setEventError(message), []));
 
   if (!auth.ready || !settings.local) {
-    return <main className="h-full bg-neutral-950" />;
+    return <main className="h-full bg-surface-primary" />;
   }
 
   if (!settings.local.onboarded) {
@@ -39,40 +48,68 @@ export function App() {
   if (!auth.signedIn) {
     return (
       <SignInScreen
+        submitting={auth.submitting}
         opening={auth.opening}
         error={auth.error ?? eventError}
+        onSubmit={auth.signInWithPassword}
         onSignIn={auth.signIn}
       />
     );
   }
 
   return (
-    <main className="h-full overflow-y-auto bg-neutral-950 text-neutral-100">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
-        <AppHeader
-          email={auth.profileEmail}
-          tab={tab}
-          onTab={setTab}
-          onSignOut={auth.signOut}
-        />
+    <div className="flex h-full flex-col bg-surface-primary text-ink-primary">
+      <TitleBar
+        title={TITLE[view.name]}
+        onBack={
+          view.name === 'main'
+            ? null
+            : () => {
+                setView({ name: 'main' });
+              }
+        }
+        onOpenSettings={() => {
+          setView({ name: 'settings' });
+        }}
+      />
 
-        {tab === 'meeting' ? <MeetingScreen defaults={settings.user} /> : null}
-        {tab === 'history' ? <HistoryScreen /> : null}
-        {tab === 'settings' ? (
+      {view.name === 'main' ? (
+        <MainWindow
+          defaults={settings.user}
+          hotkey={settings.local.hotkeys.reply}
+          onOpenMeeting={(meetingId) => {
+            setView({ name: 'history', meetingId });
+          }}
+          onOpenAll={() => {
+            setView({ name: 'history', meetingId: null });
+          }}
+        />
+      ) : null}
+
+      {view.name === 'history' ? (
+        <div className="min-h-0 flex-grow overflow-y-auto p-5">
+          <HistoryScreen initialMeetingId={view.meetingId} />
+        </div>
+      ) : null}
+
+      {view.name === 'settings' ? (
+        <div className="min-h-0 flex-grow overflow-y-auto p-5">
           <SettingsScreen
             local={settings.local}
             user={settings.user}
             status={settings.status}
+            email={auth.profileEmail}
             onSaveLocal={settings.saveLocal}
             onSaveUser={settings.saveUser}
             onTestConnection={settings.testConnection}
+            onSignOut={auth.signOut}
           />
-        ) : null}
+        </div>
+      ) : null}
 
-        {(settings.error ?? eventError) ? (
-          <p className="text-sm text-red-400">{settings.error ?? eventError}</p>
-        ) : null}
-      </div>
-    </main>
+      {(settings.error ?? eventError) ? (
+        <p className="px-5 pb-3 text-body text-danger">{settings.error ?? eventError}</p>
+      ) : null}
+    </div>
   );
 }

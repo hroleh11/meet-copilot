@@ -1,22 +1,22 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost';
   children: ReactNode;
 }
 
 const STYLES = {
-  primary:
-    'bg-neutral-100 text-neutral-900 hover:bg-white disabled:bg-neutral-700 disabled:text-neutral-400',
-  ghost:
-    'border border-neutral-700 text-neutral-200 hover:border-neutral-500 disabled:text-neutral-500',
+  primary: 'bg-accent text-white hover:brightness-95 disabled:opacity-40',
+  secondary:
+    'border border-separator bg-surface-elevated text-ink-primary hover:brightness-95 disabled:opacity-40',
+  ghost: 'text-accent hover:bg-separator disabled:opacity-40',
 } as const;
 
 export function Button({ variant = 'primary', className = '', ...props }: ButtonProps) {
   return (
     <button
       {...props}
-      className={`rounded-md px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${STYLES[variant]} ${className}`}
+      className={`flex items-center justify-center gap-2 rounded-md px-3 text-body-emphasized transition disabled:cursor-not-allowed ${STYLES[variant]} ${className}`}
     />
   );
 }

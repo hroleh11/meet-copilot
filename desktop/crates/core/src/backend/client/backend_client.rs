@@ -35,6 +35,13 @@ struct ExchangeBody<'a> {
     code: &'a str,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SignInBody<'a> {
+    email: &'a str,
+    password: &'a str,
+}
+
 pub struct BackendClient {
     transport: Arc<Transport>,
 }
@@ -73,6 +80,21 @@ impl BackendApi for BackendClient {
         self.transport
             .public(Method::GET, "health", None::<&()>)
             .await
+    }
+
+    async fn sign_in(&self, email: &str, password: &str) -> Result<Tokens> {
+        let tokens: Tokens = self
+            .transport
+            .public(
+                Method::POST,
+                "auth/login",
+                Some(&SignInBody { email, password }),
+            )
+            .await?;
+
+        self.transport.credentials().store(&tokens).await?;
+
+        Ok(tokens)
     }
 
     async fn exchange_code(&self, code: &str) -> Result<Tokens> {

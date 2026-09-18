@@ -95,6 +95,10 @@ impl BackendApi for FakeBackend {
         unused()
     }
 
+    async fn sign_in(&self, _email: &str, _password: &str) -> Result<Tokens> {
+        unused()
+    }
+
     async fn exchange_code(&self, _code: &str) -> Result<Tokens> {
         unused()
     }

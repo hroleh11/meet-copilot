@@ -4,18 +4,22 @@ import { MeetingDetailsPanel } from './MeetingDetailsPanel';
 import { MeetingList } from './MeetingList';
 import { useHistory } from './useHistory';
 
-export function HistoryScreen() {
-  const history = useHistory();
+export interface HistoryScreenProps {
+  initialMeetingId: string | null;
+}
+
+export function HistoryScreen({ initialMeetingId }: HistoryScreenProps) {
+  const history = useHistory(initialMeetingId);
 
   return (
     <>
       <Panel title={uk.history.title}>
         {history.loading ? (
-          <p className="text-sm text-neutral-500">{uk.history.loading}</p>
+          <p className="text-body text-ink-tertiary">{uk.history.loading}</p>
         ) : null}
 
         {!history.loading && history.meetings.length === 0 ? (
-          <p className="text-sm text-neutral-500">{uk.history.empty}</p>
+          <p className="text-body text-ink-tertiary">{uk.history.empty}</p>
         ) : (
           <MeetingList
             meetings={history.meetings}
@@ -30,13 +34,13 @@ export function HistoryScreen() {
           </Button>
         </div>
 
-        {history.error ? <p className="text-sm text-red-400">{history.error}</p> : null}
+        {history.error ? <p className="text-body text-danger">{history.error}</p> : null}
       </Panel>
 
       {history.details ? (
         <MeetingDetailsPanel details={history.details} />
       ) : (
-        <p className="text-sm text-neutral-500">{uk.history.pick}</p>
+        <p className="text-body text-ink-tertiary">{uk.history.pick}</p>
       )}
     </>
   );
