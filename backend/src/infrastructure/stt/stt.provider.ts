@@ -15,7 +15,7 @@ export interface SttStreamHandlers {
 
 export interface SttStream {
   send(audio: Buffer): void;
-  close(): void;
+  close(): Promise<void>;
 }
 
 export abstract class SttProvider {

@@ -21,7 +21,7 @@ class FakeSttProvider extends SttProvider {
       send: (audio: Buffer) => {
         this.received += audio.byteLength;
       },
-      close: () => undefined,
+      close: () => Promise.resolve(),
     });
   }
 }

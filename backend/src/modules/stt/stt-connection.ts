@@ -57,7 +57,7 @@ export class SttConnection {
     });
 
     if (this.closed) {
-      stream.close();
+      await stream.close();
       return;
     }
 
@@ -121,8 +121,10 @@ export class SttConnection {
     }
 
     this.closed = true;
-    this.stream?.close();
+
+    const stream = this.stream;
     this.stream = null;
+    await stream?.close();
 
     await this.deps.usageRecorder.record({
       userId: this.context.userId,

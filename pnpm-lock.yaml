@@ -118,9 +118,6 @@ importers:
 
   backend:
     dependencies:
-      '@deepgram/sdk':
-        specifier: ^5.11.0
-        version: 5.11.0
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.2.5(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
@@ -631,10 +628,6 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
-
-  '@deepgram/sdk@5.11.0':
-    resolution: {integrity: sha512-7/7XZdiSZILNWuK6jGtLX0s4rNtkMz3DU6Nbag3HO5wr+LIpNNO53ODnNoVtC/RfyoTRXeZtdY76j3CyGRQicQ==}
-    engines: {node: '>=18.0.0'}
 
   '@electric-sql/pglite-socket@0.1.3':
     resolution: {integrity: sha512-LAciWM0M1dCL8hlsxu2venbVZcdxema0BtDfpWYVqr+Y468UADw0pFWidhKw1M8sfJ8rdLT71tjMmnirf/IZRQ==}
@@ -5780,13 +5773,6 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
-
-  '@deepgram/sdk@5.11.0':
-    dependencies:
-      ws: 8.21.3
-    transitivePeerDependencies:
-      - bufferutil
-      - utf-8-validate
 
   '@electric-sql/pglite-socket@0.1.3(@electric-sql/pglite@0.4.3)':
     dependencies:

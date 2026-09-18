@@ -13,7 +13,7 @@
 |---|---|
 | Репозиторій | pnpm workspace: `desktop`, `backend`. Спільні документи в `docs` |
 | Стиль бекенду | Конвенції перенесені з референсного проєкту: `common` / `infrastructure` / `modules`, репозиторій на всі запити Prisma, `index.ts` як публічний інтерфейс модуля, аліас `~`, zod для env, Swagger |
-| Бекенд | NestJS 11, TypeScript strict, Prisma 7 з `@prisma/adapter-pg`, PostgreSQL, ioredis, `@anthropic-ai/sdk`, `@deepgram/sdk` |
+| Бекенд | NestJS 11, TypeScript strict, Prisma 7 з `@prisma/adapter-pg`, PostgreSQL, ioredis, `@anthropic-ai/sdk`, Deepgram через `ws` |
 | Інфраструктура для розробки | `docker compose` у корені піднімає Postgres і Redis. Бекенд запускається локально через pnpm |
 | Postgres | Користувачі, облікові дані, налаштування, зустрічі, фінальні сегменти, генерації, облік витрат |
 | Redis | Живий стан зустрічі: вікно свіжих сегментів, резюме, остання відповідь, блокування резюмування. Плюс одноразові коди входу для застосунку. TTL на все |
@@ -103,7 +103,7 @@ desktop/src                  React UI: головне вікно, оверлей
 - Результат: через Swagger можна створити зустріч, побачити її в списку й завершити.
 
 ### 5. Бекенд: розпізнавання мови
-- `infrastructure/stt`: `SttProvider` із реалізацією на Deepgram live API.
+- `infrastructure/stt`: `SttProvider` із реалізацією на Deepgram live API через прямий WebSocket.
 - `modules/stt`: WebSocket `/v1/meetings/:id/stt?speaker=me`, авторизація тим самим access-токеном, одне з'єднання провайдера на одне клієнтське.
 - Фінальні сегменти пишуться в Postgres і у вікно в Redis, проміжні лише повертаються клієнту.
 - Тест з фейковим провайдером.
