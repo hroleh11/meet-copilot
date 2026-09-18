@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { merge, type TranscriptLine } from './sessionStore';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { merge, useSessionStore, type TranscriptLine } from './sessionStore';
 
 const interim = (speaker: TranscriptLine['speaker'], text: string): TranscriptLine => ({
   id: `interim-${speaker}`,
@@ -55,5 +55,31 @@ describe('merge', () => {
     ].reduce(merge, [] as TranscriptLine[]);
 
     expect(lines.map((line) => line.id)).toEqual(['seg-1', 'seg-2', 'seg-3']);
+  });
+});
+
+describe('source statuses', () => {
+  beforeEach(() => {
+    useSessionStore.getState().setState('listening', 'm-1', null);
+  });
+
+  it('keeps one status per source', () => {
+    const store = useSessionStore.getState();
+
+    store.setSource({ speaker: 'other', active: false });
+    store.setSource({ speaker: 'other', active: true });
+
+    expect(useSessionStore.getState().sources).toEqual([
+      { speaker: 'other', active: true },
+    ]);
+  });
+
+  it('forgets the sources once the meeting is over', () => {
+    const store = useSessionStore.getState();
+
+    store.setSource({ speaker: 'me', active: true });
+    store.setState('idle', null, null);
+
+    expect(useSessionStore.getState().sources).toEqual([]);
   });
 });

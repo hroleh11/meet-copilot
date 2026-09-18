@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { SessionState, Speaker } from '~/shared/ipc';
 
+export interface SourceStatus {
+  speaker: Speaker;
+  active: boolean;
+}
+
 export interface TranscriptLine {
   id: string;
   speaker: Speaker;
@@ -12,12 +17,14 @@ interface SessionStore {
   state: SessionState;
   meetingId: string | null;
   notice: string | null;
+  sources: SourceStatus[];
   lines: TranscriptLine[];
   setState: (
     state: SessionState,
     meetingId: string | null,
     notice: string | null,
   ) => void;
+  setSource: (status: SourceStatus) => void;
   addLine: (line: TranscriptLine) => void;
   clearTranscript: () => void;
 }
@@ -26,11 +33,26 @@ export const useSessionStore = create<SessionStore>((set) => ({
   state: 'idle',
   meetingId: null,
   notice: null,
+  sources: [],
   lines: [],
-  setState: (state, meetingId, notice) => set({ state, meetingId, notice }),
+  setState: (state, meetingId, notice) =>
+    set((store) => ({
+      state,
+      meetingId,
+      notice,
+      sources: state === 'listening' ? store.sources : [],
+    })),
+  setSource: (status) =>
+    set((store) => ({ sources: replaceSource(store.sources, status) })),
   addLine: (line) => set((store) => ({ lines: merge(store.lines, line) })),
   clearTranscript: () => set({ lines: [] }),
 }));
+
+function replaceSource(sources: SourceStatus[], status: SourceStatus): SourceStatus[] {
+  const kept = sources.filter((source) => source.speaker !== status.speaker);
+
+  return [...kept, status];
+}
 
 export function merge(lines: TranscriptLine[], line: TranscriptLine): TranscriptLine[] {
   const kept = line.isFinal

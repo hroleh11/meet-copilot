@@ -16,8 +16,11 @@ const props = (over: Partial<SessionPanelProps> = {}): SessionPanelProps => ({
   notice: null,
   error: null,
   defaults: settings,
+  sources: [],
+  connection: 'reachable',
   onStart: () => undefined,
   onStop: () => undefined,
+  onRetryConnection: () => undefined,
   ...over,
 });
 
@@ -43,14 +46,17 @@ describe('SessionPanel', () => {
     expect(onStop).toHaveBeenCalled();
   });
 
-  it('reports a problem with the meeting audio without hiding the controls', () => {
+  it('warns in plain words when a source dropped, without hiding the controls', () => {
     render(
       <SessionPanel
-        {...props({ state: 'listening', notice: 'Звук зустрічі недоступний' })}
+        {...props({
+          state: 'listening',
+          notice: 'Capturing the other side is not available on this system',
+        })}
       />,
     );
 
-    expect(screen.getByText('Звук зустрічі недоступний')).toBeInTheDocument();
+    expect(screen.getByText(/Частину зустрічі може бути не чути/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Зупинити/ })).toBeEnabled();
   });
 });

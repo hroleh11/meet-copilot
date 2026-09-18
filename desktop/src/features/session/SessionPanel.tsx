@@ -1,7 +1,10 @@
 import { uk } from '~/shared/i18n/uk';
 import type { Language, MeetingProfile, SessionState, UserSettings } from '~/shared/ipc';
 import { useResettableDraft } from '~/shared/lib/useResettableDraft';
+import type { SourceStatus } from '~/shared/store/sessionStore';
 import { Button, Field, Panel } from '~/shared/ui';
+import { StatusList } from './StatusList';
+import type { ConnectionState } from './useConnection';
 
 export interface SessionPanelProps {
   state: SessionState;
@@ -9,8 +12,11 @@ export interface SessionPanelProps {
   notice: string | null;
   error: string | null;
   defaults: UserSettings | null;
+  sources: SourceStatus[];
+  connection: ConnectionState;
   onStart: (profile: MeetingProfile, language: Language) => void;
   onStop: () => void;
+  onRetryConnection: () => void;
 }
 
 const LANGUAGES: Language[] = ['uk', 'en', 'ru'];
@@ -19,21 +25,17 @@ const PROFILES: MeetingProfile[] = ['daily', 'interview_candidate', 'client_call
 const selectClass =
   'rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500 disabled:opacity-50';
 
-const STATUS: Record<SessionState, string> = {
-  idle: uk.meeting.idle,
-  starting: uk.meeting.starting,
-  listening: uk.meeting.listening,
-  stopping: uk.meeting.stopping,
-};
-
 export function SessionPanel({
   state,
   busy,
   notice,
   error,
   defaults,
+  sources,
+  connection,
   onStart,
   onStop,
+  onRetryConnection,
 }: SessionPanelProps) {
   const [profile, setProfile] = useResettableDraft<MeetingProfile>(
     defaults?.defaultProfile ?? 'daily',
@@ -46,12 +48,12 @@ export function SessionPanel({
 
   return (
     <Panel title={uk.meeting.title}>
-      <div className="flex items-center gap-2 text-sm">
-        <span
-          className={`h-2 w-2 rounded-full ${listening ? 'bg-emerald-500' : 'bg-neutral-600'}`}
-        />
-        <span className="text-neutral-300">{STATUS[state]}</span>
-      </div>
+      <StatusList
+        state={state}
+        sources={sources}
+        connection={connection}
+        onRetryConnection={onRetryConnection}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <Field label={uk.meeting.profile}>
@@ -104,7 +106,7 @@ export function SessionPanel({
         </Button>
       </div>
 
-      {notice ? <p className="text-sm text-amber-400">{notice}</p> : null}
+      {notice ? <p className="text-sm text-amber-400">{uk.meeting.problem}</p> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}
     </Panel>
   );

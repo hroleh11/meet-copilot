@@ -11,7 +11,7 @@ use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
     app::{platform_sources::PlatformSources, Emitter},
-    events::{SessionStateEvent, TranscriptSegmentEvent},
+    events::{SessionStateEvent, SourceStatusEvent, TranscriptSegmentEvent},
 };
 
 const TRANSCRIPT_CHANNEL_CAPACITY: usize = 128;
@@ -84,6 +84,8 @@ impl MeetingSession {
             message: started.system_audio_problem.clone(),
         });
 
+        announce_sources(&emitter, started.system_audio_problem.is_none());
+
         Ok(started)
     }
 
@@ -108,6 +110,18 @@ impl MeetingSession {
 
         stopped.map(|_| ())
     }
+}
+
+fn announce_sources(emitter: &Emitter, system_audio: bool) {
+    emitter.source_status(SourceStatusEvent {
+        speaker: Speaker::Me,
+        active: true,
+    });
+
+    emitter.source_status(SourceStatusEvent {
+        speaker: Speaker::Other,
+        active: system_audio,
+    });
 }
 
 async fn forward(mut incoming: mpsc::Receiver<SttEvent>, emitter: Emitter) {

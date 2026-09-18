@@ -10,6 +10,7 @@ export type {
   GenerationFinishedEvent,
   GenerationStartedEvent,
   SessionStateEvent,
+  SourceStatusEvent,
   TranscriptSegmentEvent,
 } from './events';
 export type {

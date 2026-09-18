@@ -8,6 +8,7 @@ pub const AUTH_STATE: &str = "auth:state";
 pub const SESSION_STATE: &str = "session:state";
 pub const AUDIO_LEVEL: &str = "audio:level";
 pub const TRANSCRIPT_SEGMENT: &str = "transcript:segment";
+pub const SOURCE_STATUS: &str = "source:status";
 pub const GENERATION_STARTED: &str = "generation:started";
 pub const GENERATION_DELTA: &str = "generation:delta";
 pub const GENERATION_FINISHED: &str = "generation:finished";
@@ -43,6 +44,13 @@ pub struct TranscriptSegmentEvent {
     pub speaker: Speaker,
     pub text: String,
     pub is_final: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceStatusEvent {
+    pub speaker: Speaker,
+    pub active: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

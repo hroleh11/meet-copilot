@@ -63,7 +63,7 @@ desktop/src-tauri/src
   deep_link/     обробка meetcopilot://auth
 
 desktop/src
-  app/           маршрутизація, провайдери
+  app/           оболонка головного вікна: шапка, вкладки «Зустріч», «Історія», «Налаштування»
   features/      auth, session, transcript, answer, settings, history, access
   shared/        ipc, ui, store, lib, i18n
 ```
@@ -98,6 +98,8 @@ desktop/src
 - `POST /meetings/:id/finish` → `{ id, status, endedAt }`
 - `GET /meetings` → список без транскриптів, новіші першими
 - `GET /meetings/:id` → зустріч, `summary`, `segments`, `generations`, `usage`
+
+Бекенд віддає лише спожиті токени й секунди аудіо. Приблизну вартість рахує застосунок у `desktop/src/features/history/cost.ts`: тарифи лежать одним набором констант, бо точні гроші з'являться разом із підпискою і рахуватиме їх бекенд.
 
 Значення: `profile` це `daily | interview_candidate | client_call`, `language` це `uk | en | ru`, `mode` це `reply | alternative`, `speaker` це `me | other`.
 
@@ -274,7 +276,9 @@ HTTP-клієнт для генерації окремий, без загаль�
 
 Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
 
-Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
+Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
+
+`source:status` приходить по одній події на джерело одразу після старту зустрічі: `{ speaker, active }`. UI показує з них статуси мікрофона й звуку зустрічі і забуває їх, коли зустріч закінчується.
 
 Назви подій і форми payload визначені один раз у `desktop/src-tauri/src/events.rs` і продубльовані типами в `desktop/src/shared/ipc/events.ts`.
 

@@ -4,6 +4,8 @@ import type {
   GenerationMode,
   Language,
   LocalSettings,
+  Meeting,
+  MeetingDetails,
   MeetingProfile,
   Profile,
   SessionState,
@@ -53,6 +55,11 @@ export interface StartedMeeting {
   meetingId: string;
   systemAudioProblem: string | null;
 }
+
+export const listMeetings = (): Promise<Meeting[]> => invoke('list_meetings');
+
+export const getMeeting = (id: string): Promise<MeetingDetails> =>
+  invoke('get_meeting', { id });
 
 export const sessionState = (): Promise<SessionState> => invoke('session_state');
 

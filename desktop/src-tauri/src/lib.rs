@@ -44,6 +44,8 @@ pub fn run() {
             commands::list_audio_devices,
             commands::start_audio_check,
             commands::stop_audio_check,
+            commands::list_meetings,
+            commands::get_meeting,
             commands::session_state,
             commands::start_session,
             commands::stop_session,

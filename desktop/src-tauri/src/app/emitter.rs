@@ -3,9 +3,10 @@ use tauri::{AppHandle, Emitter as TauriEmitter};
 
 use crate::events::{
     AppErrorEvent, AudioLevelEvent, AuthStateEvent, GenerationDeltaEvent, GenerationFailedEvent,
-    GenerationFinishedEvent, GenerationStartedEvent, SessionStateEvent, TranscriptSegmentEvent,
-    APP_ERROR, AUDIO_LEVEL, AUTH_STATE, GENERATION_DELTA, GENERATION_FAILED, GENERATION_FINISHED,
-    GENERATION_STARTED, SESSION_STATE, TRANSCRIPT_SEGMENT,
+    GenerationFinishedEvent, GenerationStartedEvent, SessionStateEvent, SourceStatusEvent,
+    TranscriptSegmentEvent, APP_ERROR, AUDIO_LEVEL, AUTH_STATE, GENERATION_DELTA,
+    GENERATION_FAILED, GENERATION_FINISHED, GENERATION_STARTED, SESSION_STATE, SOURCE_STATUS,
+    TRANSCRIPT_SEGMENT,
 };
 
 #[derive(Clone)]
@@ -36,6 +37,10 @@ impl Emitter {
 
     pub fn transcript_segment(&self, event: TranscriptSegmentEvent) {
         self.send(TRANSCRIPT_SEGMENT, event);
+    }
+
+    pub fn source_status(&self, event: SourceStatusEvent) {
+        self.send(SOURCE_STATUS, event);
     }
 
     pub fn generation_started(&self, event: GenerationStartedEvent) {

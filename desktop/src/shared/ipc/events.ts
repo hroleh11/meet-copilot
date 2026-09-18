@@ -13,6 +13,7 @@ export const APP_EVENT = {
   sessionState: 'session:state',
   audioLevel: 'audio:level',
   transcriptSegment: 'transcript:segment',
+  sourceStatus: 'source:status',
   generationStarted: 'generation:started',
   generationDelta: 'generation:delta',
   generationFinished: 'generation:finished',
@@ -43,6 +44,11 @@ export interface TranscriptSegmentEvent {
   isFinal: boolean;
 }
 
+export interface SourceStatusEvent {
+  speaker: Speaker;
+  active: boolean;
+}
+
 export interface GenerationStartedEvent {
   mode: GenerationMode;
 }
@@ -71,6 +77,7 @@ export interface AppEventPayloads {
   [APP_EVENT.sessionState]: SessionStateEvent;
   [APP_EVENT.audioLevel]: AudioLevelEvent;
   [APP_EVENT.transcriptSegment]: TranscriptSegmentEvent;
+  [APP_EVENT.sourceStatus]: SourceStatusEvent;
   [APP_EVENT.generationStarted]: GenerationStartedEvent;
   [APP_EVENT.generationDelta]: GenerationDeltaEvent;
   [APP_EVENT.generationFinished]: GenerationFinishedEvent;

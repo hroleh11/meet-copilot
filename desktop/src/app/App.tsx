@@ -1,22 +1,18 @@
 import { useCallback, useState } from 'react';
 import { SignInScreen } from '~/features/auth/SignInScreen';
 import { useAuth } from '~/features/auth/useAuth';
-import { SessionPanel } from '~/features/session/SessionPanel';
-import { useSession } from '~/features/session/useSession';
-import { LocalSettingsPanel } from '~/features/settings/LocalSettingsPanel';
-import { UserSettingsPanel } from '~/features/settings/UserSettingsPanel';
+import { HistoryScreen } from '~/features/history/HistoryScreen';
 import { useSettings } from '~/features/settings/useSettings';
-import { TranscriptPanel } from '~/features/transcript/TranscriptPanel';
-import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
-import { useSessionStore } from '~/shared/store/sessionStore';
-import { Button } from '~/shared/ui';
+import { AppHeader } from './AppHeader';
+import type { Tab } from './AppHeader';
+import { MeetingScreen } from './MeetingScreen';
+import { SettingsScreen } from './SettingsScreen';
 
 export function App() {
   const auth = useAuth();
   const settings = useSettings(auth.signedIn);
-  const session = useSession();
-  const lines = useSessionStore((store) => store.lines);
+  const [tab, setTab] = useState<Tab>('meeting');
   const [eventError, setEventError] = useState<string | null>(null);
 
   useAppEvents(useCallback((message: string) => setEventError(message), []));
@@ -38,45 +34,26 @@ export function App() {
   return (
     <main className="h-full overflow-y-auto bg-neutral-950 text-neutral-100">
       <div className="mx-auto flex max-w-2xl flex-col gap-6 px-8 py-10">
-        <header className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-semibold">{uk.appName}</h1>
-            <p className="text-sm text-neutral-400">
-              {uk.auth.signedInAs} {auth.profileEmail}
-            </p>
-          </div>
-          <Button variant="ghost" onClick={auth.signOut}>
-            {uk.auth.signOut}
-          </Button>
-        </header>
-
-        <SessionPanel
-          state={session.state}
-          busy={session.busy}
-          notice={session.notice}
-          error={session.error}
-          defaults={settings.user}
-          onStart={session.start}
-          onStop={session.stop}
+        <AppHeader
+          email={auth.profileEmail}
+          tab={tab}
+          onTab={setTab}
+          onSignOut={auth.signOut}
         />
 
-        <TranscriptPanel lines={lines} />
-
-        {settings.local ? (
-          <LocalSettingsPanel
-            settings={settings.local}
-            onSave={settings.saveLocal}
+        {tab === 'meeting' ? <MeetingScreen defaults={settings.user} /> : null}
+        {tab === 'history' ? <HistoryScreen /> : null}
+        {tab === 'settings' ? (
+          <SettingsScreen
+            local={settings.local}
+            user={settings.user}
+            status={settings.status}
+            onSaveLocal={settings.saveLocal}
+            onSaveUser={settings.saveUser}
             onTestConnection={settings.testConnection}
           />
         ) : null}
 
-        {settings.user ? (
-          <UserSettingsPanel settings={settings.user} onSave={settings.saveUser} />
-        ) : null}
-
-        {settings.status ? (
-          <p className="text-sm text-emerald-400">{settings.status}</p>
-        ) : null}
         {(settings.error ?? eventError) ? (
           <p className="text-sm text-red-400">{settings.error ?? eventError}</p>
         ) : null}
