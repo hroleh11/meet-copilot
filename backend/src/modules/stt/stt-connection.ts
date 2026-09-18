@@ -5,6 +5,7 @@ import type { MeetingStateStore, MeetingsRepository } from '~/modules/meetings';
 import type { UsageRecorder } from '~/modules/usage';
 import {
   STT_CLOSE_CODE,
+  STT_FINISH_REQUEST,
   type SttClientMessage,
   type SttSessionContext,
 } from './types/stt.types';
@@ -23,6 +24,7 @@ export class SttConnection {
   private readonly logger = new Logger(SttConnection.name);
   private stream: SttStream | null = null;
   private pending: Buffer[] = [];
+  private results: Promise<void> = Promise.resolve();
   private receivedBytes = 0;
   private closed = false;
 
@@ -35,6 +37,10 @@ export class SttConnection {
   async start(): Promise<void> {
     this.socket.on('message', (data: Buffer, isBinary: boolean) => {
       if (!isBinary) {
+        if (isFinishRequest(data)) {
+          void this.finishAndClose();
+        }
+
         return;
       }
 
@@ -51,9 +57,15 @@ export class SttConnection {
     this.socket.on('error', () => void this.finish());
 
     const stream = await this.deps.sttProvider.open(this.context.language, {
-      onResult: (result) => void this.handleResult(result),
+      onResult: (result) => {
+        this.results = this.results.then(() => this.handleResult(result));
+      },
       onError: (message) => this.send({ type: 'error', message }),
-      onClose: () => this.close(STT_CLOSE_CODE.failed),
+      onClose: () => {
+        if (!this.closed) {
+          this.close(STT_CLOSE_CODE.failed);
+        }
+      },
     });
 
     if (this.closed) {
@@ -115,6 +127,11 @@ export class SttConnection {
     }
   }
 
+  private async finishAndClose(): Promise<void> {
+    await this.finish();
+    this.close(STT_CLOSE_CODE.finished);
+  }
+
   private async finish(): Promise<void> {
     if (this.closed) {
       return;
@@ -125,6 +142,7 @@ export class SttConnection {
     const stream = this.stream;
     this.stream = null;
     await stream?.close();
+    await this.results;
 
     await this.deps.usageRecorder.record({
       userId: this.context.userId,
@@ -144,6 +162,20 @@ export class SttConnection {
     if (this.socket.readyState === this.socket.OPEN) {
       this.socket.close(code);
     }
+  }
+}
+
+function isFinishRequest(data: Buffer): boolean {
+  try {
+    const parsed: unknown = JSON.parse(data.toString());
+
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      (parsed as { type?: unknown }).type === STT_FINISH_REQUEST
+    );
+  } catch {
+    return false;
   }
 }
 

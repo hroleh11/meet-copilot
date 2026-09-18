@@ -60,8 +60,9 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - Domain types mirror the backend DTOs with `#[serde(rename_all = "camelCase")]` on structs and `#[serde(rename_all = "snake_case")]` on enums, which reproduces the backend's wire spelling (`uk`, `interview_candidate`, `me`) without a mapping layer. `MeetingDetails` uses `#[serde(flatten)]` because the backend class extends the meeting response.
 - Timestamps stay `String`. They arrive as ISO text and the UI formats them, so a date crate would buy nothing.
 - `crates/core/tests/wire_contract.rs` pins every shape against literal JSON. It is the one place to look when the backend DTOs change, so it stays an integration test rather than being scattered through the modules.
-- STT: `tokio-tungstenite` to `<ws base>/v1/meetings/:id/stt?speaker=<me|other>&token=<token>`. Send frame samples as little-endian bytes in binary messages. Parse JSON text messages into `SttEvent::{Partial, Final, Error}`.
+- STT: `tokio-tungstenite` to `<ws base>/v1/meetings/:id/stt?speaker=<me|other>&token=<token>`. Send frame samples as little-endian bytes in binary messages. Parse JSON text messages into `SttEvent::{Partial, Final, Failed}`. The socket is split into `SttSink` and `SttEvents` so one lane can write audio and read transcript at the same time; `SttGateway::open` hands out both.
 - Reconnect STT with exponential backoff up to 5 attempts; a reconnect keeps the meeting and opens a new lane. Close codes 4401 and 4404 are not retried.
+- Closing a lane sends `{"type":"finish"}` and keeps reading until the backend closes with 1000, up to five seconds. Dropping the socket instead loses the last utterance, which the backend only flushes after the request. Close code 1000 ends the stream; every other code is an `SttEvent::Failed`.
 - Generate: streaming body, parse SSE `event:` and `data:` lines into `Delta::{Text, Done, Error}`. A new generation cancels the previous one by cancelling its token. Retries only for connection errors before the first byte, up to 3 attempts; after the first byte a failure ends the generation and the UI keeps the partial text.
 
 ## Settings and secrets

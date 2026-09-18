@@ -1,5 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { AudioDevice, LocalSettings, Profile, UserSettings } from './types';
+import type {
+  AudioDevice,
+  Language,
+  LocalSettings,
+  MeetingProfile,
+  Profile,
+  SessionState,
+  UserSettings,
+} from './types';
 
 export interface AuthState {
   signedIn: boolean;
@@ -39,3 +47,17 @@ export const startAudioCheck = (deviceId: string | null): Promise<AudioCheckStat
   invoke('start_audio_check', { deviceId });
 
 export const stopAudioCheck = (): Promise<void> => invoke('stop_audio_check');
+
+export interface StartedMeeting {
+  meetingId: string;
+  systemAudioProblem: string | null;
+}
+
+export const sessionState = (): Promise<SessionState> => invoke('session_state');
+
+export const startSession = (
+  profile: MeetingProfile,
+  language: Language,
+): Promise<StartedMeeting> => invoke('start_session', { profile, language });
+
+export const stopSession = (): Promise<void> => invoke('stop_session');

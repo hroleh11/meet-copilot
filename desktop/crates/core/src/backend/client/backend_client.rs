@@ -8,13 +8,18 @@ use crate::{
     backend::{
         api::BackendApi,
         endpoint::{BackendEndpoint, Health, Tokens},
+        stt::{SttGateway, SttLane},
     },
-    domain::{Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile, UserSettings},
-    error::Result,
+    backend_failure::BackendFailure,
+    domain::{
+        Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile, Speaker,
+        UserSettings,
+    },
+    error::{Error, Result},
     settings::SecretStore,
 };
 
-use super::{credentials::CredentialHolder, transport::Transport};
+use super::{credentials::CredentialHolder, speech, transport::Transport};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -124,5 +129,31 @@ impl BackendApi for BackendClient {
         self.transport
             .authorized(Method::GET, &format!("meetings/{id}"), None::<&()>)
             .await
+    }
+}
+
+#[async_trait]
+impl SttGateway for BackendClient {
+    async fn open(&self, meeting_id: &MeetingId, speaker: Speaker) -> Result<SttLane> {
+        let token = self
+            .transport
+            .credentials()
+            .current()
+            .await
+            .ok_or_else(|| Error::backend(BackendFailure::Unauthorized, None))?
+            .access;
+
+        let url = self.transport.endpoint().websocket(
+            &format!("meetings/{meeting_id}/stt"),
+            &format!(
+                "speaker={}&token={}",
+                speaker.as_query_value(),
+                token.expose()
+            ),
+        );
+
+        let (sink, events) = speech::connect(&url).await?;
+
+        Ok((Box::new(sink), Box::new(events)))
     }
 }

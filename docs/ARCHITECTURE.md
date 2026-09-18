@@ -103,7 +103,9 @@ desktop/src
 
 ### WebSocket `/meetings/:id/stt?speaker=me`
 
-Токен передається як `?token=`. Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 4401 невірний токен, 4404 невідома або завершена зустріч чи невідомий спікер, 4500 збій розпізнавання.
+Токен передається як `?token=`. Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 1000 нормальне завершення після запиту клієнта, 4401 невірний токен, 4404 невідома або завершена зустріч чи невідомий спікер, 4500 збій розпізнавання.
+
+Закінчує розмову клієнт текстовим повідомленням `{ "type": "finish" }`, а не розривом сокета. Deepgram віддає останню репліку лише після флашу, тому бекенд на `finish` закриває потік розпізнавання, дочікує записи фінальних сегментів, надсилає їх клієнту і аж тоді закриває сокет кодом 1000. Клієнт після `finish` читає сокет далі, поки той не закриється, з запобіжником у 5 секунд.
 
 Це звичайний WebSocket-сервер, приєднаний до події `upgrade` HTTP-сервера, а не шлюз Nest: сирий PCM не має конверта `event`/`data`, якого чекає адаптер Nest, і ідентифікатор зустрічі потрібен у шляху. Deepgram теж викликається прямим WebSocket, без їхнього SDK.
 
@@ -202,20 +204,33 @@ trait BackendApi {
     async fn health(&self) -> Result<Health>;
     async fn exchange_code(&self, code: &str) -> Result<Tokens>;
     async fn me(&self) -> Result<Profile>;
-    async fn settings(&self) -> Result<UserSettings>;
-    async fn save_settings(&self, settings: &UserSettings) -> Result<()>;
+    async fn user_settings(&self) -> Result<UserSettings>;
+    async fn save_user_settings(&self, settings: &UserSettings) -> Result<UserSettings>;
     async fn create_meeting(&self, profile: MeetingProfile, language: Language) -> Result<Meeting>;
     async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting>;
     async fn list_meetings(&self) -> Result<Vec<Meeting>>;
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
-    async fn open_stt(&self, id: &MeetingId, speaker: Speaker) -> Result<Box<dyn SttStream>>;
     fn generate(&self, id: &MeetingId, mode: GenerationMode) -> BoxStream<'_, Result<Delta>>;
 }
 
-trait SttStream {
+trait SttGateway {
+    async fn open(&self, id: &MeetingId, speaker: Speaker) -> Result<SttLane>;
+}
+
+type SttLane = (Box<dyn SttSink>, Box<dyn SttEvents>);
+
+trait SttSink {
     async fn send(&mut self, frame: &AudioFrame) -> Result<()>;
+    async fn close(&mut self) -> Result<()>;
+}
+
+trait SttEvents {
     async fn next(&mut self) -> Option<SttEvent>;
-    async fn close(self: Box<Self>) -> Result<()>;
+}
+
+trait AudioSources {
+    fn microphone(&self, device_id: Option<String>) -> Box<dyn AudioSource>;
+    fn system_audio(&self) -> Option<Box<dyn AudioSource>>;
 }
 
 trait AccessPolicy {
@@ -229,7 +244,7 @@ trait SecretStore {
 }
 ```
 
-`BackendApi` має одну реалізацію на `reqwest` і `tokio-tungstenite` та фейк для тестів. Вона сама оновлює access-токен по refresh при 401 і зберігає нову пару в `SecretStore`.
+`BackendApi` і `SttGateway` мають одну спільну реалізацію на `reqwest` і `tokio-tungstenite` та фейки для тестів. Вона сама оновлює access-токен по refresh при 401 і зберігає нову пару в `SecretStore`. Половини лінії розділені, бо доріжка одночасно пише звук і читає транскрипт.
 
 ### Сесія
 
@@ -241,11 +256,15 @@ Idle → Starting → Listening → Stopping → Idle
 
 Кожен перехід публікується подією `session:state`. Помилка на етапі `Starting` повертає в `Idle` з описом причини і завершує зустріч на бекенді, якщо вона вже створена. Перед `Starting` викликається `AccessPolicy::check`.
 
-Аудіоконвеєр на кожне джерело: `AudioSource` → ресемплер у 16 kHz mono i16 → фрейми по 100 мс → `SttStream`.
+Аудіоконвеєр на кожне джерело: `AudioSource` → ресемплер у 16 kHz mono i16 → фрейми по 100 мс → `SttSink`.
+
+Кожен спікер має свою доріжку. Обрив сокета не завершує зустріч: доріжка перевідкриває лінію з тією ж зустріччю, до п'яти спроб із наростаючою паузою; 4401 і 4404 не повторюються. Якщо джерело звуку замовкає назовсім, доріжка каже про це транскриптом і зупиняється. Відсутній звук співрозмовника не блокує старт: зустріч іде з одним мікрофоном, а причина повертається в `startedSession.systemAudioProblem`.
+
+Стоп просить кожну лінію завершитись і дочитує її до кінця, інакше остання репліка втрачається: бекенд віддає її вже після запиту на закриття.
 
 ### IPC
 
-Команди UI → Rust: `login`, `logout`, `auth_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
 
 Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
 

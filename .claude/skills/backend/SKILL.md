@@ -74,6 +74,9 @@ backend/src
 - Deepgram is reached over a plain `ws` connection, not `@deepgram/sdk`. The v5 SDK's `listen.v1.connect` returns an already-closed socket in every configuration tried, while the documented endpoint works: `wss://api.deepgram.com/v1/listen` with the settings as query parameters and `Authorization: Token <key>` as a header. Control messages are JSON: `{"type":"KeepAlive"}` every 8 s and `{"type":"CloseStream"}` to finish.
 - Closing must send `CloseStream` and then wait for Deepgram to close the socket itself, with a short timeout as a backstop. Deepgram only emits the last segment of a meeting on that flush, so hanging up immediately loses it. `SttStream.close()` is therefore async and the connection awaits it before recording usage.
 - The connection registers its socket message handler before opening the provider stream and queues frames until the stream exists, so no audio is lost during the handshake.
+- The client ends a lane with the text message `{"type":"finish"}`, never by dropping the socket: the flushed tail arrives after that request, so a socket that is already gone cannot receive it. The connection closes the provider stream, awaits the queued results, and only then closes the socket with 1000.
+- Results are handled through a promise chain rather than fire and forget, so segments keep their arrival order and the flush can be awaited before the socket closes.
+- The provider's own close is ignored once the connection is finishing. Deepgram closes its socket as part of the flush, and closing the client with 4500 there would drop the very segments the flush produced.
 - Final segments are written to Postgres and the Redis window, then `Summarizer.maybeRun` is called without awaiting. Interim results only go back to the client. Empty transcripts are dropped.
 - Usage with audio seconds is recorded on close, counted as received bytes over 32000.
 

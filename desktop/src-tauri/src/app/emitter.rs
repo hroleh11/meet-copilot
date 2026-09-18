@@ -2,7 +2,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter as TauriEmitter};
 
 use crate::events::{
-    AppErrorEvent, AudioLevelEvent, AuthStateEvent, APP_ERROR, AUDIO_LEVEL, AUTH_STATE,
+    AppErrorEvent, AudioLevelEvent, AuthStateEvent, SessionStateEvent, TranscriptSegmentEvent,
+    APP_ERROR, AUDIO_LEVEL, AUTH_STATE, SESSION_STATE, TRANSCRIPT_SEGMENT,
 };
 
 #[derive(Clone)]
@@ -25,6 +26,14 @@ impl Emitter {
 
     pub fn audio_level(&self, event: AudioLevelEvent) {
         self.send(AUDIO_LEVEL, event);
+    }
+
+    pub fn session_state(&self, event: SessionStateEvent) {
+        self.send(SESSION_STATE, event);
+    }
+
+    pub fn transcript_segment(&self, event: TranscriptSegmentEvent) {
+        self.send(TRANSCRIPT_SEGMENT, event);
     }
 
     fn send<T: Serialize + Clone>(&self, name: &str, payload: T) {

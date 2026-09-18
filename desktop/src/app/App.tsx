@@ -1,16 +1,22 @@
 import { useCallback, useState } from 'react';
 import { SignInScreen } from '~/features/auth/SignInScreen';
 import { useAuth } from '~/features/auth/useAuth';
+import { SessionPanel } from '~/features/session/SessionPanel';
+import { useSession } from '~/features/session/useSession';
 import { LocalSettingsPanel } from '~/features/settings/LocalSettingsPanel';
 import { UserSettingsPanel } from '~/features/settings/UserSettingsPanel';
 import { useSettings } from '~/features/settings/useSettings';
+import { TranscriptPanel } from '~/features/transcript/TranscriptPanel';
 import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
+import { useSessionStore } from '~/shared/store/sessionStore';
 import { Button } from '~/shared/ui';
 
 export function App() {
   const auth = useAuth();
   const settings = useSettings(auth.signedIn);
+  const session = useSession();
+  const lines = useSessionStore((store) => store.lines);
   const [eventError, setEventError] = useState<string | null>(null);
 
   useAppEvents(useCallback((message: string) => setEventError(message), []));
@@ -43,6 +49,18 @@ export function App() {
             {uk.auth.signOut}
           </Button>
         </header>
+
+        <SessionPanel
+          state={session.state}
+          busy={session.busy}
+          notice={session.notice}
+          error={session.error}
+          defaults={settings.user}
+          onStart={session.start}
+          onStop={session.stop}
+        />
+
+        <TranscriptPanel lines={lines} />
 
         {settings.local ? (
           <LocalSettingsPanel

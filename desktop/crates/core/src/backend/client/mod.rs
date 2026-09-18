@@ -1,6 +1,7 @@
 mod backend_client;
 mod credentials;
 mod failure;
+mod speech;
 mod transport;
 
 pub use backend_client::BackendClient;
