@@ -11,6 +11,26 @@ pub struct CommandError {
     pub message: String,
 }
 
+impl CommandError {
+    pub fn browser(message: String) -> Self {
+        Self {
+            kind: ErrorKind::Permission,
+            failure: None,
+            message: format!("Could not open the browser: {message}"),
+        }
+    }
+}
+
+impl From<CommandError> for crate::events::AppErrorEvent {
+    fn from(error: CommandError) -> Self {
+        Self {
+            kind: error.kind,
+            failure: error.failure,
+            message: error.message,
+        }
+    }
+}
+
 impl From<Error> for CommandError {
     fn from(error: Error) -> Self {
         let kind = match error {

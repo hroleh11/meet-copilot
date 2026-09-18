@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::secret::Secret;
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tokens {
@@ -42,10 +40,4 @@ impl BackendEndpoint {
 
         format!("{}/{}?{}", base, path.trim_start_matches('/'), query)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Credentials {
-    pub access_token: Secret,
-    pub refresh_token: Secret,
 }

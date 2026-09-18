@@ -44,7 +44,8 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 
 ## Backend client
 
-- `reqwest` client built once with the token as a default `Authorization` header and a 10 s timeout for JSON calls; the generate call has no timeout and is cancelled through its token.
+- One `reqwest` client with a 10 s timeout for JSON calls; the generate call gets its own client without a timeout.
+- `Transport` attaches the bearer token per request rather than as a default header, because the token is rotated. On a 401 it refreshes once and retries. Refreshing takes a mutex and re-reads the token after acquiring it, so parallel 401s produce one refresh: the backend deletes a session when a rotated refresh token is replayed, and a second refresh would sign the user out.
 - Domain types mirror the backend DTOs with `#[serde(rename_all = "camelCase")]` on structs and `#[serde(rename_all = "snake_case")]` on enums, which reproduces the backend's wire spelling (`uk`, `interview_candidate`, `me`) without a mapping layer. `MeetingDetails` uses `#[serde(flatten)]` because the backend class extends the meeting response.
 - Timestamps stay `String`. They arrive as ISO text and the UI formats them, so a date crate would buy nothing.
 - `crates/core/tests/wire_contract.rs` pins every shape against literal JSON. It is the one place to look when the backend DTOs change, so it stays an integration test rather than being scattered through the modules.
@@ -56,7 +57,7 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 
 - `LocalSettings` serialize to JSON with `serde` in the app data dir, unknown fields ignored, missing fields defaulted. They hold only what is local to the machine: backend URL, hotkeys, input device.
 - `UserSettings` (style, default language, default profile) are never stored locally; they are read from and written to the backend.
-- Tokens are the only secrets. `keyring` service name `meet-copilot`, accounts `access-token` and `refresh-token` from `SecretKey`.
+- Tokens are the only secrets, behind `SecretStore`. Release builds use the OS keychain (`keyring`, service `meet-copilot`, accounts from `SecretKey`). Debug builds use a `0600` JSON file in the app config directory, because an ad-hoc signature changes on every build and the keychain then asks for the login password on every launch. `secrets::secret_store` is the single place that chooses.
 - Secrets are carried in `Secret`, whose `Debug` prints `Secret(***)`, so a token cannot reach a log through a struct dump.
 
 ## Tauri boundary
