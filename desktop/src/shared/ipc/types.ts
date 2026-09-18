@@ -78,7 +78,6 @@ export interface LocalSettings {
   backendUrl: string;
   inputDevice: string | null;
   hotkeys: Hotkeys;
-  onboarded: boolean;
 }
 
 export type ErrorKind =

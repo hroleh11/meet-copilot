@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { SignInScreen } from '~/features/auth/SignInScreen';
 import { useAuth } from '~/features/auth/useAuth';
 import { HistoryScreen } from '~/features/history/HistoryScreen';
-import { OnboardingScreen } from '~/features/onboarding/OnboardingScreen';
 import { useSettings } from '~/features/settings/useSettings';
 import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
@@ -29,20 +28,6 @@ export function App() {
 
   if (!auth.ready || !settings.local) {
     return <main className="h-full bg-surface-primary" />;
-  }
-
-  if (!settings.local.onboarded) {
-    return (
-      <OnboardingScreen
-        settings={settings.local}
-        signedIn={auth.signedIn}
-        profileEmail={auth.profileEmail}
-        opening={auth.opening}
-        error={auth.error ?? settings.error ?? eventError}
-        onSave={settings.saveLocal}
-        onSignIn={auth.signIn}
-      />
-    );
   }
 
   if (!auth.signedIn) {
