@@ -11,6 +11,7 @@ import {
 } from './types/stt.types';
 
 const BYTES_PER_SECOND = 16_000 * 2;
+const HEARTBEAT_INTERVAL_MS = 30_000;
 
 export interface SttConnectionDeps {
   sttProvider: SttProvider;
@@ -26,6 +27,7 @@ export class SttConnection {
   private pending: Buffer[] = [];
   private results: Promise<void> = Promise.resolve();
   private receivedBytes = 0;
+  private lastHeartbeatAt = 0;
   private closed = false;
 
   constructor(
@@ -45,6 +47,7 @@ export class SttConnection {
       }
 
       this.receivedBytes += data.byteLength;
+      this.reportAlive();
 
       if (this.stream) {
         this.stream.send(data);
@@ -80,6 +83,17 @@ export class SttConnection {
     }
 
     this.pending = [];
+  }
+
+  private reportAlive(): void {
+    const now = Date.now();
+
+    if (now - this.lastHeartbeatAt < HEARTBEAT_INTERVAL_MS) {
+      return;
+    }
+
+    this.lastHeartbeatAt = now;
+    void this.deps.meetingStateStore.touchAlive(this.context.meetingId);
   }
 
   private async handleResult(result: SttResult): Promise<void> {

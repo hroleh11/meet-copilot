@@ -63,4 +63,12 @@ export class AuthRepository {
   async deleteSession(id: string): Promise<void> {
     await this.prisma.authSession.deleteMany({ where: { id } });
   }
+
+  async deleteExpiredSessions(now: Date): Promise<number> {
+    const { count } = await this.prisma.authSession.deleteMany({
+      where: { expiresAt: { lt: now } },
+    });
+
+    return count;
+  }
 }

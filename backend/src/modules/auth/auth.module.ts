@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { ExpiredSessionsCleaner } from './expired-sessions.cleaner';
 import { GoogleAuthController } from './google-auth.controller';
 import { GoogleAuthRepository } from './google-auth.repository';
 import { GoogleAuthService } from './google-auth.service';
@@ -19,6 +20,7 @@ import { RtStrategy } from './strategies/rt.strategy';
   providers: [
     AuthService,
     AuthRepository,
+    ExpiredSessionsCleaner,
     JwtTokenService,
     GoogleAuthService,
     GoogleAuthRepository,

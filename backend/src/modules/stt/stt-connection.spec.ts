@@ -58,8 +58,10 @@ function build(): {
   socket: FakeSocket;
   connection: SttConnection;
   deps: SttConnectionDeps;
+  heartbeats: string[];
 } {
   const socket = new FakeSocket();
+  const heartbeats: string[] = [];
   let stream: FakeStream | null = null;
 
   const deps: SttConnectionDeps = {
@@ -80,7 +82,13 @@ function build(): {
           ...data,
         }),
     },
-    meetingStateStore: { appendToWindow: () => Promise.resolve() },
+    meetingStateStore: {
+      appendToWindow: () => Promise.resolve(),
+      touchAlive: (meetingId: string) => {
+        heartbeats.push(meetingId);
+        return Promise.resolve();
+      },
+    },
     usageRecorder: { record: () => Promise.resolve() },
     onFinalSegment: () => undefined,
   } as unknown as SttConnectionDeps;
@@ -89,6 +97,7 @@ function build(): {
     socket,
     connection: new SttConnection(socket as unknown as WebSocket, context, deps),
     deps,
+    heartbeats,
   };
 }
 
@@ -113,6 +122,16 @@ describe('SttConnection', () => {
     socket.emit('message', Buffer.from([1, 2, 3, 4]), true);
 
     expect(socket.closedWith).toBeNull();
+  });
+
+  it('reports the meeting alive once per burst of audio', async () => {
+    const { socket, connection, heartbeats } = build();
+    await connection.start();
+
+    socket.emit('message', Buffer.from([1, 2, 3, 4]), true);
+    socket.emit('message', Buffer.from([5, 6, 7, 8]), true);
+
+    expect(heartbeats).toEqual([context.meetingId]);
   });
 
   it('ignores text that is not a finish request', async () => {

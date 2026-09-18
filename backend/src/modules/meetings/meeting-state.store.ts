@@ -10,6 +10,7 @@ const windowKey = (meetingId: string): string => `meeting:${meetingId}:window`;
 const summaryKey = (meetingId: string): string => `meeting:${meetingId}:summary`;
 const summarizeLockKey = (meetingId: string): string =>
   `meeting:${meetingId}:summarize:lock`;
+const aliveKey = (meetingId: string): string => `meeting:${meetingId}:alive`;
 
 @Injectable()
 export class MeetingStateStore {
@@ -76,6 +77,18 @@ export class MeetingStateStore {
     );
   }
 
+  touchAlive(meetingId: string): Promise<void> {
+    return this.redis.set(
+      aliveKey(meetingId),
+      '1',
+      this.configService.getOrThrow<number>('LIVE_MEETING_IDLE_SECONDS'),
+    );
+  }
+
+  async isAlive(meetingId: string): Promise<boolean> {
+    return (await this.redis.read(aliveKey(meetingId))) !== null;
+  }
+
   claimSummarize(meetingId: string, ttlSeconds: number): Promise<boolean> {
     return this.redis.claim(summarizeLockKey(meetingId), ttlSeconds);
   }
@@ -91,6 +104,7 @@ export class MeetingStateStore {
       this.redis.expire(stateKey(meetingId), ttl),
       this.redis.expire(windowKey(meetingId), ttl),
       this.redis.expire(summaryKey(meetingId), ttl),
+      this.redis.delete(aliveKey(meetingId)),
     ]);
   }
 }

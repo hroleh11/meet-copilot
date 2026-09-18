@@ -20,6 +20,7 @@ export class OpenAiLlmProvider extends LlmProvider {
     super();
     this.client = new OpenAI({
       apiKey: configService.getOrThrow<string>('OPENAI_API_KEY'),
+      timeout: configService.getOrThrow<number>('LLM_TIMEOUT_MS'),
     });
   }
 

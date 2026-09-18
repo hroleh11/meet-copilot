@@ -52,6 +52,13 @@ export class MeetingsRepository {
     });
   }
 
+  listLiveStartedBefore(startedBefore: Date): Promise<Meeting[]> {
+    return this.prisma.meeting.findMany({
+      where: { status: 'live', startedAt: { lt: startedBefore } },
+      orderBy: { startedAt: 'asc' },
+    });
+  }
+
   appendSegment(data: {
     meetingId: string;
     speaker: Speaker;

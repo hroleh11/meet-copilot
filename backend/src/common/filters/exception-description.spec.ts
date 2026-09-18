@@ -18,6 +18,25 @@ describe('describeException', () => {
     });
   });
 
+  it('passes a body that is too large through as 413', () => {
+    const tooLarge = Object.assign(new Error('request entity too large'), {
+      status: 413,
+      name: 'PayloadTooLargeError',
+    });
+
+    expect(describeException(tooLarge)).toEqual({
+      status: 413,
+      message: 'request entity too large',
+      error: 'PayloadTooLargeError',
+    });
+  });
+
+  it('hides a server-side error that carries its own status', () => {
+    const upstream = Object.assign(new Error('socket hang up'), { status: 502 });
+
+    expect(describeException(upstream).message).toBe('Internal server error');
+  });
+
   it('joins validation messages into one line', () => {
     const exception = new BadRequestException([
       'email must be an email',

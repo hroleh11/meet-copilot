@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
+import type { Env } from '~/common/config';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '~/app.module';
@@ -28,8 +31,13 @@ export class AppHarness {
     const base = Test.createTestingModule({ imports: [AppModule] });
     const moduleRef = await (customize ? customize(base) : base).compile();
 
-    const app = moduleRef.createNestApplication<INestApplication<App>>();
+    const app = moduleRef.createNestApplication<NestExpressApplication>();
     app.setGlobalPrefix('api/v1');
+
+    const env = app.get<ConfigService<Env, true>>(ConfigService);
+    const limit = env.getOrThrow<number>('MAX_REQUEST_BODY_BYTES');
+    app.useBodyParser('json', { limit });
+    app.useBodyParser('urlencoded', { limit, extended: true });
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,

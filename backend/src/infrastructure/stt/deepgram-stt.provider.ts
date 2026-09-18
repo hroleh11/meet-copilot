@@ -8,17 +8,18 @@ import { buildDeepgramUrl } from './deepgram-url';
 import { SttProvider, type SttStream, type SttStreamHandlers } from './stt.provider';
 
 const KEEP_ALIVE_INTERVAL_MS = 8_000;
-const OPEN_TIMEOUT_MS = 10_000;
 const FLUSH_TIMEOUT_MS = 3_000;
 
 @Injectable()
 export class DeepgramSttProvider extends SttProvider {
   private readonly logger = new Logger(DeepgramSttProvider.name);
   private readonly apiKey: string;
+  private readonly connectTimeoutMs: number;
 
   constructor(configService: ConfigService<Env, true>) {
     super();
     this.apiKey = configService.getOrThrow<string>('DEEPGRAM_API_KEY');
+    this.connectTimeoutMs = configService.getOrThrow<number>('STT_CONNECT_TIMEOUT_MS');
   }
 
   async open(language: Language, handlers: SttStreamHandlers): Promise<SttStream> {
@@ -82,7 +83,7 @@ export class DeepgramSttProvider extends SttProvider {
       const timer = setTimeout(() => {
         socket.terminate();
         reject(new Error('Deepgram did not accept the connection in time'));
-      }, OPEN_TIMEOUT_MS);
+      }, this.connectTimeoutMs);
 
       const settle = (error?: Error): void => {
         clearTimeout(timer);
