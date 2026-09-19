@@ -1,0 +1,1 @@
+export { fence } from './untrusted';

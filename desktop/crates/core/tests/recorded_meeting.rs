@@ -6,7 +6,7 @@ use fakes::{recorded_clip, FakeAccess, FakeBackend, RecordedSources, Transcribin
 use meet_copilot_core::{
     audio::SAMPLES_PER_FRAME,
     backend::SttEvent,
-    domain::{Language, MeetingProfile, SessionState, Speaker},
+    domain::{Language, MeetingProfile, MeetingStart, SessionState, Speaker},
     session::{Session, SessionDeps, StartRequest},
 };
 use tokio::{
@@ -73,8 +73,12 @@ async fn a_recorded_meeting_reaches_the_backend_whole_and_ends_cleanly() {
         .session
         .start(
             StartRequest {
-                profile: MeetingProfile::Daily,
-                language: Language::Uk,
+                meeting: MeetingStart {
+                    profile: MeetingProfile::Daily,
+                    language: Language::Uk,
+                    project_id: None,
+                    resource_ids: Vec::new(),
+                },
                 input_device: None,
             },
             harness.sender.clone(),

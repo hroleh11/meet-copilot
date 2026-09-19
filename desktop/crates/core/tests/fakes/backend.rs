@@ -16,7 +16,9 @@ use meet_copilot_core::{
     backend_failure::BackendFailure,
     domain::{
         Generation, GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile,
-        MeetingStatus, Profile, TokenUsage, TranscriptSegment, Usage, UserSettings,
+        MeetingScope, MeetingStart, MeetingStatus, NewResourceFile, Profile, Project, ProjectId,
+        Resource, ResourceContent, ResourceId, ResourceLimits, ResourceScope, TokenUsage,
+        TranscriptSegment, Usage, UserSettings,
     },
     error::{Error, Result},
     screenshot::Screenshot,
@@ -82,6 +84,7 @@ impl FakeBackend {
 fn meeting(status: MeetingStatus) -> Meeting {
     Meeting {
         id: "11111111-1111-4111-8111-111111111111".to_owned(),
+        project_id: None,
         profile: MeetingProfile::Daily,
         language: Language::Uk,
         title: None,
@@ -124,11 +127,7 @@ impl BackendApi for FakeBackend {
         unused()
     }
 
-    async fn create_meeting(
-        &self,
-        _profile: MeetingProfile,
-        _language: Language,
-    ) -> Result<Meeting> {
+    async fn create_meeting(&self, _start: &MeetingStart) -> Result<Meeting> {
         self.created.fetch_add(1, Ordering::SeqCst);
 
         Ok(meeting(MeetingStatus::Live))
@@ -140,8 +139,78 @@ impl BackendApi for FakeBackend {
         Ok(meeting(MeetingStatus::Finished))
     }
 
-    async fn list_meetings(&self, _limit: u32, _cursor: Option<&str>) -> Result<Vec<Meeting>> {
+    async fn list_meetings(
+        &self,
+        _limit: u32,
+        _cursor: Option<&str>,
+        _scope: &MeetingScope,
+    ) -> Result<Vec<Meeting>> {
         Ok(vec![meeting(MeetingStatus::Finished)])
+    }
+
+    async fn rename_meeting(&self, _id: &MeetingId, _title: &str) -> Result<Meeting> {
+        unused()
+    }
+
+    async fn move_meeting(&self, _id: &MeetingId, _project: Option<&ProjectId>) -> Result<Meeting> {
+        unused()
+    }
+
+    async fn delete_meeting(&self, _id: &MeetingId) -> Result<()> {
+        unused()
+    }
+
+    async fn list_resources(&self, _scope: &ResourceScope) -> Result<Vec<Resource>> {
+        unused()
+    }
+
+    async fn upload_resource(
+        &self,
+        _scope: &ResourceScope,
+        _file: &NewResourceFile,
+    ) -> Result<Resource> {
+        unused()
+    }
+
+    async fn add_resource_text(
+        &self,
+        _scope: &ResourceScope,
+        _name: &str,
+        _text: &str,
+    ) -> Result<Resource> {
+        unused()
+    }
+
+    async fn resource(&self, _id: &ResourceId) -> Result<Resource> {
+        unused()
+    }
+
+    async fn resource_content(&self, _id: &ResourceId) -> Result<ResourceContent> {
+        unused()
+    }
+
+    async fn resource_limits(&self) -> Result<ResourceLimits> {
+        unused()
+    }
+
+    async fn delete_resource(&self, _id: &ResourceId) -> Result<()> {
+        unused()
+    }
+
+    async fn list_projects(&self) -> Result<Vec<Project>> {
+        Ok(Vec::new())
+    }
+
+    async fn create_project(&self, _name: &str) -> Result<Project> {
+        unused()
+    }
+
+    async fn rename_project(&self, _id: &ProjectId, _name: &str) -> Result<Project> {
+        unused()
+    }
+
+    async fn delete_project(&self, _id: &ProjectId) -> Result<()> {
+        unused()
     }
 
     async fn meeting_chats(
@@ -198,6 +267,7 @@ impl BackendApi for FakeBackend {
             overview: None,
             segments: Vec::<TranscriptSegment>::new(),
             generations: Vec::<Generation>::new(),
+            resources: Vec::<Resource>::new(),
             usage: Usage::default(),
         })
     }

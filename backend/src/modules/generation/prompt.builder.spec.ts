@@ -6,6 +6,7 @@ const state = (overrides: Partial<MeetingLiveState> = {}): MeetingLiveState => (
   language: Language.uk,
   profile: MeetingProfile.daily,
   style: '',
+  contextBrief: '',
   ...overrides,
 });
 

@@ -120,6 +120,7 @@ pub enum ErrorKind {
     Settings,
     Permission,
     Access,
+    Resource,
     Screen,
     Session,
     Cancelled,

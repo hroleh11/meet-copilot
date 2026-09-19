@@ -1,3 +1,4 @@
+import { ResourceRow } from '~/features/resources/ResourceRow';
 import { uk } from '~/shared/i18n/uk';
 import type { MeetingDetails as Details } from '~/shared/ipc';
 import { formatDateTime } from '~/shared/lib/format';
@@ -25,6 +26,16 @@ export function MeetingDetails({ details }: MeetingDetailsProps) {
           {details.overview ?? uk.history.noSummary}
         </p>
       </Panel>
+
+      {details.resources.length > 0 ? (
+        <Panel title={uk.resources.inMeeting}>
+          <ul className="flex flex-col rounded-lg border border-separator">
+            {details.resources.map((resource) => (
+              <ResourceRow key={resource.id} resource={resource} />
+            ))}
+          </ul>
+        </Panel>
+      ) : null}
 
       <Panel title={uk.history.transcript}>
         <SegmentList segments={details.segments} />

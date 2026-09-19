@@ -30,10 +30,13 @@ backend/src
     hashing/       HashingService на argon2
     llm/           LlmProvider, OpenAiLlmProvider
     stt/           SttProvider, DeepgramSttProvider
+    storage/       ObjectStorage, R2ObjectStorage
   modules/
     auth/          email і пароль, JWT, Google, одноразовий код для застосунку
     user/          профіль
     settings/      стиль, мова та профіль за замовчуванням
+    projects/      групи зустрічей
+    resources/     матеріали трьох рівнів, витягання тексту, контекстний бріф
     meetings/      зустрічі, MeetingStateStore над Redis
     stt/           WebSocket-шлюз
     context/       ContextWindow, Summarizer
@@ -43,7 +46,7 @@ backend/src
     health/
 
 desktop/crates/core/src
-  domain/        Meeting, TranscriptSegment, Speaker, Language, MeetingProfile, Generation, GenerationMode, UserSettings
+  domain/        Meeting, MeetingScope, Project, Resource, ResourceScope, TranscriptSegment, Speaker, Language, MeetingProfile, Generation, GenerationMode, UserSettings
   audio/         AudioSource, AudioFrame, resample, level
   backend/       BackendApi, BackendEndpoint, auth, http, stt_stream, sse
   session/       Session, SessionState, transcript view
@@ -69,7 +72,7 @@ desktop/src-tauri/src
 desktop/src
   main.tsx, overlay.tsx, selection.tsx   по точці входу на вікно
   app/           екрани головного вікна та оболонка оверлея
-  features/      auth, session, generation, settings, history, chat, access
+  features/      auth, session, generation, settings, history, projects, resources, chat, access
   shared/theme/  tokens.css, згенерований із дизайн-системи
   shared/        ipc, ui, store, lib, i18n
 ```
@@ -98,12 +101,39 @@ desktop/src
 - `GET /settings` → `{ style, defaultLanguage, defaultProfile }`
 - `PUT /settings` з тим самим тілом
 
+### Проєкти
+
+- `GET /projects` → `[{ id, name, meetingCount, createdAt, updatedAt }]`, останній змінений першим
+- `POST /projects` `{ name }` → проєкт
+- `PATCH /projects/:id` `{ name }` → перейменований проєкт
+- `DELETE /projects/:id` → видаляє проєкт разом з усіма зустрічами в ньому
+
+Проєкт це група зустрічей, зроблена руками: усі етапи однієї співбесіди, усі дзвінки з одним клієнтом. Зустріч належить щонайбільше одному проєкту або жодному. Видалення проєкту забирає з собою його зустрічі — це каскад у базі, і застосунок питає підтвердження, називаючи кількість. Поки хоч одна зустріч у проєкті ще триває, видалення відмовляється з 409: рядок, який пишуть прямо зараз, не можна прибрати з-під потоку розпізнавання.
+
+### Матеріали
+
+- `GET /resources?scope=user|project|meeting&projectId=&meetingId=` → матеріали одного рівня, новіші першими. Без `scope` — нічого: рівень завжди вказується явно
+- `POST /resources` multipart `file` плюс поля `scope`, `name`, `projectId?` → матеріал зі станом `pending`: відповідь приходить, щойно прийнято байти, а читання документа йде позаду. Назва їде окремим полем, а не береться з `filename` у заголовку: його декодують як latin-1, і будь-що поза ASCII перетворюється на кракозябри
+- `POST /resources/text` `{ scope, projectId?, name, text }` → вставлений руками текст, одразу `ready`
+- `GET /resources/:id` → той самий матеріал; сюди дивиться застосунок, поки `status` це `pending`
+- `GET /resources/:id/content` → `{ name, text, digest, chars }`: те, що з матеріалу прочиталось
+- `GET /resources/limits` → `{ maxBytes, maxTextChars }`
+- `DELETE /resources/:id` → видаляє матеріал і його обʼєкт у сховищі
+
+Значення: `scope` це `user | project | meeting`, `kind` це `pdf | markdown | text`, `status` це `pending | ready | failed`, `failure` це `unreadable | no_text_layer | storage`.
+
+Матеріал рівня `meeting`, завантажений до старту, лежить із порожнім `meetingId`. Такий матеріал видно лише тому, хто його завантажив, і він привласнюється зустріччю в `POST /meetings` через `resourceIds`. Чужий або вже привласнений ідентифікатор у списку це 404. Непривласнені старші за добу прибирає `StagedResourcesSweeper`.
+
+Обмеження: `RESOURCE_MAX_BYTES` (10 МБ) на файл і `RESOURCE_TEXT_MAX_CHARS` (1 000 символів) на вставлений руками текст, і лише `text/plain`, `text/markdown` або `application/pdf`. Застосунок не повторює ці числа, а питає їх у `GET /resources/limits`, щоб вони не розходились. Окремо стоїть `RESOURCE_EXTRACTED_MAX_CHARS` (5 000): це стеля на текст, витягнутий із файлу, а не те, що людина друкує в поле, і різати документ на рівні поля вводу означало б віддавати дайджест від обрізанця. Маршрут завантаження має власну межу тіла через `MulterModule`; `MAX_REQUEST_BODY_BYTES` лишається мірою для JSON.
+
 ### Зустрічі
 
-- `POST /meetings` `{ profile, language, title? }` → `{ id, status, startedAt }`
+- `POST /meetings` `{ profile, language, title?, projectId?, resourceIds? }` → `{ id, status, startedAt }`
 - `POST /meetings/:id/finish` → `{ id, status, endedAt }`
-- `GET /meetings?limit&cursor` → сторінка списку без транскриптів, новіші першими. Курсор це id останньої зустрічі на екрані, а кінець списку видно з того, що сторінка прийшла коротшою за `limit`, тож окремої обгортки з `hasMore` немає
-- `GET /meetings/:id` → зустріч, `overview`, `segments`, `generations`, `usage`
+- `GET /meetings?limit&cursor&projectId` → сторінка списку без транскриптів, новіші першими. Курсор це id останньої зустрічі на екрані, а кінець списку видно з того, що сторінка прийшла коротшою за `limit`, тож окремої обгортки з `hasMore` немає. `projectId` звужує сторінку до одного проєкту, а `projectId=none` — до зустрічей поза всіма проєктами
+- `PATCH /meetings/:id` `{ title?, projectId? }` → перейменовує зустріч і переносить її між проєктами. `projectId: null` виймає зустріч із проєкту, чужий проєкт це 404
+- `DELETE /meetings/:id` → видаляє зустріч із транскриптом, відповідями й чатами. Поки зустріч триває — 409
+- `GET /meetings/:id` → зустріч, `overview`, `segments`, `generations`, `resources`, `usage`
 - `GET /meetings/:id/chats?query=` → чати по цій зустрічі, останній змінений першим. `query` шукає і по назві чату, і по тому, що в ньому питали
 - `POST /meetings/:id/chats` → новий чат по цій зустрічі
 - `GET /meetings/:id/chats/:chatId` → питання й відповіді цього чату, старіші першими
@@ -168,8 +198,11 @@ User            id, email, name, createdAt, updatedAt
 UserCredentials userId, hashedPassword?, googleId?
 AuthSession     id, userId, hashedRt, expiresAt, createdAt
 UserSettings    userId, style?, defaultLanguage, defaultProfile
-Meeting         id, userId, profile, language, title, status, summary?, overview?,
-                startedAt, endedAt?
+Project         id, userId, name, createdAt, updatedAt
+Meeting         id, userId, projectId?, profile, language, title, status, summary?,
+                overview?, contextBrief?, startedAt, endedAt?
+Resource        id, userId, scope, projectId?, meetingId?, kind, name, mimeType, byteSize,
+                storageKey?, status, failure?, text?, digest?, chars, createdAt, updatedAt
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
 Generation      id, meetingId, mode, output, stopReason, inputTokens, cachedInputTokens,
                 outputTokens, hasScreenshot, createdAt
@@ -181,7 +214,7 @@ UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, 
 Redis:
 
 ```
-meeting:{id}:state           hash: language, profile, style, spokenUpTo
+meeting:{id}:state           hash: language, profile, style, contextBrief, spokenUpTo
 meeting:{id}:window          list: свіжі фінальні сегменти як JSON
 meeting:{id}:summary         string
 meeting:{id}:turns           string: останні шість ходів розмови як JSON
@@ -194,11 +227,35 @@ login:code:{code}            userId, TTL 60 секунд
 
 ### Потік живої зустрічі
 
-1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
+1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань і контекстним брифом із матеріалів трьох рівнів на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
 2. Кожне WebSocket-з'єднання відкриває потік у `SttProvider`. Фінальні сегменти пишуться в Postgres і у `window`. Проміжні лише повертаються клієнту.
 3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`. Розпізнавання на це не чекає. Розпізнавання на це не чекає.
 4. `generate` читає стан, резюме, вікно і журнал ходів, збирає з них розмову, стрімить відповідь, зберігає генерацію і дописує хід.
 5. `finish` закриває активні потоки, ставить статус і TTL на ключі.
+
+### Матеріали й контекстний бріф
+
+Матеріал — самостійний обʼєкт користувача, а не частина зустрічі. Інакше й бути не може: рівні `user` і `project` ні до якої зустрічі не привʼязані. Завдяки цьому файли вантажаться, поки людина ще обирає профіль і мову, а «підготувати, потім почати» не вимагає ні зустрічі-чернетки, ні нового статусу в машині зустрічі. Матеріал зустрічі до старту — це рядок зі `scope: meeting` і порожнім `meetingId`; `POST /meetings` в одній транзакції створює зустріч, привласнює перелічені матеріали і складає бріф.
+
+`ObjectStorage` ховає Cloudflare R2 за двома методами, `put` і `delete`, і реалізація на `@aws-sdk/client-s3` живе в `infrastructure/storage`. У R2 лежать лише оригінальні байти під ключем `users/{userId}/resources/{id}`: показати файл, віддати назад, перевитягти текст кращим парсером пізніше. Усе, що читає промпт, лежить у Postgres, тому під час зустрічі в сховище ніхто не ходить. Вставлений руками текст обʼєкта в R2 не має.
+
+`ResourceExtractor` розбирає файл одразу після завантаження: `unpdf` для PDF, декодування UTF-8 для Markdown і тексту. PDF без текстового шару дає порожній результат — це `no_text_layer`, OCR немає. `ResourceIngestor` спершу читає, потім кладе оригінал у сховище, і кожен крок падає своєю причиною: недоступний R2 це `storage`, а не «не вдалося прочитати файл». Причина зберігається кодом, а не реченням: українською говорить застосунок. `ResourceDigester` стискає моделлю резюме те, що не влазить у бюджет свого рівня, один раз на матеріал, і пише результат у `digest`; витрати йдуть у `UsageRecorder` видом `digest`. Тому великий документ коштує один раз, а не на кожну відповідь.
+
+`ContextBriefBuilder` збирає три рівні в один текст:
+
+```
+<materials>
+<about-me>…</about-me>
+<about-project>…</about-project>
+<about-meeting>…</about-meeting>
+</materials>
+```
+
+Порядок і є механізмом пріоритету: зустріч стоїть останньою, найближче до питання, персона окремим реченням каже, що при суперечності істина це зустріч, потім проєкт, потім користувач, а бюджет по рівнях ріже знизу — спершу `about-me`, зустріч не ріжеться ніколи. Огорожі ставить спільний `common/untrusted`: завантажений PDF це такий самий чужий текст, як транскрипт, і рядок «ignore previous instructions» усередині нього має лишитися матеріалом.
+
+Бріф замерзає на старті в `Meeting.contextBrief` і в стані Redis, як і стиль. Правка резюме посеред дзвінка не має міняти системний блок запущеної зустрічі, а чат по завершеній читає той самий текст із Postgres і бачить рівно те, що бачив копайлот.
+
+Векторного пошуку немає навмисно. Резюме, опис вакансії та контекст проєкту — це разом кілька тисяч токенів, які влазять у промпт цілком, а ретрівал на кожне натискання клавіші робив би префікс щоразу іншим і вбивав кеш, який зараз дає найбільшу економію. Місце для нього готове й воно інше: чат по зустрічі вже працює інструментами і затримкою не обмежений.
 
 ### PromptBuilder
 
@@ -206,7 +263,7 @@ login:code:{code}            userId, TTL 60 секунд
 
 Так само влаштовані claude.ai і ChatGPT, і саме тому там уточнення по картинці працюють, а зміна теми не тягне картинку за собою. Поки все злипалося в одне повідомлення `user`, з погляду моделі виглядало, ніби знімок консолі з промісом надіслали **разом** із питанням про React: вона пов'язувала їх не через недогляд, а тому що вони справді прийшли разом. Ніяке формулювання промпта цього не перебиває — межу між ходами має нести сама структура запиту.
 
-Порядок повідомлень: нотатки, далі попередні ходи, далі те, що сказали відтоді, плюс інструкція режиму. Стабільне живе в системному тексті — персона, промпт профілю, стиль і мова зі стану зустрічі, — і не змінюється протягом зустрічі байт у байт, тому автоматичний кеш префікса OpenAI працює: історія тільки дописується в кінець.
+Порядок повідомлень: нотатки, далі попередні ходи, далі те, що сказали відтоді, плюс інструкція режиму. Стабільне живе в системному тексті — персона, промпт профілю, стиль, контекстний бріф і мова зі стану зустрічі, — і не змінюється протягом зустрічі байт у байт, тому автоматичний кеш префікса OpenAI працює: історія тільки дописується в кінець.
 
 Межу між ходами тримає `spokenUpTo` у стані зустрічі — id останнього сегмента, який модель уже бачила. `segmentsAfter` відрізає по ньому те, що прозвучало відтоді; якщо маркер уже зрізав `Summarizer`, за новий хід береться все вікно. `alternative` не додає ще один хід, а переписує відповідь останнього: повторні спроби не мають осідати в історії. Журнал тримає останні шість ходів, і картинка в ньому лишається тільки найновіша; коли питання приносить власний знімок, старий із історії не їде. Один запит ніколи не несе більше одного зображення. Персона, промпти профілів і дефолтний стиль лежать у `modules/generation/prompts/` як файли даних.
 
@@ -226,7 +283,13 @@ struct RawFrame { width: u32, height: u32, stride: usize, bgra: Vec<u8> }
 struct Screenshot { mime_type: String, bytes: Vec<u8> }
 struct TranscriptSegment { id, speaker, text, start_ms, duration_ms }
 struct Meeting { id, profile, language, title, status, started_at, ended_at }
-struct MeetingDetails { meeting, summary, segments, generations, usage }
+struct MeetingDetails { meeting, summary, segments, generations, resources, usage }
+enum ResourceScope { User, Project(ProjectId), Meeting(Option<MeetingId>) }
+enum ResourceKind { Pdf, Markdown, Text }
+enum ResourceStatus { Pending, Ready, Failed }
+struct Resource { id, scope, kind, name, byte_size, status, error, created_at }
+struct NewResourceFile { name, mime_type, bytes }
+struct MeetingStart { profile, language, project: Option<ProjectId>, resources: Vec<ResourceId> }
 struct UserSettings { style, default_language, default_profile }
 struct LocalSettings { backend_url, hotkeys, input_device }
 struct Tokens { access_token, refresh_token, expires_in }
@@ -248,10 +311,25 @@ trait BackendApi {
     async fn me(&self) -> Result<Profile>;
     async fn user_settings(&self) -> Result<UserSettings>;
     async fn save_user_settings(&self, settings: &UserSettings) -> Result<UserSettings>;
-    async fn create_meeting(&self, profile: MeetingProfile, language: Language) -> Result<Meeting>;
+    async fn create_meeting(&self, start: &MeetingStart) -> Result<Meeting>;
     async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting>;
-    async fn list_meetings(&self) -> Result<Vec<Meeting>>;
+    async fn list_meetings(&self, limit: u32, cursor: Option<&str>, scope: &MeetingScope)
+        -> Result<Vec<Meeting>>;
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
+    async fn rename_meeting(&self, id: &MeetingId, title: &str) -> Result<Meeting>;
+    async fn move_meeting(&self, id: &MeetingId, project: Option<&ProjectId>) -> Result<Meeting>;
+    async fn delete_meeting(&self, id: &MeetingId) -> Result<()>;
+    async fn list_resources(&self, scope: &ResourceScope) -> Result<Vec<Resource>>;
+    async fn upload_resource(&self, scope: &ResourceScope, file: &NewResourceFile)
+        -> Result<Resource>;
+    async fn add_resource_text(&self, scope: &ResourceScope, name: &str, text: &str)
+        -> Result<Resource>;
+    async fn resource(&self, id: &ResourceId) -> Result<Resource>;
+    async fn delete_resource(&self, id: &ResourceId) -> Result<()>;
+    async fn list_projects(&self) -> Result<Vec<Project>>;
+    async fn create_project(&self, name: &str) -> Result<Project>;
+    async fn rename_project(&self, id: &ProjectId, name: &str) -> Result<Project>;
+    async fn delete_project(&self, id: &ProjectId) -> Result<()>;
     fn generate(&self, id: &MeetingId, mode: GenerationMode, screenshot: Option<&Screenshot>)
         -> BoxStream<'_, Result<Delta>>;
     async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
@@ -342,7 +420,7 @@ HTTP-клієнт для генерації окремий, без загаль�
 
 ### IPC
 
-Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `finish_selection`, `cancel_selection`, `list_meetings`, `get_meeting`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `finish_selection`, `cancel_selection`, `list_meetings`, `get_meeting`, `rename_meeting`, `move_meeting`, `delete_meeting`, `list_projects`, `create_project`, `rename_project`, `delete_project`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
 
 Подія `generation:started` несе `{ mode, withScreenshot }`, тому оверлей і історія кажуть, що відповідь читала екран.
 
@@ -410,6 +488,28 @@ HTTP-клієнт для генерації окремий, без загаль�
 Екран це набір маленьких компонентів, а не один файл: бічна панель сесії складається з `ProfileSwitcher`, `LanguageSelect`, `AudioSourceStatus` і `StartMeetingButton`, оверлей — із `StatusIndicator`, `LiveTranscript`, `ResponseBlock`, `CopyButton` і `RegenerateButton`. Усі вони приймають дані пропсами, а стан збирають хуки над сторами, тому жоден із них не знає про Tauri.
 
 Стан у цих компонентах справжній: профіль приходить із налаштувань користувача, статуси джерел — із події `source:status`, транскрипт — із `transcript:segment` (проміжний рядок сірий і курсивом, доки не прийде фінальний), текст відповіді накопичується з `generation:delta`. «Записую» замість «Слухаю» вмикається, поки в транскрипті висить незавершена репліка від мікрофона.
+
+## Проєкти на головному екрані
+
+Праворуч від панелі сесії згори стоїть смуга проєктів (`features/projects/ProjectsBar`), під нею той самий список зустрічей. Картка проєкту показує назву й кількість зустрічей, картка «Без проєкту» стоїть першою. Клік по картці звужує список під нею до цього проєкту, повторний клік повертає всі зустрічі — тому окремого екрана проєкту немає й нікуди не треба ходити, щоб перетягнути зустріч.
+
+Зустріч потрапляє до проєкту перетягуванням рядка на картку. Рядок несе свій id під власним типом даних `application/x-meet-copilot-meeting`: вміст перетягування недоступний, поки його не кинули, а список типів доступний, тому картка бачить на `dragover`, що над нею летить саме зустріч, і підсвічується лише тоді. Кидок на «Без проєкту» виймає зустріч із проєкту, тож зворотного шляху окремою кнопкою не потрібно. У головному вікні вимкнено рідне перетягування Tauri (`dragDropEnabled: false`): воно потрібне лише для файлів із системи, а HTML5-перетягування всередині вебв'ю з ним конфліктує.
+
+Перейменування відбувається на місці: олівець у рядку або на картці міняє назву на поле, Enter зберігає, Esc скасовує, порожнє або незмінене ім'я нічого не зберігає (`shared/lib/useRename`). Видалення проходить через `ConfirmDialog`, і текст діалога для проєкту з зустрічами називає їхню кількість, бо разом із проєктом зникнуть саме вони.
+
+Обидва списки читаються з бекенду знову після будь-якої зміни: одне число `revision` у `MainWindow` росте на кожній вдалій дії, а `useProjects` і `useMeetings` перечитують себе, коли воно змінилось. Зустріч, яку перетягнули, одночасно зникає з одного списку, з'являється в іншому й міняє два лічильники, тож локальне підправляння рядка все одно розійшлося б із сервером.
+
+## Матеріали в застосунку
+
+`features/resources` тримає одну панель на всі три рівні: список матеріалів, кнопка «Додати файл» через `tauri-plugin-dialog` і форма для вставленого тексту. Різниця між рівнями — лише `ResourceScope`, який їде в команду, тож форма скрізь одна. Вибір файлу повертає шлях, а байти читає Rust: тип перевіряється по розширенню ще до звернення до сервера, тому «це не PDF, Markdown чи текст» видно одразу.
+
+Рівень користувача живе вкладкою «Матеріали» в налаштуваннях. Рівень проєкту зʼявляється над списком зустрічей, коли на смузі проєктів відкрито проєкт, — окремого екрана проєкту, як і раніше, немає. Рівень зустрічі стоїть на панелі старту, разом із профілем, мовою і новим селектором проєкту.
+
+`useResources` дочитує матеріал, поки він `pending`: завантаження відповідає одразу, а читання документа йде на сервері позаду. Опитування це `setInterval`, а не один `setTimeout`: перелік очікуваних ідентифікаторів не міняється, поки їх читають, тож ефект сам себе не перезапустить, і одна спроба лишала панель на «Читаємо…» аж до повторного відкриття екрана. Те саме очікування тримає кнопку старту: поки хоч один матеріал читається, вона зайнята, бо бріф збирається з того, що вже прочитано. Після старту `revision` росте, і список матеріалів зустрічі перечитується вже порожнім — їх забрала зустріч.
+
+Готовий матеріал відкривається кліком по назві: `ResourceViewer` питає `GET /resources/:id/content` і показує текст, а коли документ не вмістився в бюджет свого рівня — стислу версію, бо саме вона їде до моделі. Так видно, що з файлу насправді прочиталось, а не лише те, що він прийнятий.
+
+Екран завершеної зустрічі показує окремою карткою те, що копайлот справді бачив: рядки приходять у `GET /meetings/:id` разом із транскриптом.
 
 ## Кросплатформність
 

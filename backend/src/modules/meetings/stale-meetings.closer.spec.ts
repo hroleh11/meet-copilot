@@ -11,12 +11,14 @@ const IDLE_SECONDS = 900;
 const liveMeeting = (id: string): Meeting => ({
   id,
   userId: 'owner',
+  projectId: null,
   profile: MeetingProfile.daily,
   language: Language.uk,
   title: null,
   status: 'live',
   summary: null,
   overview: null,
+  contextBrief: null,
   startedAt: new Date(Date.now() - 3_600_000),
   endedAt: null,
 });

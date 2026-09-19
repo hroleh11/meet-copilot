@@ -68,6 +68,13 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - `Generator` owns the current answer: start cancels the previous token, checks `AccessPolicy`, then streams `GenerationEvent::{Started, Delta, Finished, Failed}` into an `mpsc`. Cancelling drops the stream, which is what tells the backend to stop and store the partial answer. A body that ends without `done` is a `Failed`, and the text written so far stays on screen.
 - Hotkeys register through `tauri-plugin-global-shortcut` from `LocalSettings`, once at setup and again whenever settings are saved. A handler only acts on `ShortcutState::Pressed`.
 
+## Materials
+
+- `ResourceScope` is adjacently tagged like `MeetingScope`, so a project level carries its id and a meeting level carries `None` until the meeting claims it. The client turns it into the query string; it is never sent as a body.
+- Uploading is multipart, so `Transport::authorized_form` takes a closure that builds the `Form` rather than the form itself: a multipart body cannot be cloned, and the retry after a token refresh needs a second one.
+- `MeetingStart` replaced the loose profile and language arguments on `create_meeting` and `StartRequest`. It carries the project and the staged material ids, both of which the backend freezes into the meeting at creation.
+- `resource_mime_type` names the three kinds the backend accepts, so a file it would refuse is refused here instead of after a round trip. Reading the file and rejecting it are `Error::Resource`, which the desktop shows in Ukrainian.
+
 ## Screen capture
 
 - `ScreenCapture` is a trait in `crates/core/src/screenshot`, implemented by `RegionCapture` in `platform-macos`. It takes a `CaptureRect` in points plus the display scale and answers with a `Screenshot`.

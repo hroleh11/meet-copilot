@@ -5,6 +5,7 @@ import type { MeetingDetails as Details } from '~/shared/ipc';
 
 const details = (over: Partial<Details> = {}): Details => ({
   id: 'm-1',
+  projectId: null,
   profile: 'client_call',
   language: 'uk',
   title: 'Дзвінок з Acme',
@@ -24,6 +25,7 @@ const details = (over: Partial<Details> = {}): Details => ({
       createdAt: '2026-02-03T09:20:00.000Z',
     },
   ],
+  resources: [],
   usage: {
     inputTokens: 12_000,
     cachedInputTokens: 8_000,

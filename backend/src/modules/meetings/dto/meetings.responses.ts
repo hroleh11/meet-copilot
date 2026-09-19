@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ResourceResponse } from '~/modules/resources';
 import {
   GenerationMode,
   Language,
@@ -10,6 +11,9 @@ import {
 export class MeetingResponse {
   @ApiProperty()
   id: string;
+
+  @ApiProperty({ nullable: true, type: String })
+  projectId: string | null;
 
   @ApiProperty({ enum: MeetingProfile })
   profile: MeetingProfile;
@@ -87,6 +91,9 @@ export class MeetingDetailsResponse extends MeetingResponse {
 
   @ApiProperty({ type: [GenerationResponse] })
   generations: GenerationResponse[];
+
+  @ApiProperty({ type: [ResourceResponse] })
+  resources: ResourceResponse[];
 
   @ApiProperty({ type: UsageResponse })
   usage: UsageResponse;

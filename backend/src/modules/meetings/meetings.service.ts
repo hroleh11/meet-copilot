@@ -1,8 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Meeting } from '~/generated/prisma/client';
+import { ProjectsService } from '~/modules/projects';
+import { ResourcesService } from '~/modules/resources';
 import { SettingsService } from '~/modules/settings';
 import { UsageRepository } from '~/modules/usage';
-import type { CreateMeetingDto, ListMeetingsDto } from './dto/meetings.dto';
+import {
+  MEETINGS_OUTSIDE_PROJECTS,
+  type CreateMeetingDto,
+  type ListMeetingsDto,
+  type UpdateMeetingDto,
+} from './dto/meetings.dto';
 import type { MeetingDetailsResponse, MeetingResponse } from './dto/meetings.responses';
 import { MeetingOverviewWriter } from './meeting-overview.writer';
 import { MeetingStateStore } from './meeting-state.store';
@@ -17,18 +24,38 @@ export class MeetingsService {
     private readonly meetingsRepository: MeetingsRepository,
     private readonly meetingStateStore: MeetingStateStore,
     private readonly overviewWriter: MeetingOverviewWriter,
+    private readonly projectsService: ProjectsService,
+    private readonly resourcesService: ResourcesService,
     private readonly settingsService: SettingsService,
     private readonly usageRepository: UsageRepository,
   ) {}
 
   async create(userId: string, dto: CreateMeetingDto): Promise<MeetingResponse> {
+    if (dto.projectId) {
+      await this.projectsService.requireOwned(userId, dto.projectId);
+    }
+
+    const { resourceIds, ...start } = dto;
     const settings = await this.settingsService.get(userId);
-    const meeting = await this.meetingsRepository.create({ userId, ...dto });
+    const meeting = await this.meetingsRepository.create({ userId, ...start });
+
+    await this.resourcesService.claimForMeeting(userId, meeting.id, resourceIds ?? []);
+
+    const contextBrief = await this.resourcesService.briefFor(
+      userId,
+      meeting.projectId,
+      meeting.id,
+    );
+
+    if (contextBrief) {
+      await this.meetingsRepository.updateContextBrief(meeting.id, contextBrief);
+    }
 
     await this.meetingStateStore.initialize(meeting.id, {
       language: meeting.language,
       profile: meeting.profile,
       style: settings.style ?? '',
+      contextBrief: contextBrief ?? '',
     });
 
     return toMeetingResponse(meeting);
@@ -52,9 +79,39 @@ export class MeetingsService {
     const meetings = await this.meetingsRepository.listOwned(userId, {
       limit: query.limit ?? DEFAULT_PAGE,
       cursor: query.cursor,
+      projectId: asProjectFilter(query.projectId),
     });
 
     return meetings.map(toMeetingResponse);
+  }
+
+  async update(
+    userId: string,
+    meetingId: string,
+    dto: UpdateMeetingDto,
+  ): Promise<MeetingResponse> {
+    const meeting = await this.requireOwned(userId, meetingId);
+
+    if (dto.projectId) {
+      await this.projectsService.requireOwned(userId, dto.projectId);
+    }
+
+    const updated = await this.meetingsRepository.update(meeting.id, {
+      ...(dto.title === undefined ? {} : { title: dto.title.trim() }),
+      ...(dto.projectId === undefined ? {} : { projectId: dto.projectId }),
+    });
+
+    return toMeetingResponse(updated);
+  }
+
+  async remove(userId: string, meetingId: string): Promise<void> {
+    const meeting = await this.requireOwned(userId, meetingId);
+
+    if (meeting.status === 'live') {
+      throw new ConflictException('Finish the meeting before deleting it');
+    }
+
+    await this.meetingsRepository.delete(meeting.id);
   }
 
   async details(userId: string, meetingId: string): Promise<MeetingDetailsResponse> {
@@ -81,4 +138,12 @@ export class MeetingsService {
 
     return meeting;
   }
+}
+
+function asProjectFilter(projectId?: string): string | null | undefined {
+  if (projectId === undefined) {
+    return undefined;
+  }
+
+  return projectId === MEETINGS_OUTSIDE_PROJECTS ? null : projectId;
 }

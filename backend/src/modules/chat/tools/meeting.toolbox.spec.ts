@@ -9,6 +9,7 @@ import {
 
 const details: MeetingDetailsResponse = {
   id: '11111111-1111-4111-8111-111111111111',
+  projectId: null,
   profile: 'interview_candidate',
   language: 'uk',
   title: 'Співбесіда',
@@ -16,6 +17,7 @@ const details: MeetingDetailsResponse = {
   startedAt: new Date('2026-09-19T13:00:00.000Z'),
   endedAt: new Date('2026-09-19T13:27:30.000Z'),
   overview: 'Перевіряли знання JavaScript.',
+  resources: [],
   segments: [
     {
       id: 's1',

@@ -40,8 +40,64 @@ export interface Usage {
   audioSeconds: number;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  meetingCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/// Which meetings the list asks for. Mirrors the adjacently tagged Rust enum,
+/// so a project scope carries its id under `id`.
+export type MeetingScope =
+  { kind: 'all' } | { kind: 'outside' } | { kind: 'project'; id: string };
+
+export type ResourceKind = 'pdf' | 'markdown' | 'text';
+export type ResourceStatus = 'pending' | 'ready' | 'failed';
+export type ResourceFailure = 'unreadable' | 'no_text_layer' | 'storage';
+
+/// Which of the three levels a material belongs to. Mirrors the adjacently tagged
+/// Rust enum; a meeting material has no id until the meeting claims it at start.
+export type ResourceScope =
+  | { kind: 'user' }
+  | { kind: 'project'; id: string }
+  | { kind: 'meeting'; id: string | null };
+
+export interface Resource {
+  id: string;
+  projectId: string | null;
+  meetingId: string | null;
+  kind: ResourceKind;
+  name: string;
+  byteSize: number;
+  status: ResourceStatus;
+  failure: ResourceFailure | null;
+  createdAt: string;
+}
+
+export interface ResourceContent {
+  name: string;
+  text: string | null;
+  digest: string | null;
+  chars: number;
+}
+
+export interface ResourceLimits {
+  maxBytes: number;
+  maxTextChars: number;
+}
+
+export interface MeetingStart {
+  profile: MeetingProfile;
+  language: Language;
+  projectId: string | null;
+  resourceIds: string[];
+}
+
 export interface Meeting {
   id: string;
+  projectId: string | null;
   profile: MeetingProfile;
   language: Language;
   title: string | null;
@@ -70,6 +126,7 @@ export interface MeetingDetails extends Meeting {
   overview: string | null;
   segments: TranscriptSegment[];
   generations: Generation[];
+  resources: Resource[];
   usage: Usage;
 }
 
@@ -105,6 +162,7 @@ export type ErrorKind =
   | 'settings'
   | 'permission'
   | 'access'
+  | 'resource'
   | 'screen'
   | 'session'
   | 'cancelled'

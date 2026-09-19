@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use reqwest::{Method, RequestBuilder, Response, StatusCode};
+use reqwest::{multipart::Form, Method, RequestBuilder, Response, StatusCode};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{sync::Mutex, time::sleep};
 
@@ -93,6 +93,33 @@ impl Transport {
         decode(retried).await
     }
 
+    /// A multipart body cannot be cloned for the retry after a refresh, so the
+    /// caller hands over a way to build it again instead of the form itself.
+    pub async fn authorized_form<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        form: impl Fn() -> Result<Form>,
+    ) -> Result<T> {
+        let token = expect_signed_in(self.credentials.current().await)?.access;
+        let response = self
+            .dispatch(self.build_multipart(method.clone(), path, form()?, Some(&token)))
+            .await?;
+
+        if response.status() != StatusCode::UNAUTHORIZED {
+            return decode(response).await;
+        }
+
+        self.refresh(&token).await?;
+
+        let renewed = expect_signed_in(self.credentials.current().await)?.access;
+        let retried = self
+            .dispatch(self.build_multipart(method, path, form()?, Some(&renewed)))
+            .await?;
+
+        decode(retried).await
+    }
+
     pub async fn authorized_stream(
         &self,
         method: Method,
@@ -126,6 +153,22 @@ impl Transport {
         token: Option<&Secret>,
     ) -> RequestBuilder {
         self.build_on(&self.http, method, path, body, token)
+    }
+
+    fn build_multipart(
+        &self,
+        method: Method,
+        path: &str,
+        form: Form,
+        token: Option<&Secret>,
+    ) -> RequestBuilder {
+        let mut request = self.http.request(method, self.endpoint.http(path));
+
+        if let Some(token) = token {
+            request = request.bearer_auth(token.expose());
+        }
+
+        request.multipart(form)
     }
 
     fn build_on(

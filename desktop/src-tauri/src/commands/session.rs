@@ -1,4 +1,4 @@
-use meet_copilot_core::domain::{Language, MeetingProfile, SessionState};
+use meet_copilot_core::domain::{MeetingStart, SessionState};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -21,8 +21,7 @@ pub async fn session_state(state: State<'_, AppState>) -> Result<SessionState, C
 
 #[tauri::command]
 pub async fn start_session(
-    profile: MeetingProfile,
-    language: Language,
+    meeting: MeetingStart,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<StartedMeeting, CommandError> {
@@ -31,7 +30,7 @@ pub async fn start_session(
     let mut session = session.lock().await;
 
     let started = session
-        .start(profile, language, input_device, Emitter::new(app))
+        .start(meeting, input_device, Emitter::new(app))
         .await?;
 
     Ok(StartedMeeting {

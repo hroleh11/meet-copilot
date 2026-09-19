@@ -1,6 +1,6 @@
 use meet_copilot_core::{
     backend::{BackendApi, ChatId, ChatMessage, ChatSession},
-    domain::{Meeting, MeetingDetails, MeetingId},
+    domain::{Meeting, MeetingDetails, MeetingId, MeetingScope, ProjectId},
 };
 use tauri::{AppHandle, State};
 
@@ -14,13 +14,41 @@ const PAGE: u32 = 20;
 #[tauri::command]
 pub async fn list_meetings(
     cursor: Option<String>,
+    scope: MeetingScope,
     state: State<'_, AppState>,
 ) -> Result<Vec<Meeting>, CommandError> {
     Ok(state
         .backend()
         .await
-        .list_meetings(PAGE, cursor.as_deref())
+        .list_meetings(PAGE, cursor.as_deref(), &scope)
         .await?)
+}
+
+#[tauri::command]
+pub async fn rename_meeting(
+    id: MeetingId,
+    title: String,
+    state: State<'_, AppState>,
+) -> Result<Meeting, CommandError> {
+    Ok(state.backend().await.rename_meeting(&id, &title).await?)
+}
+
+#[tauri::command]
+pub async fn move_meeting(
+    id: MeetingId,
+    project: Option<ProjectId>,
+    state: State<'_, AppState>,
+) -> Result<Meeting, CommandError> {
+    Ok(state
+        .backend()
+        .await
+        .move_meeting(&id, project.as_ref())
+        .await?)
+}
+
+#[tauri::command]
+pub async fn delete_meeting(id: MeetingId, state: State<'_, AppState>) -> Result<(), CommandError> {
+    Ok(state.backend().await.delete_meeting(&id).await?)
 }
 
 #[tauri::command]

@@ -25,6 +25,9 @@ pub enum Error {
     Access(String),
 
     #[error("{0}")]
+    Resource(String),
+
+    #[error("{0}")]
     Screen(String),
 
     #[error("{0}")]

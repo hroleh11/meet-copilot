@@ -39,6 +39,7 @@ impl From<Error> for CommandError {
             Error::Settings(_) => ErrorKind::Settings,
             Error::Permission(_) => ErrorKind::Permission,
             Error::Access(_) => ErrorKind::Access,
+            Error::Resource(_) => ErrorKind::Resource,
             Error::Screen(_) => ErrorKind::Screen,
             Error::Session(_) => ErrorKind::Session,
             Error::Cancelled => ErrorKind::Cancelled,

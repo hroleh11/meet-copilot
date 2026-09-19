@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { fence } from '~/common/untrusted';
 import type { ChatMessage } from '~/generated/prisma/client';
 import type { Language } from '~/generated/prisma/enums';
 import type { LlmItem } from '~/infrastructure/llm';
 import { languageName } from '~/modules/generation';
 import type { MeetingDetailsResponse } from '~/modules/meetings';
 import { CHAT_PERSONA_PROMPT } from './prompts/chat.prompt';
-import { fence } from './untrusted';
 
 const TRANSCRIPT_INLINE_MAX_CHARS = 12_000;
 const HISTORY_TURNS = 6;
 
 export interface ChatPromptInput {
   language: Language;
+  materials: string | null;
   notes: string | null;
   details: MeetingDetailsResponse;
   history: ChatMessage[];
@@ -55,6 +56,10 @@ export class ChatPromptBuilder {
 
 function context(input: ChatPromptInput): string {
   const blocks: string[] = [];
+
+  if (input.materials) {
+    blocks.push(input.materials);
+  }
 
   if (input.notes) {
     blocks.push(fence('notes', input.notes));

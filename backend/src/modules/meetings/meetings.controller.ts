@@ -1,7 +1,18 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GetCurrentUserId } from '~/common/decorators';
-import { CreateMeetingDto, ListMeetingsDto } from './dto/meetings.dto';
+import { MessageResponse } from '~/common/dto';
+import { CreateMeetingDto, ListMeetingsDto, UpdateMeetingDto } from './dto/meetings.dto';
 import { MeetingDetailsResponse, MeetingResponse } from './dto/meetings.responses';
 import { MeetingsService } from './meetings.service';
 
@@ -42,6 +53,35 @@ export class MeetingsController {
     @Query() query: ListMeetingsDto,
   ): Promise<MeetingResponse[]> {
     return this.meetingsService.list(userId, query);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Rename a meeting or move it into a project',
+    description: 'A null projectId takes the meeting out of the project it was in.',
+  })
+  @ApiOkResponse({ type: MeetingResponse })
+  update(
+    @GetCurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) meetingId: string,
+    @Body() dto: UpdateMeetingDto,
+  ): Promise<MeetingResponse> {
+    return this.meetingsService.update(userId, meetingId, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({
+    summary: 'Delete a meeting with its transcript, replies and chats',
+    description: 'Refused while the meeting is still running.',
+  })
+  @ApiOkResponse({ type: MessageResponse })
+  async remove(
+    @GetCurrentUserId() userId: string,
+    @Param('id', ParseUUIDPipe) meetingId: string,
+  ): Promise<MessageResponse> {
+    await this.meetingsService.remove(userId, meetingId);
+
+    return { message: 'Done' };
   }
 
   @Get(':id')

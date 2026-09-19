@@ -89,6 +89,7 @@ export class ChatService {
 
     const prompt = this.promptBuilder.build({
       language: meeting.language,
+      materials: meeting.contextBrief,
       notes: meeting.summary,
       details,
       history,

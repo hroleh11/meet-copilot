@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { uk } from '~/shared/i18n/uk';
 import {
+  FolderIcon,
   KeyboardIcon,
   MicrophoneIcon,
   SettingsIcon,
@@ -8,7 +9,7 @@ import {
   type IconProps,
 } from '~/shared/ui';
 
-export type SettingsTab = 'general' | 'audio' | 'hotkeys' | 'advanced';
+export type SettingsTab = 'general' | 'materials' | 'audio' | 'hotkeys' | 'advanced';
 
 export interface SettingsNavProps {
   tab: SettingsTab;
@@ -17,6 +18,7 @@ export interface SettingsNavProps {
 
 const TABS: { id: SettingsTab; label: string; Icon: ComponentType<IconProps> }[] = [
   { id: 'general', label: uk.settings.tabGeneral, Icon: SettingsIcon },
+  { id: 'materials', label: uk.settings.tabMaterials, Icon: FolderIcon },
   { id: 'audio', label: uk.settings.tabAudio, Icon: MicrophoneIcon },
   { id: 'hotkeys', label: uk.settings.tabHotkeys, Icon: KeyboardIcon },
   { id: 'advanced', label: uk.settings.tabAdvanced, Icon: TerminalIcon },

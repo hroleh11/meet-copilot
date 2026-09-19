@@ -14,8 +14,9 @@ use crate::{
     },
     backend_failure::BackendFailure,
     domain::{
-        GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile, Profile,
-        Speaker, UserSettings,
+        GenerationMode, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart,
+        NewResourceFile, Profile, Project, ProjectId, Resource, ResourceContent, ResourceId,
+        ResourceLimits, ResourceScope, Speaker, UserSettings,
     },
     error::{Error, Result},
     screenshot::Screenshot,
@@ -23,15 +24,9 @@ use crate::{
 };
 
 use super::{
-    chat, credentials::CredentialHolder, generation, query::escaped, speech, transport::Transport,
+    chat, credentials::CredentialHolder, generation, meetings, projects, query::escaped, resources,
+    speech, transport::Transport,
 };
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CreateMeetingBody {
-    profile: MeetingProfile,
-    language: Language,
-}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,37 +125,90 @@ impl BackendApi for BackendClient {
             .await
     }
 
-    async fn create_meeting(&self, profile: MeetingProfile, language: Language) -> Result<Meeting> {
-        self.transport
-            .authorized(
-                Method::POST,
-                "meetings",
-                Some(&CreateMeetingBody { profile, language }),
-            )
-            .await
+    async fn create_meeting(&self, start: &MeetingStart) -> Result<Meeting> {
+        meetings::create(&self.transport, start).await
     }
 
     async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting> {
-        self.transport
-            .authorized(Method::POST, &format!("meetings/{id}/finish"), None::<&()>)
-            .await
+        meetings::finish(&self.transport, id).await
     }
 
-    async fn list_meetings(&self, limit: u32, cursor: Option<&str>) -> Result<Vec<Meeting>> {
-        let path = match cursor {
-            Some(cursor) => format!("meetings?limit={limit}&cursor={cursor}"),
-            None => format!("meetings?limit={limit}"),
-        };
-
-        self.transport
-            .authorized(Method::GET, &path, None::<&()>)
-            .await
+    async fn list_meetings(
+        &self,
+        limit: u32,
+        cursor: Option<&str>,
+        scope: &MeetingScope,
+    ) -> Result<Vec<Meeting>> {
+        meetings::list(&self.transport, limit, cursor, scope).await
     }
 
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails> {
-        self.transport
-            .authorized(Method::GET, &format!("meetings/{id}"), None::<&()>)
-            .await
+        meetings::details(&self.transport, id).await
+    }
+
+    async fn rename_meeting(&self, id: &MeetingId, title: &str) -> Result<Meeting> {
+        meetings::rename(&self.transport, id, title).await
+    }
+
+    async fn move_meeting(&self, id: &MeetingId, project: Option<&ProjectId>) -> Result<Meeting> {
+        meetings::move_to(&self.transport, id, project).await
+    }
+
+    async fn delete_meeting(&self, id: &MeetingId) -> Result<()> {
+        meetings::delete(&self.transport, id).await
+    }
+
+    async fn list_resources(&self, scope: &ResourceScope) -> Result<Vec<Resource>> {
+        resources::list(&self.transport, scope).await
+    }
+
+    async fn upload_resource(
+        &self,
+        scope: &ResourceScope,
+        file: &NewResourceFile,
+    ) -> Result<Resource> {
+        resources::upload(&self.transport, scope, file).await
+    }
+
+    async fn add_resource_text(
+        &self,
+        scope: &ResourceScope,
+        name: &str,
+        text: &str,
+    ) -> Result<Resource> {
+        resources::add_text(&self.transport, scope, name, text).await
+    }
+
+    async fn resource(&self, id: &ResourceId) -> Result<Resource> {
+        resources::get(&self.transport, id).await
+    }
+
+    async fn resource_content(&self, id: &ResourceId) -> Result<ResourceContent> {
+        resources::content(&self.transport, id).await
+    }
+
+    async fn resource_limits(&self) -> Result<ResourceLimits> {
+        resources::limits(&self.transport).await
+    }
+
+    async fn delete_resource(&self, id: &ResourceId) -> Result<()> {
+        resources::delete(&self.transport, id).await
+    }
+
+    async fn list_projects(&self) -> Result<Vec<Project>> {
+        projects::list(&self.transport).await
+    }
+
+    async fn create_project(&self, name: &str) -> Result<Project> {
+        projects::create(&self.transport, name).await
+    }
+
+    async fn rename_project(&self, id: &ProjectId, name: &str) -> Result<Project> {
+        projects::rename(&self.transport, id, name).await
+    }
+
+    async fn delete_project(&self, id: &ProjectId) -> Result<()> {
+        projects::delete(&self.transport, id).await
     }
 
     fn generate(

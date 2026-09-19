@@ -11,6 +11,7 @@ import { HashingModule } from '~/infrastructure/hashing';
 import { LlmProviderModule } from '~/infrastructure/llm';
 import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
+import { ObjectStorageModule } from '~/infrastructure/storage';
 import { SttProviderModule } from '~/infrastructure/stt';
 import { AuthModule } from '~/modules/auth';
 import { ChatModule } from '~/modules/chat';
@@ -18,6 +19,8 @@ import { ContextModule } from '~/modules/context';
 import { GenerationModule } from '~/modules/generation';
 import { HealthModule } from '~/modules/health';
 import { MeetingsModule } from '~/modules/meetings';
+import { ProjectsModule } from '~/modules/projects';
+import { ResourcesModule } from '~/modules/resources';
 import { SettingsModule } from '~/modules/settings';
 import { SttModule } from '~/modules/stt';
 import { UsageModule } from '~/modules/usage';
@@ -38,10 +41,13 @@ import { UserModule } from '~/modules/user';
     HashingModule,
     SttProviderModule,
     LlmProviderModule,
+    ObjectStorageModule,
     AuthModule,
     ChatModule,
     UserModule,
     SettingsModule,
+    ProjectsModule,
+    ResourcesModule,
     UsageModule,
     MeetingsModule,
     ContextModule,

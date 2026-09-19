@@ -1,16 +1,28 @@
+import { ResourcesPanel } from '~/features/resources/ResourcesPanel';
+import type { UseResourcesResult } from '~/features/resources/useResources';
 import { uk } from '~/shared/i18n/uk';
-import type { Hotkeys, Language, MeetingProfile, SessionState } from '~/shared/ipc';
+import type {
+  Hotkeys,
+  Language,
+  MeetingProfile,
+  Project,
+  SessionState,
+} from '~/shared/ipc';
 import { SectionLabel } from '~/shared/ui';
 import { AudioSourceStatus } from './AudioSourceStatus';
 import { HotkeyHints } from './HotkeyHints';
 import { LanguageSelect } from './LanguageSelect';
 import { ProfileSwitcher } from './ProfileSwitcher';
+import { ProjectSelect } from './ProjectSelect';
 import { StartMeetingButton } from './StartMeetingButton';
 import { useAudioSources } from './useAudioSources';
 
 export interface SessionSidebarProps {
   profile: MeetingProfile;
   language: Language;
+  projectId: string | null;
+  projects: Project[];
+  materials: UseResourcesResult;
   state: SessionState;
   busy: boolean;
   hotkeys: Hotkeys;
@@ -18,6 +30,7 @@ export interface SessionSidebarProps {
   error: string | null;
   onProfileChange: (profile: MeetingProfile) => void;
   onLanguageChange: (language: Language) => void;
+  onProjectChange: (projectId: string | null) => void;
   onStart: () => void;
   onStop: () => void;
 }
@@ -25,6 +38,9 @@ export interface SessionSidebarProps {
 export function SessionSidebar({
   profile,
   language,
+  projectId,
+  projects,
+  materials,
   state,
   busy,
   hotkeys,
@@ -32,6 +48,7 @@ export function SessionSidebar({
   error,
   onProfileChange,
   onLanguageChange,
+  onProjectChange,
   onStart,
   onStop,
 }: SessionSidebarProps) {
@@ -39,7 +56,7 @@ export function SessionSidebar({
   const locked = state !== 'idle';
 
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col gap-5 border-r border-separator bg-surface-secondary p-5">
+    <aside className="flex w-[340px] shrink-0 flex-col gap-5 overflow-y-auto border-r border-separator bg-surface-secondary p-5">
       <div className="flex flex-col gap-2">
         <SectionLabel>{uk.meeting.profile}</SectionLabel>
         <ProfileSwitcher profile={profile} disabled={locked} onChange={onProfileChange} />
@@ -53,6 +70,24 @@ export function SessionSidebar({
           onChange={onLanguageChange}
         />
       </div>
+
+      <div className="flex flex-col gap-2">
+        <SectionLabel>{uk.meeting.project}</SectionLabel>
+        <ProjectSelect
+          projects={projects}
+          projectId={projectId}
+          disabled={locked}
+          onChange={onProjectChange}
+        />
+      </div>
+
+      {locked ? null : (
+        <ResourcesPanel
+          title={uk.resources.meetingTitle}
+          hint={uk.resources.meetingHint}
+          resources={materials}
+        />
+      )}
 
       <div className="flex flex-col gap-2">
         <SectionLabel>{uk.meeting.sources}</SectionLabel>
@@ -69,7 +104,15 @@ export function SessionSidebar({
       {error ? <p className="text-caption text-danger">{error}</p> : null}
 
       <div className="flex flex-col gap-2">
-        <StartMeetingButton state={state} busy={busy} onStart={onStart} onStop={onStop} />
+        {materials.reading ? (
+          <p className="text-caption text-ink-tertiary">{uk.resources.preparing}</p>
+        ) : null}
+        <StartMeetingButton
+          state={state}
+          busy={busy || (state === 'idle' && materials.reading)}
+          onStart={onStart}
+          onStop={onStop}
+        />
         <HotkeyHints reply={hotkeys.reply} screenshot={hotkeys.screenshot} />
       </div>
     </aside>

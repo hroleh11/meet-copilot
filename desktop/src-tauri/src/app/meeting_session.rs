@@ -3,7 +3,7 @@ use std::sync::Arc;
 use meet_copilot_core::{
     access::AlwaysAllowed,
     backend::{BackendClient, SttEvent},
-    domain::{Language, MeetingId, MeetingProfile, SessionState, Speaker},
+    domain::{MeetingId, MeetingStart, SessionState, Speaker},
     error::Result,
     session::{Session, SessionDeps, StartRequest, StartedSession},
 };
@@ -44,8 +44,7 @@ impl MeetingSession {
 
     pub async fn start(
         &mut self,
-        profile: MeetingProfile,
-        language: Language,
+        meeting: MeetingStart,
         input_device: Option<String>,
         emitter: Emitter,
     ) -> Result<StartedSession> {
@@ -61,8 +60,7 @@ impl MeetingSession {
             .session
             .start(
                 StartRequest {
-                    profile,
-                    language,
+                    meeting,
                     input_device,
                 },
                 transcript,

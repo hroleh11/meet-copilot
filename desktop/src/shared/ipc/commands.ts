@@ -5,12 +5,17 @@ import type {
   ChatMessage,
   ChatSession,
   GenerationMode,
-  Language,
   LocalSettings,
   Meeting,
   MeetingDetails,
-  MeetingProfile,
+  MeetingScope,
+  MeetingStart,
   Profile,
+  Project,
+  Resource,
+  ResourceContent,
+  ResourceLimits,
+  ResourceScope,
   SessionState,
   UserSettings,
 } from './types';
@@ -67,8 +72,53 @@ export interface StartedMeeting {
   systemAudioProblem: string | null;
 }
 
-export const listMeetings = (cursor: string | null): Promise<Meeting[]> =>
-  invoke('list_meetings', { cursor });
+export const listMeetings = (
+  cursor: string | null,
+  scope: MeetingScope,
+): Promise<Meeting[]> => invoke('list_meetings', { cursor, scope });
+
+export const renameMeeting = (id: string, title: string): Promise<Meeting> =>
+  invoke('rename_meeting', { id, title });
+
+export const moveMeeting = (id: string, project: string | null): Promise<Meeting> =>
+  invoke('move_meeting', { id, project });
+
+export const deleteMeeting = (id: string): Promise<void> =>
+  invoke('delete_meeting', { id });
+
+export const listProjects = (): Promise<Project[]> => invoke('list_projects');
+
+export const createProject = (name: string): Promise<Project> =>
+  invoke('create_project', { name });
+
+export const renameProject = (id: string, name: string): Promise<Project> =>
+  invoke('rename_project', { id, name });
+
+export const deleteProject = (id: string): Promise<void> =>
+  invoke('delete_project', { id });
+
+export const listResources = (scope: ResourceScope): Promise<Resource[]> =>
+  invoke('list_resources', { scope });
+
+export const uploadResource = (scope: ResourceScope, path: string): Promise<Resource> =>
+  invoke('upload_resource', { scope, path });
+
+export const addResourceText = (
+  scope: ResourceScope,
+  name: string,
+  text: string,
+): Promise<Resource> => invoke('add_resource_text', { scope, name, text });
+
+export const getResource = (id: string): Promise<Resource> =>
+  invoke('get_resource', { id });
+
+export const resourceContent = (id: string): Promise<ResourceContent> =>
+  invoke('resource_content', { id });
+
+export const resourceLimits = (): Promise<ResourceLimits> => invoke('resource_limits');
+
+export const deleteResource = (id: string): Promise<void> =>
+  invoke('delete_resource', { id });
 
 export const meetingChats = (id: string, query: string | null): Promise<ChatSession[]> =>
   invoke('meeting_chats', { id, query });
@@ -90,10 +140,8 @@ export const getMeeting = (id: string): Promise<MeetingDetails> =>
 
 export const sessionState = (): Promise<SessionState> => invoke('session_state');
 
-export const startSession = (
-  profile: MeetingProfile,
-  language: Language,
-): Promise<StartedMeeting> => invoke('start_session', { profile, language });
+export const startSession = (meeting: MeetingStart): Promise<StartedMeeting> =>
+  invoke('start_session', { meeting });
 
 export const stopSession = (): Promise<void> => invoke('stop_session');
 

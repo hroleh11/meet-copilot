@@ -1,4 +1,5 @@
 import type { Generation, Meeting, Segment } from '~/generated/prisma/client';
+import { toResourceResponse } from '~/modules/resources';
 import type { UsageTotals } from '~/modules/usage';
 import type {
   GenerationResponse,
@@ -11,6 +12,7 @@ import type { MeetingWithContent } from './meetings.repository';
 export function toMeetingResponse(meeting: Meeting): MeetingResponse {
   return {
     id: meeting.id,
+    projectId: meeting.projectId,
     profile: meeting.profile,
     language: meeting.language,
     title: meeting.title,
@@ -50,6 +52,7 @@ export function toDetailsResponse(
     overview,
     segments: meeting.segments.map(toSegmentResponse),
     generations: meeting.generations.map(toGenerationResponse),
+    resources: meeting.resources.map(toResourceResponse),
     usage,
   };
 }

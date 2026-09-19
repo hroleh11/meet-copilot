@@ -14,7 +14,7 @@ import {
   NOTHING_SAID,
   SCREENSHOT_NOTE,
 } from './prompts/mode.prompts';
-import { DEFAULT_STYLE, PERSONA_PROMPT } from './prompts/persona.prompt';
+import { DEFAULT_STYLE, MATERIALS_RULE, PERSONA_PROMPT } from './prompts/persona.prompt';
 import { PROFILE_PROMPTS } from './prompts/profile.prompts';
 
 export interface PromptInput {
@@ -42,10 +42,13 @@ export class PromptBuilder {
 }
 
 function buildSystem(state: MeetingLiveState): string {
+  const brief = state.contextBrief.trim();
+
   return [
     PERSONA_PROMPT,
     PROFILE_PROMPTS[state.profile],
     state.style.trim() || DEFAULT_STYLE,
+    ...(brief ? [MATERIALS_RULE, brief] : []),
     languageInstruction(state.language),
   ].join('\n\n');
 }

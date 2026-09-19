@@ -16,6 +16,7 @@ const SETTINGS_FILE: &str = "settings.json";
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
@@ -53,6 +54,20 @@ pub fn run() {
             commands::stop_audio_check,
             commands::list_meetings,
             commands::get_meeting,
+            commands::rename_meeting,
+            commands::move_meeting,
+            commands::delete_meeting,
+            commands::list_projects,
+            commands::create_project,
+            commands::rename_project,
+            commands::delete_project,
+            commands::list_resources,
+            commands::upload_resource,
+            commands::add_resource_text,
+            commands::get_resource,
+            commands::resource_content,
+            commands::resource_limits,
+            commands::delete_resource,
             commands::meeting_chats,
             commands::start_meeting_chat,
             commands::chat_messages,

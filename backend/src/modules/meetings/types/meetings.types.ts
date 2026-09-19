@@ -4,6 +4,7 @@ export interface MeetingLiveState {
   language: Language;
   profile: MeetingProfile;
   style: string;
+  contextBrief: string;
 }
 
 export interface MeetingScreenshot {

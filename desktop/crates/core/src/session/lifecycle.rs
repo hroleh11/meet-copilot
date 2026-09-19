@@ -7,7 +7,7 @@ use crate::{
     access::AccessPolicy,
     audio::{AudioFrame, AudioSource},
     backend::{BackendApi, SttEvent, SttGateway},
-    domain::{Language, Meeting, MeetingId, MeetingProfile, SessionState, Speaker},
+    domain::{Meeting, MeetingId, MeetingStart, SessionState, Speaker},
     error::{Error, Result},
     session::{
         lane::{self, Lane},
@@ -25,8 +25,7 @@ pub struct SessionDeps {
 }
 
 pub struct StartRequest {
-    pub profile: MeetingProfile,
-    pub language: Language,
+    pub meeting: MeetingStart,
     pub input_device: Option<String>,
 }
 
@@ -126,11 +125,7 @@ impl Session {
             ));
         }
 
-        let meeting = self
-            .deps
-            .backend
-            .create_meeting(request.profile, request.language)
-            .await?;
+        let meeting = self.deps.backend.create_meeting(&request.meeting).await?;
 
         match self.attach(&meeting, request.input_device, transcript) {
             Ok((running, problem)) => {

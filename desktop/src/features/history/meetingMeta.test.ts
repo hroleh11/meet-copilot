@@ -4,6 +4,7 @@ import type { Meeting } from '~/shared/ipc';
 
 const meeting = (startedAt: Date, endedAt: Date | null): Meeting => ({
   id: 'm-1',
+  projectId: null,
   profile: 'daily',
   language: 'uk',
   title: null,

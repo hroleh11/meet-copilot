@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { Generation, Meeting, Segment } from '~/generated/prisma/client';
+import type { Generation, Meeting, Resource, Segment } from '~/generated/prisma/client';
 import type { Language, MeetingProfile, Speaker } from '~/generated/prisma/enums';
 import { PrismaService } from '~/infrastructure/prisma';
 
 export type MeetingWithContent = Meeting & {
   segments: Segment[];
   generations: Generation[];
+  resources: Resource[];
 };
 
 @Injectable()
@@ -17,6 +18,7 @@ export class MeetingsRepository {
     profile: MeetingProfile;
     language: Language;
     title?: string;
+    projectId?: string;
   }): Promise<Meeting> {
     return this.prisma.meeting.create({
       data: {
@@ -24,6 +26,7 @@ export class MeetingsRepository {
         profile: data.profile,
         language: data.language,
         title: data.title ?? null,
+        projectId: data.projectId ?? null,
       },
     });
   }
@@ -41,16 +44,20 @@ export class MeetingsRepository {
       include: {
         segments: { orderBy: { startMs: 'asc' } },
         generations: { orderBy: { createdAt: 'asc' } },
+        resources: { orderBy: { createdAt: 'asc' } },
       },
     });
   }
 
   listOwned(
     userId: string,
-    page: { limit: number; cursor?: string },
+    page: { limit: number; cursor?: string; projectId?: string | null },
   ): Promise<Meeting[]> {
     return this.prisma.meeting.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(page.projectId === undefined ? {} : { projectId: page.projectId }),
+      },
       orderBy: { startedAt: 'desc' },
       take: page.limit,
       ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
@@ -78,8 +85,26 @@ export class MeetingsRepository {
     await this.prisma.meeting.update({ where: { id: meetingId }, data: { summary } });
   }
 
+  async updateContextBrief(meetingId: string, contextBrief: string): Promise<void> {
+    await this.prisma.meeting.update({
+      where: { id: meetingId },
+      data: { contextBrief },
+    });
+  }
+
   async updateOverview(meetingId: string, overview: string): Promise<void> {
     await this.prisma.meeting.update({ where: { id: meetingId }, data: { overview } });
+  }
+
+  update(
+    meetingId: string,
+    data: { title?: string; projectId?: string | null },
+  ): Promise<Meeting> {
+    return this.prisma.meeting.update({ where: { id: meetingId }, data });
+  }
+
+  async delete(meetingId: string): Promise<void> {
+    await this.prisma.meeting.delete({ where: { id: meetingId } });
   }
 
   finish(meetingId: string): Promise<Meeting> {

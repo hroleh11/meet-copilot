@@ -6,7 +6,7 @@ use fakes::{FakeAccess, FakeBackend, FakeGateway, FakeSources};
 use meet_copilot_core::{
     access::{AccessPolicy, DenialReason, Entitlement},
     backend::SttEvent,
-    domain::{Language, MeetingProfile, MeetingStatus, SessionState, Speaker},
+    domain::{Language, MeetingProfile, MeetingStart, MeetingStatus, SessionState, Speaker},
     error::Result,
     session::{Session, SessionDeps, StartRequest},
 };
@@ -14,8 +14,12 @@ use tokio::{sync::mpsc, time::timeout};
 
 fn request() -> StartRequest {
     StartRequest {
-        profile: MeetingProfile::Daily,
-        language: Language::Uk,
+        meeting: MeetingStart {
+            profile: MeetingProfile::Daily,
+            language: Language::Uk,
+            project_id: None,
+            resource_ids: Vec::new(),
+        },
         input_device: None,
     }
 }

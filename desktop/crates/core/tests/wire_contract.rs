@@ -2,7 +2,8 @@ use meet_copilot_core::{
     audio::AudioFrame,
     backend::{ChatMessage, ChatSession, SttEvent, SttMessage, Tokens},
     domain::{
-        GenerationMode, Language, Meeting, MeetingDetails, MeetingProfile, MeetingStatus, Speaker,
+        GenerationMode, Language, Meeting, MeetingDetails, MeetingProfile, MeetingScope,
+        MeetingStart, MeetingStatus, Project, ResourceKind, ResourceScope, ResourceStatus, Speaker,
         UserSettings,
     },
 };
@@ -36,6 +37,7 @@ fn a_meeting_matches_the_backend_response() {
     roundtrip(
         &Meeting {
             id: "11111111-1111-4111-8111-111111111111".to_owned(),
+            project_id: Some("22222222-2222-4222-8222-222222222222".to_owned()),
             profile: MeetingProfile::Daily,
             language: Language::Uk,
             title: Some("Дейлі".to_owned()),
@@ -45,6 +47,7 @@ fn a_meeting_matches_the_backend_response() {
         },
         json!({
             "id": "11111111-1111-4111-8111-111111111111",
+            "projectId": "22222222-2222-4222-8222-222222222222",
             "profile": "daily",
             "language": "uk",
             "title": "Дейлі",
@@ -56,9 +59,40 @@ fn a_meeting_matches_the_backend_response() {
 }
 
 #[test]
+fn a_project_matches_the_backend_response() {
+    roundtrip(
+        &Project {
+            id: "33333333-3333-4333-8333-333333333333".to_owned(),
+            name: "Співбесіда в Acme".to_owned(),
+            meeting_count: 3,
+            created_at: "2026-09-18T00:00:00.000Z".to_owned(),
+            updated_at: "2026-09-19T00:00:00.000Z".to_owned(),
+        },
+        json!({
+            "id": "33333333-3333-4333-8333-333333333333",
+            "name": "Співбесіда в Acme",
+            "meetingCount": 3,
+            "createdAt": "2026-09-18T00:00:00.000Z",
+            "updatedAt": "2026-09-19T00:00:00.000Z"
+        }),
+    );
+}
+
+#[test]
+fn a_meeting_scope_names_itself_the_way_the_window_sends_it() {
+    roundtrip(&MeetingScope::All, json!({ "kind": "all" }));
+    roundtrip(&MeetingScope::Outside, json!({ "kind": "outside" }));
+    roundtrip(
+        &MeetingScope::Project("33333333-3333-4333-8333-333333333333".to_owned()),
+        json!({ "kind": "project", "id": "33333333-3333-4333-8333-333333333333" }),
+    );
+}
+
+#[test]
 fn meeting_details_stay_flat_like_the_backend_class() {
     let details: MeetingDetails = serde_json::from_value(json!({
         "id": "22222222-2222-4222-8222-222222222222",
+        "projectId": null,
         "profile": "client_call",
         "language": "en",
         "title": null,
@@ -80,6 +114,18 @@ fn meeting_details_stay_flat_like_the_backend_class() {
             "hasScreenshot": true,
             "createdAt": "2026-09-18T00:30:00.000Z"
         }],
+        "resources": [{
+            "id": "res-1",
+            "scope": "meeting",
+            "projectId": null,
+            "meetingId": "22222222-2222-4222-8222-222222222222",
+            "kind": "pdf",
+            "name": "cv.pdf",
+            "byteSize": 84211,
+            "status": "ready",
+            "failure": null,
+            "createdAt": "2026-09-18T00:00:00.000Z"
+        }],
         "usage": {
             "inputTokens": 120,
             "cachedInputTokens": 64,
@@ -93,6 +139,8 @@ fn meeting_details_stay_flat_like_the_backend_class() {
     assert_eq!(details.segments[0].speaker, Speaker::Other);
     assert_eq!(details.generations[0].mode, GenerationMode::Reply);
     assert!(details.generations[0].has_screenshot);
+    assert_eq!(details.resources[0].kind, ResourceKind::Pdf);
+    assert_eq!(details.resources[0].status, ResourceStatus::Ready);
     assert_eq!(details.usage.cached_input_tokens, 64);
     assert_eq!(details.overview.as_deref(), Some("Обговорили ціну."));
 }
@@ -200,5 +248,36 @@ fn silence_has_no_level_and_a_full_scale_tone_has_all_of_it() {
     assert!(
         (loud - 1.0).abs() < 0.001,
         "expected full scale, got {loud}"
+    );
+}
+
+#[test]
+fn starting_a_meeting_carries_the_project_and_the_materials() {
+    roundtrip(
+        &MeetingStart {
+            profile: MeetingProfile::InterviewCandidate,
+            language: Language::Uk,
+            project_id: Some("33333333-3333-4333-8333-333333333333".to_owned()),
+            resource_ids: vec!["res-1".to_owned()],
+        },
+        json!({
+            "profile": "interview_candidate",
+            "language": "uk",
+            "projectId": "33333333-3333-4333-8333-333333333333",
+            "resourceIds": ["res-1"]
+        }),
+    );
+}
+
+#[test]
+fn a_material_level_travels_tagged_like_a_meeting_scope() {
+    roundtrip(&ResourceScope::User, json!({ "kind": "user" }));
+    roundtrip(
+        &ResourceScope::Project("p-1".to_owned()),
+        json!({ "kind": "project", "id": "p-1" }),
+    );
+    roundtrip(
+        &ResourceScope::Meeting(None),
+        json!({ "kind": "meeting", "id": null }),
     );
 }

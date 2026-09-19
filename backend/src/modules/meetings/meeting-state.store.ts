@@ -31,6 +31,7 @@ export class MeetingStateStore {
       language: state.language,
       profile: state.profile,
       style: state.style,
+      contextBrief: state.contextBrief,
     });
   }
 
@@ -45,6 +46,7 @@ export class MeetingStateStore {
       language: stored.language as Language,
       profile: stored.profile as MeetingProfile,
       style: stored.style ?? '',
+      contextBrief: stored.contextBrief ?? '',
     };
   }
 

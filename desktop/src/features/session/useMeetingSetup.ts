@@ -1,17 +1,21 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { Language, MeetingProfile, UserSettings } from '~/shared/ipc';
 import { useResettableDraft } from '~/shared/lib/useResettableDraft';
 
 interface UseMeetingSetupResult {
   profile: MeetingProfile;
   language: Language;
+  projectId: string | null;
   setProfile: (profile: MeetingProfile) => void;
   setLanguage: (language: Language) => void;
+  setProjectId: (projectId: string | null) => void;
 }
 
 /// What the user picks before a meeting is what they want next time too, so the
 /// choice goes into the user settings rather than living until the window is
-/// rebuilt.
+/// rebuilt. The project is the exception: it belongs to this call, and it has to
+/// be chosen before the start, because it decides which project materials the
+/// copilot is given.
 export function useMeetingSetup(
   defaults: UserSettings | null,
   onRemember: (settings: UserSettings) => void,
@@ -22,6 +26,7 @@ export function useMeetingSetup(
   const [language, setLanguage] = useResettableDraft<Language>(
     defaults?.defaultLanguage ?? 'uk',
   );
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   const rememberProfile = useCallback(
     (chosen: MeetingProfile) => {
@@ -48,7 +53,9 @@ export function useMeetingSetup(
   return {
     profile,
     language,
+    projectId,
     setProfile: rememberProfile,
     setLanguage: rememberLanguage,
+    setProjectId,
   };
 }

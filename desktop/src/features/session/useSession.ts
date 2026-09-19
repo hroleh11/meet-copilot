@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { uk } from '~/shared/i18n/uk';
-import type { Language, MeetingProfile, SessionState } from '~/shared/ipc';
+import type { MeetingStart, SessionState } from '~/shared/ipc';
 import { sessionState, startSession, stopSession } from '~/shared/ipc/commands';
 import { errorMessage } from '~/shared/lib/command-error';
 import { useSessionStore } from '~/shared/store/sessionStore';
@@ -10,7 +10,7 @@ interface UseSessionResult {
   notice: string | null;
   error: string | null;
   busy: boolean;
-  start: (profile: MeetingProfile, language: Language) => void;
+  start: (meeting: MeetingStart, onStarted: () => void) => void;
   stop: () => void;
 }
 
@@ -19,12 +19,14 @@ export function useSession(): UseSessionResult {
   const notice = useSessionStore((store) => store.notice);
   const [error, setError] = useState<string | null>(null);
 
-  const start = useCallback((profile: MeetingProfile, language: Language) => {
+  const start = useCallback((meeting: MeetingStart, onStarted: () => void) => {
     setError(null);
 
-    startSession(profile, language).catch((cause: unknown) => {
-      setError(errorMessage(cause, uk.errors.session));
-    });
+    startSession(meeting)
+      .then(onStarted)
+      .catch((cause: unknown) => {
+        setError(errorMessage(cause, uk.errors.session));
+      });
   }, []);
 
   const stop = useCallback(() => {

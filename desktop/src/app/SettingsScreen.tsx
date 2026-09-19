@@ -3,6 +3,7 @@ import { AdvancedTab } from '~/features/settings/AdvancedTab';
 import { AudioTab } from '~/features/settings/AudioTab';
 import { GeneralTab } from '~/features/settings/GeneralTab';
 import { HotkeysTab } from '~/features/settings/HotkeysTab';
+import { MaterialsTab } from '~/features/settings/MaterialsTab';
 import { SettingsNav, type SettingsTab } from '~/features/settings/SettingsNav';
 import type { LocalSettings, UserSettings } from '~/shared/ipc';
 
@@ -43,6 +44,8 @@ export function SettingsScreen({
               onSignOut={onSignOut}
             />
           ) : null}
+
+          {tab === 'materials' ? <MaterialsTab /> : null}
 
           {tab === 'audio' && local ? (
             <AudioTab settings={local} onSave={onSaveLocal} />

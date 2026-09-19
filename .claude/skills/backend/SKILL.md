@@ -23,7 +23,7 @@ backend/src
     middleware/             request-id.middleware.ts
     types/                  auth.types.ts, express.d.ts
   infrastructure/           prisma, redis, hashing, llm, stt
-  modules/                  auth, user, settings, meetings, stt, context, generation, usage, health
+  modules/                  auth, user, settings, projects, meetings, stt, context, generation, chat, usage, health
 ```
 
 ## Module rules
@@ -112,6 +112,28 @@ const response = await this.client.responses.create({
 - Client disconnect aborts the provider stream through `AbortSignal`; the partial output is still saved with the cancelled stop reason.
 - `stream` takes `LlmStreamRequest`, a list of `LlmMessage` with roles, while `complete` keeps the one-shot `blocks` shape for the summarizer and the overview writer. `toStreamInput` maps a message to an `EasyInputMessage`, or to a `user` item with `input_text` plus `input_image` when it carries a picture.
 - A request may carry `screenshot` (`{ mimeType, dataBase64 }`, jpeg or png). It is stored inside the conversation turn it arrived with, so follow-ups see it and a new subject sees it behind them instead of attached to their own question. There is no screenshot TTL. Postgres keeps only `Generation.hasScreenshot`, which is true whenever any message in the request carried a picture.
+
+## Projects, renaming and deleting
+
+- `modules/projects` owns the groups a user makes by hand. It knows nothing about meetings beyond the relation, so `MeetingsModule` imports it and never the other way round: assigning a meeting asks `ProjectsService.requireOwned` for the project, which is what turns somebody else's project into a 404.
+- `Meeting.projectId` is nullable and the relation cascades: deleting a project deletes the meetings in it. That is the product decision, so the desktop names the number of meetings in the confirmation dialog.
+- A meeting that is still `live` is neither deleted nor deleted along with its project: both answer 409. A row being written by the speech stream cannot be pulled out from under it, and finished meetings already carry a TTL on their Redis keys, so deleting one needs no cleanup there.
+- `PATCH /meetings/:id` carries `title?` and `projectId?`, where `projectId: null` takes the meeting out of its project. `null` and «absent» differ, so the DTO uses `@ValidateIf((_, value) => value !== null)` beside `@IsOptional()` and the service branches on `undefined`, never on falsiness.
+- `GET /meetings` filters with `projectId`, and the literal `none` (exported as `MEETINGS_OUTSIDE_PROJECTS`) means the meetings in no project at all. The repository takes `projectId?: string | null` — `undefined` for every meeting, `null` for the ones outside.
+
+## Materials and the context brief
+
+- `modules/resources` owns the three levels a material can belong to: `user`, `project`, `meeting`. A material is a user's own object, not part of a meeting, which is what lets it be uploaded before the meeting exists: a meeting material with no `meetingId` is staged, and `POST /meetings` claims the ids it is given in the same call that creates the row. There is no draft meeting and no new `MeetingStatus`.
+- `ResourcesModule` imports `ProjectsModule`, never `MeetingsModule`; `MeetingsModule` imports `ResourcesModule`. Listing by `meetingId` filters by `userId` too, so ownership needs no call back into meetings and the cycle never appears.
+- Upload answers with a `pending` row and `ResourceIngestor` runs behind it: read the text, store the original, compress what does not fit its level, mark it `ready` or `failed`. The desktop follows `GET /resources/:id` until it settles. Pasted text has no object in storage and is ready at once.
+- A failure is stored as `ResourceFailure` (`unreadable`, `no_text_layer`, `storage`), never as a sentence: the desktop is what speaks Ukrainian. Each step of the ingest fails as itself, so a bucket that cannot be reached does not read as a document that cannot be parsed — which is exactly how an unconfigured R2 first showed up.
+- `GET /resources/:id/content` is what the desktop shows a person: the extracted text plus the digest, so «what did it actually read» has an answer. `GET /resources/limits` publishes `RESOURCE_MAX_BYTES` (10 MB) and `RESOURCE_TEXT_MAX_CHARS` (1 000), and it is declared before `@Get(':id')` so the literal path wins over the uuid parameter. Pasted text over the limit is refused with 413 rather than silently cut. Text extracted out of a file is capped by a separate `RESOURCE_EXTRACTED_MAX_CHARS`, because one knob for both would cut a document down to the size of a text field and then digest the stump.
+- The name of an upload travels as its own form field. A multipart `filename` is decoded latin-1 by busboy, so a Cyrillic name comes back as mojibake; a field value is utf-8.
+- `ObjectStorage` (`infrastructure/storage`) is Cloudflare R2 behind `put` and `delete`. Only original bytes live there; every byte the prompt reads is in Postgres, so a live meeting never touches the bucket. Uploads go through Nest as multipart with the limit from `RESOURCE_MAX_BYTES` via `MulterModule`; `MAX_REQUEST_BODY_BYTES` stays the JSON limit.
+- `ResourceExtractor` reads PDFs with `unpdf` and decodes Markdown and text. A PDF with no text layer extracts to nothing, which is `failed` with a message about a scan; there is no OCR. `ResourceDigester` compresses what exceeds the level budget once per material with the summary model and records usage as `digest`.
+- `ContextBriefBuilder` renders `<about-me>`, `<about-project>`, `<about-meeting>` in that order inside `<materials>`, fenced through `common/untrusted`. The order is the priority rule, the persona states it in words, and the shared budget is filled meeting first, so running out drops the user level rather than this call.
+- The brief is frozen at start into `Meeting.contextBrief` and the Redis state hash, next to the style and for the same reason: the system text must stay byte-identical for the whole meeting. The chat about a finished meeting reads that same frozen text from Postgres.
+- No embeddings. A résumé, a job description and a project brief are a few thousand tokens that fit whole, and retrieving chunks per request would make the prefix different every time and lose the cache. The place for retrieval later is the chat's tool loop, not the live reply.
 
 ## Chat about a finished meeting
 
