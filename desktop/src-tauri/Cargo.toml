@@ -28,8 +28,10 @@ tracing-subscriber = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "4.2.0", features = ["apple-native-keyring-store"] }
+block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }
 meet-copilot-platform-macos = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]

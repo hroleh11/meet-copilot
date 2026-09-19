@@ -24,17 +24,20 @@ pub fn prepare(app: &AppHandle) {
     }
 
     show(app);
+
+    #[cfg(target_os = "macos")]
+    macos::follow_spaces(app);
 }
 
 pub fn show(app: &AppHandle) {
     let Some(window) = window(app) else { return };
 
-    if !PLACED.swap(true, Ordering::SeqCst) {
-        place(app, &window);
-    }
-
     if let Err(error) = window.show() {
         tracing::warn!("could not show the overlay: {error}");
+    }
+
+    if !PLACED.swap(true, Ordering::SeqCst) {
+        place(app, &window);
     }
 
     #[cfg(target_os = "macos")]
@@ -104,5 +107,11 @@ fn active_monitor(app: &AppHandle, window: &WebviewWindow) -> Option<Monitor> {
         .and_then(|point| window.monitor_from_point(point.x, point.y).ok())
         .flatten();
 
-    under_cursor.or_else(|| window.primary_monitor().ok().flatten())
+    let monitor = under_cursor.or_else(|| window.primary_monitor().ok().flatten());
+
+    if monitor.is_none() {
+        tracing::warn!("no monitor to place the overlay on");
+    }
+
+    monitor
 }

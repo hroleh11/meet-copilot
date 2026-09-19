@@ -8,6 +8,7 @@ import { RegenerateButton } from './RegenerateButton';
 import { ResponseBlock } from './ResponseBlock';
 import { StatusIndicator } from './StatusIndicator';
 import type { ListeningState } from './StatusIndicator';
+import { useOverlayDrag } from './useOverlayDrag';
 
 export interface ResponseOverlayProps {
   listening: ListeningState;
@@ -32,9 +33,14 @@ export function ResponseOverlay({
   onCopy,
   onRegenerate,
 }: ResponseOverlayProps) {
+  const startDrag = useOverlayDrag();
+
   return (
     <main className="flex h-screen flex-col gap-3 rounded-lg border border-separator bg-surface-elevated/55 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-[30px] backdrop-saturate-[1.8]">
-      <header data-tauri-drag-region className="flex items-center justify-between">
+      <header
+        onPointerDown={startDrag}
+        className="flex cursor-grab items-center justify-between active:cursor-grabbing"
+      >
         <StatusIndicator state={listening} />
         <span className="rounded-sm bg-ink-secondary/15 px-2 py-0.5 text-caption text-ink-secondary">
           {formatShortcut(hotkey)}
