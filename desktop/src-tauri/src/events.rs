@@ -90,6 +90,7 @@ pub struct SourceStatusEvent {
 #[serde(rename_all = "camelCase")]
 pub struct GenerationStartedEvent {
     pub mode: GenerationMode,
+    pub with_screenshot: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -119,6 +120,8 @@ pub enum ErrorKind {
     Settings,
     Permission,
     Access,
+    Screen,
+    Session,
     Cancelled,
 }
 

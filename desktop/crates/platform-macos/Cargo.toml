@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
 block2 = { workspace = true }
 dispatch2 = { workspace = true }
 meet-copilot-core = { workspace = true }

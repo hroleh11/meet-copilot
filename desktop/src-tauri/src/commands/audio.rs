@@ -31,11 +31,9 @@ pub enum AudioPermission {
 pub async fn system_audio_allowed() -> bool {
     #[cfg(target_os = "macos")]
     {
-        tokio::task::spawn_blocking(
-            meet_copilot_platform_macos::system_audio::system_audio_available,
-        )
-        .await
-        .unwrap_or(false)
+        tokio::task::spawn_blocking(meet_copilot_platform_macos::capture_kit::capture_allowed)
+            .await
+            .unwrap_or(false)
     }
 
     #[cfg(not(target_os = "macos"))]

@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '~/common/config';
 import type { Language, MeetingProfile } from '~/generated/prisma/enums';
 import { RedisService } from '~/infrastructure/redis';
-import type { MeetingLiveState, WindowSegment } from './types/meetings.types';
+import type {
+  MeetingLiveState,
+  MeetingScreenshot,
+  WindowSegment,
+} from './types/meetings.types';
 
 const stateKey = (meetingId: string): string => `meeting:${meetingId}:state`;
 const windowKey = (meetingId: string): string => `meeting:${meetingId}:window`;
@@ -11,6 +15,7 @@ const summaryKey = (meetingId: string): string => `meeting:${meetingId}:summary`
 const summarizeLockKey = (meetingId: string): string =>
   `meeting:${meetingId}:summarize:lock`;
 const aliveKey = (meetingId: string): string => `meeting:${meetingId}:alive`;
+const screenshotKey = (meetingId: string): string => `meeting:${meetingId}:screenshot`;
 
 @Injectable()
 export class MeetingStateStore {
@@ -49,6 +54,24 @@ export class MeetingStateStore {
 
   writeLastAnswer(meetingId: string, answer: string): Promise<void> {
     return this.redis.writeHash(stateKey(meetingId), { lastAnswer: answer });
+  }
+
+  writeScreenshot(meetingId: string, screenshot: MeetingScreenshot): Promise<void> {
+    return this.redis.set(
+      screenshotKey(meetingId),
+      JSON.stringify(screenshot),
+      this.configService.getOrThrow<number>('SCREENSHOT_TTL_SECONDS'),
+    );
+  }
+
+  async readScreenshot(meetingId: string): Promise<MeetingScreenshot | null> {
+    const stored = await this.redis.read(screenshotKey(meetingId));
+
+    return stored === null ? null : (JSON.parse(stored) as MeetingScreenshot);
+  }
+
+  clearScreenshot(meetingId: string): Promise<void> {
+    return this.redis.delete(screenshotKey(meetingId));
   }
 
   appendToWindow(meetingId: string, segment: WindowSegment): Promise<void> {
@@ -105,6 +128,7 @@ export class MeetingStateStore {
       this.redis.expire(windowKey(meetingId), ttl),
       this.redis.expire(summaryKey(meetingId), ttl),
       this.redis.delete(aliveKey(meetingId)),
+      this.redis.delete(screenshotKey(meetingId)),
     ]);
   }
 }

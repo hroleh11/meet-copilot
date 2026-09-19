@@ -5,6 +5,7 @@ pub mod backend_failure;
 pub mod domain;
 pub mod error;
 pub mod generation;
+pub mod screenshot;
 pub mod secret;
 pub mod session;
 pub mod settings;

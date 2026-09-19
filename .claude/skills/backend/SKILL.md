@@ -110,6 +110,7 @@ const response = await this.client.responses.create({
 - Reasoning models spend output tokens on thinking before the visible answer, so `max_output_tokens` has to leave room for both. A reply that comes back with `incomplete_details.reason === 'max_output_tokens'` means the budget was too tight, not that the model failed.
 - Catch the SDK's typed errors most-specific first: `AuthenticationError` and `APIConnectionError` map to 502, `RateLimitError` to 429, any other `APIError` to 502. Never string-match messages.
 - Client disconnect aborts the provider stream through `AbortSignal`; the partial output is still saved with the cancelled stop reason.
+- A request may carry `screenshot` (`{ mimeType, dataBase64 }`, jpeg or png). It becomes an `input_image` content item next to the text in `toStreamInput`, and the no-image path stays a plain string so the cached prefix does not move. The picture is kept in `meeting:{id}:screenshot` for `SCREENSHOT_TTL_SECONDS` so `alternative` sees the same screen; a question without one clears the key. Postgres keeps only `Generation.hasScreenshot`.
 
 ## Chat about a finished meeting
 

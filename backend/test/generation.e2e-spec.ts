@@ -60,11 +60,13 @@ describe('Generation (e2e)', () => {
   let account: TestAccount;
   let meetingId = '';
 
-  const generate = (mode: string): request.Test =>
+  const generate = (mode: string, screenshot?: unknown): request.Test =>
     request(harness.server)
       .post(`/api/v1/meetings/${meetingId}/generate`)
       .set(...bearer(account.accessToken))
-      .send({ mode });
+      .send(screenshot === undefined ? { mode } : { mode, screenshot });
+
+  const picture = { mimeType: 'image/jpeg', dataBase64: 'AQID' };
 
   beforeAll(async () => {
     harness = await AppHarness.boot((builder) =>
@@ -124,6 +126,46 @@ describe('Generation (e2e)', () => {
     expect(provider.requests[0]?.blocks.join('\n')).toContain(
       'Я б скоротив анкету до трьох полів.',
     );
+  });
+
+  it('hands the screenshot to the model and marks the answer with it', async () => {
+    provider.requests = [];
+
+    await generate('reply', picture).expect(200);
+
+    expect(provider.requests[0]?.image).toEqual(picture);
+    expect(provider.requests[0]?.blocks.join('\n')).toContain('attached a screenshot');
+
+    const details = await request(harness.server)
+      .get(`/api/v1/meetings/${meetingId}`)
+      .set(...bearer(account.accessToken))
+      .expect(200);
+
+    const { generations } = details.body as { generations: { hasScreenshot: boolean }[] };
+
+    expect(generations.at(-1)?.hasScreenshot).toBe(true);
+  });
+
+  it('shows the same screenshot again when another angle is asked for', async () => {
+    provider.requests = [];
+
+    await generate('alternative').expect(200);
+
+    expect(provider.requests[0]?.image).toEqual(picture);
+  });
+
+  it('forgets the screenshot once a question comes without one', async () => {
+    await generate('reply').expect(200);
+
+    provider.requests = [];
+
+    await generate('alternative').expect(200);
+
+    expect(provider.requests[0]?.image).toBeUndefined();
+  });
+
+  it('refuses a screenshot in a format the model does not read', async () => {
+    await generate('reply', { mimeType: 'image/gif', dataBase64: 'AQID' }).expect(400);
   });
 
   it('rejects a mode that does not exist', async () => {

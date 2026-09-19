@@ -58,6 +58,9 @@ export class GenerationResponse {
   output: string;
 
   @ApiProperty()
+  hasScreenshot: boolean;
+
+  @ApiProperty()
   createdAt: Date;
 }
 

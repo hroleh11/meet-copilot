@@ -14,6 +14,7 @@ export interface ResponseOverlayProps {
   interactive: boolean;
   lines: TranscriptLine[];
   text: string;
+  withScreenshot: boolean;
   streaming: boolean;
   error: string | null;
 }
@@ -24,6 +25,7 @@ export function ResponseOverlay({
   interactive,
   lines,
   text,
+  withScreenshot,
   streaming,
   error,
 }: ResponseOverlayProps) {
@@ -55,7 +57,14 @@ export function ResponseOverlay({
       <span className="h-px bg-separator" />
 
       <section className="flex max-h-[45%] min-h-24 flex-col gap-1 overflow-y-auto">
-        <SectionLabel>{uk.answer.title}</SectionLabel>
+        <span className="flex items-center gap-2">
+          <SectionLabel>{uk.answer.title}</SectionLabel>
+          {withScreenshot ? (
+            <span className="text-caption text-ink-tertiary">
+              {uk.answer.withScreenshot}
+            </span>
+          ) : null}
+        </span>
         <ResponseBlock text={text} streaming={streaming} error={error} />
       </section>
     </main>

@@ -68,6 +68,25 @@ mod tests {
     }
 
     #[test]
+    fn a_hotkey_added_after_the_file_was_written_takes_its_default() {
+        let path = temp_path("older-hotkeys");
+        fs::create_dir_all(path.parent().expect("has a parent")).expect("creates the folder");
+        fs::write(
+            &path,
+            r#"{"hotkeys":{"reply":"Alt+Q","alternative":"Alt+W","hide":"Alt+E","interact":"Alt+T"}}"#,
+        )
+        .expect("writes");
+
+        let loaded = LocalSettingsStore::new(path).load();
+
+        assert_eq!(loaded.hotkeys.reply, "Alt+Q");
+        assert_eq!(
+            loaded.hotkeys.screenshot,
+            crate::settings::Hotkeys::default().screenshot
+        );
+    }
+
+    #[test]
     fn a_corrupt_file_falls_back_to_defaults_instead_of_failing() {
         let path = temp_path("corrupt");
         fs::create_dir_all(path.parent().expect("has a parent")).expect("creates the folder");

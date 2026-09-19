@@ -18,6 +18,7 @@ use crate::{
         Speaker, UserSettings,
     },
     error::{Error, Result},
+    screenshot::Screenshot,
     settings::SecretStore,
 };
 
@@ -162,8 +163,13 @@ impl BackendApi for BackendClient {
             .await
     }
 
-    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
-        generation::generate(self.transport(), id, mode)
+    fn generate(
+        &self,
+        id: &MeetingId,
+        mode: GenerationMode,
+        screenshot: Option<&Screenshot>,
+    ) -> DeltaStream<'_> {
+        generation::generate(self.transport(), id, mode, screenshot)
     }
 
     async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>> {

@@ -47,12 +47,15 @@ desktop/crates/core/src
   audio/         AudioSource, AudioFrame, resample, level
   backend/       BackendApi, BackendEndpoint, auth, http, stt_stream, sse
   session/       Session, SessionState, transcript view
+  screenshot/    ScreenCapture, Screenshot, стиснення знімка
   settings/      LocalSettings, defaults, SecretStore
   access/        AccessPolicy, Entitlement, always_allowed
   error.rs
 
 desktop/crates/platform-macos/src
+  capture_kit/   спільне для ScreenCaptureKit: перелік вмісту, ThreadSafe
   system_audio/  AudioSource на ScreenCaptureKit, делегат, розбір CMSampleBuffer
+  screen_capture/ ScreenCapture на SCScreenshotManager, розбір CGImage
   permissions/   дозвіл на запис екрана
 
 desktop/src-tauri/src
@@ -64,7 +67,7 @@ desktop/src-tauri/src
   deep_link/     обробка meetcopilot://auth
 
 desktop/src
-  main.tsx, overlay.tsx            по точці входу на вікно
+  main.tsx, overlay.tsx, selection.tsx   по точці входу на вікно
   app/           екрани головного вікна та оболонка оверлея
   features/      auth, session, generation, settings, history, chat, access
   shared/theme/  tokens.css, згенерований із дизайн-системи
@@ -135,7 +138,9 @@ desktop/src
 
 ### `POST /meetings/:id/generate` → SSE
 
-Тіло `{ mode }`. Події: `delta { text }`, `done { generationId, stopReason, usage }`, `error { message }`. Для `alternative` бекенд бере попередню відповідь із власного стану. `usage` тут це лише токени `{ inputTokens, cachedInputTokens, outputTokens }`, без секунд аудіо: вони належать зустрічі, а не одній відповіді.
+Тіло `{ mode, screenshot? }`, де `screenshot` це `{ mimeType, dataBase64 }` для `image/jpeg` або `image/png`. Події: `delta { text }`, `done { generationId, stopReason, usage }`, `error { message }`. Для `alternative` бекенд бере попередню відповідь із власного стану. `usage` тут це лише токени `{ inputTokens, cachedInputTokens, outputTokens }`, без секунд аудіо: вони належать зустрічі, а не одній відповіді.
+
+Знімок екрана їде в тілі тому, що це одна картинка до одного питання: окремий маршрут завантаження додав би сховище й другий круг по мережі рівно нічого не давши. Через це `MAX_REQUEST_BODY_BYTES` це 1 МБ, а не 256 КБ: застосунок тримає картинку в межах 400 КБ, base64 додає третину. Бекенд кладе її в `meeting:{id}:screenshot` із `SCREENSHOT_TTL_SECONDS`, щоб `alternative` бачив те саме зображення; питання без знімка цей ключ прибирає, тому стара картинка не приліпиться до наступної відповіді. У Postgres лишається тільки `Generation.hasScreenshot`: самі зображення не зберігаються.
 
 Це звичайний `POST` із ручним записом кадрів SSE, а не декоратор `@Sse()`: той працює лише на `GET` і не приймає тіло. Перевірка власника й статусу відбувається до відкриття потоку, тому помилка приходить звичайним HTTP-кодом, а не подією всередині стріму. Обрив з'єднання скасовує запит до провайдера, і часткова відповідь усе одно зберігається.
 
@@ -167,7 +172,7 @@ Meeting         id, userId, profile, language, title, status, summary?, overview
                 startedAt, endedAt?
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
 Generation      id, meetingId, mode, output, stopReason, inputTokens, cachedInputTokens,
-                outputTokens, createdAt
+                outputTokens, hasScreenshot, createdAt
 ChatSession     id, meetingId, title?, createdAt, updatedAt
 ChatMessage     id, sessionId, question, answer, createdAt
 UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, createdAt
@@ -179,6 +184,7 @@ Redis:
 meeting:{id}:state           hash: language, profile, style, lastAnswer
 meeting:{id}:window          list: свіжі фінальні сегменти як JSON
 meeting:{id}:summary         string
+meeting:{id}:screenshot      string: остання картинка як JSON, TTL SCREENSHOT_TTL_SECONDS
 meeting:{id}:summarize:lock  string з TTL
 settings:{userId}            кеш налаштувань
 login:code:{code}            userId, TTL 60 секунд
@@ -209,6 +215,9 @@ enum MeetingProfile { Daily, InterviewCandidate, ClientCall }
 enum GenerationMode { Reply, Alternative }
 
 struct AudioFrame { speaker: Speaker, samples: Vec<i16>, captured_at: Instant }
+struct CaptureRect { x: f64, y: f64, width: f64, height: f64, scale: f64 }
+struct RawFrame { width: u32, height: u32, stride: usize, bgra: Vec<u8> }
+struct Screenshot { mime_type: String, bytes: Vec<u8> }
 struct TranscriptSegment { id, speaker, text, start_ms, duration_ms }
 struct Meeting { id, profile, language, title, status, started_at, ended_at }
 struct MeetingDetails { meeting, summary, segments, generations, usage }
@@ -237,7 +246,8 @@ trait BackendApi {
     async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting>;
     async fn list_meetings(&self) -> Result<Vec<Meeting>>;
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
-    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> BoxStream<'_, Result<Delta>>;
+    fn generate(&self, id: &MeetingId, mode: GenerationMode, screenshot: Option<&Screenshot>)
+        -> BoxStream<'_, Result<Delta>>;
     async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
     async fn start_meeting_chat(&self, id: &MeetingId) -> Result<ChatSession>;
     async fn chat_messages(&self, id: &MeetingId, chat: &ChatId) -> Result<Vec<ChatMessage>>;
@@ -263,6 +273,10 @@ trait SttEvents {
 trait AudioSources {
     fn microphone(&self, device_id: Option<String>) -> Box<dyn AudioSource>;
     fn system_audio(&self) -> Option<Box<dyn AudioSource>>;
+}
+
+trait ScreenCapture {
+    async fn capture(&self, rect: CaptureRect) -> Result<Screenshot>;
 }
 
 trait AccessPolicy {
@@ -300,15 +314,37 @@ Idle → Starting → Listening → Stopping → Idle
 
 HTTP-клієнт для генерації окремий, без загального таймаута: відповідь пишеться стільки, скільки треба, а межа стоїть лише на встановлення з'єднання. Потік закінчується подією `done`; якщо тіло обірвалось раніше, UI лишає написане і показує, що відповідь не дописана.
 
-Гарячі клавіші беруться з локальних налаштувань і перереєструються при їх збереженні. Клавіша «відповісти» і клавіша «інший варіант» різні, третя показує або ховає оверлей. За замовчуванням «відповісти» це `Alt+R` (⌥R з макета); підказку в бічній панелі й чип в оверлеї малює той самий рядок із налаштувань, тому вони не розходяться.
+### Знімок екрана
+
+Клавіша «знімок» питає модель про те, що на екрані, тим самим питанням, яке щойно прозвучало в розмові: окремого поля для тексту немає, контекст бекенд збирає так само, як для звичайної відповіді.
+
+Дозвіл питається до того, як відкриється виділення: `capture_kit::capture_allowed` питає сам ScreenCaptureKit (прапорець `CGPreflightScreenCaptureAccess` бреше), і без дозволу застосунок каже про це замість того, щоб дати намалювати прямокутник у порожнечу. Той самий виклик відповідає на питання, чи доступний звук зустрічі: обидва захоплення тримаються на одному дозволі.
+
+Знімає ScreenCaptureKit усередині нашого ж процесу (`SCScreenshotManager` у `platform-macos/screen_capture`), а не `/usr/sbin/screencapture`. Дочірній процес macOS перевіряє не по нашому застосунку, а по «відповідальному» процесі свого ланцюга — під час розробки це WebStorm, який запустив `tauri dev`. Без дозволу `screencapture` не падає й нічого не пише в stderr: він повертає робочий стіл без жодного вікна, і до моделі їдуть шпалери замість питання. SCK у своєму процесі користується тим самим дозволом, що й звук зустрічі, а відмову віддає помилкою, яку видно.
+
+Область користувач обирає сам, бо системне перехрестя свій прямокутник не віддає: `app/selection.rs` відкриває прозоре вікно `selection` на всіх дисплеях одразу (одне вікно розміром з об'єднання їхніх прямокутників), `features/generation/RegionSelector` малює затемнення з вирізом, Esc або права кнопка скасовують. Вікно створюється в головному потоці через `run_on_main_thread`, бо AppKit інших не приймає, а гаряча клавіша живе на воркері tokio. Воно піднімається тим самим кодом, що й оверлей (`app/macos_window.rs`) і, як і оверлей, лишається `NonactivatingPanel`: вікно, яке активує застосунок, тягне користувача на той Space, де застосунок живе, а виділяти область треба там, де зараз браузер. Різниця лише в тому, що вибір стає key-вікном (`makeKeyAndOrderFront`) — нонактивуюча панель має право на клавіатуру й перший клік без активації застосунку. Escape додатково ловиться глобальною комбінацією, зареєстрованою на час вибору, тому скасування працює навіть якщо key-статус не дали. `set_content_protected(true)` тримає саме вікно поза знімком, тому затемнення не потрапляє в кадр, навіть якщо компонувальник ще не встиг його прибрати.
+
+Друге натискання, поки екран уже притемнений, нічого не робить: це людина перевіряє, чи спрацювало перше. Вікно при цьому не створюється щоразу заново, а перевикористовується, якщо ще існує: `close()` у Tauri це повідомлення до циклу подій, тому щойно закрите вікно ще тримає свою мітку, і наступна спроба падала б на «webview with label `selection` already exists».
+
+Вікно на один монітор не годиться: питають зазвичай не про той екран, де стоїть застосунок, а на інших дисплеях не було б на чому малювати.
+
+Прямокутник приходить із вебв'ю в CSS-пікселях вікна, `selection.rs` додає початок цього вікна і віддає `CaptureRect` у глобальних точках. `screen_capture` знаходить `SCDisplay`, який містить центр прямокутника, ставить його як `sourceRect` відносно початку цього дисплея, а розмір кадру рахує з його ж щільності (`CGDisplayModeGetPixelWidth` поділити на ширину в точках), тому на Retina знімок виходить у рідній роздільності, а на звичайному сусідньому екрані не роздувається. Прямокутник, розтягнутий на два дисплеї, обрізається до того, на якому лежить його центр.
+
+Стискає картинку ядро, а не платформний крейт: `screenshot::shrink` читає BGRA з урахуванням `stride`, зводить довгу сторону до 1400 px і кодує JPEG, знижуючи якість, доки не влізе в 400 КБ. Зустріч перевіряється до появи виділення: вибирати область, щоб потім почути «зустріч не йде», було б знущанням.
+
+Гарячі клавіші беруться з локальних налаштувань і перереєструються при їх збереженні. Клавіша «відповісти», «інший варіант» і «знімок» різні, ще одна показує або ховає оверлей. За замовчуванням «відповісти» це `Alt+R` (⌥R з макета); підказку в бічній панелі й чип в оверлеї малює той самий рядок із налаштувань, тому вони не розходяться.
 
 ### IPC
 
-Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `finish_selection`, `cancel_selection`, `list_meetings`, `get_meeting`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+
+Подія `generation:started` несе `{ mode, withScreenshot }`, тому оверлей і історія кажуть, що відповідь читала екран.
 
 Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `chat:delta`, `chat:finished`, `chat:failed`, `app:error`. Події чату несуть `chatId`, а не зустріч: екран чату бере лише свої.
 
 `source:status` приходить по одній події на джерело одразу після старту зустрічі: `{ speaker, active }`. UI показує з них статуси мікрофона й звуку зустрічі і забуває їх, коли зустріч закінчується. Поки зустрічі немає, статус системного звуку береться з команди `system_audio_allowed`: без неї джерело вічно висіло б «не перевірено», хоча дозвіл уже виданий. Клік по рядку джерела відкриває потрібну панель macOS через `open_audio_permission`, і для звуку зустрічі це «Запис екрана», а не мікрофон.
+
+Помилка з `app:error` показується смугою внизу головного вікна і сама зникає через дванадцять секунд (`shared/lib/useTransientMessage`). Смуга, що висить далі, читається як стан останньої дії: дозвіл уже виданий, а екран досі каже, що його немає.
 
 Назви подій і форми payload визначені один раз у `desktop/src-tauri/src/events.rs` і продубльовані типами в `desktop/src/shared/ipc/events.ts`.
 
@@ -322,7 +358,8 @@ HTTP-клієнт для генерації окремий, без загаль�
 - Транскрипт в оверлеї показує всю зустріч: тримається низу, доки користувач не почав гортати, а вгору довантажує по сорок реплік, тому довга зустріч не тримає в DOM тисячі рядків.
 - Оверлей видимий від старту застосунку, а не лише під час відповіді: це «меблі», які показують стан сесії, транскрипт і останню відповідь. Ховає й повертає його гаряча клавіша. Вікно оголошене в `tauri.conf.json` як прихованим, має власну точку входу `overlay.html` і власний набір дозволів. Живий транскрипт живе тут, а не в головному вікні: під час зустрічі користувач дивиться на зустріч, а не на застосунок.
 - Оверлей прозорий: `transparent: true` плюс `macOSPrivateApi`, бо без цього `backdrop-filter` малює суцільний прямокутник замість скла з макета. Ціна рішення — App Store відпадає, лишається роздача через DMG з нотаризацією. Системну тінь вимкнено (`shadow: false`), тінь малює CSS, інакше навколо прозорого вікна з'явиться прямокутна рамка.
-- Рівень вікна оверлея піднято до `NSScreenSaverWindowLevel`, а `collectionBehavior` це `CanJoinAllSpaces | FullScreenAuxiliary | Stationary | IgnoresCycle`, плюс `hidesOnDeactivate(false)`. Самого `CanJoinAllSpaces` не досить: вікно застосунку зі значком у Dock лишається на просторі, де його відкрили, хоч би що казала поведінка колекції. На всі простори виходить тільки `NSPanel`, тому в `app/overlay/macos.rs` клас вікна на час виставляння прапорців підмінюється на `NSPanel` (з ним заходить стиль `NonactivatingPanel`), а одразу по тому повертається початковий: залишити вікно панеллю не можна, tao віддає `NSKVONotifying_TaoWindow`, і підміна класу назавжди ламає спостерігачів KVO, які тримає на вікні AppKit — застосунок падає на `removeObserver`. Прапорці виставляються заново при кожному показі й завжди в головному потоці через `run_on_main_thread`. Це єдиний шматок AppKit у `src-tauri`.
+- Вікно вибору області живе лише під час вибору: `app/selection.rs` створює його на гарячу клавішу й закриває, щойно прямокутник обрано або вибір скасовано. Воно прозоре, без рамки, ловить мишу й клавіатуру і приховане від знімка.
+- Рівень вікна оверлея піднято до `NSScreenSaverWindowLevel`, а `collectionBehavior` це `CanJoinAllSpaces | FullScreenAuxiliary | Stationary | IgnoresCycle`, плюс `hidesOnDeactivate(false)`. Самого `CanJoinAllSpaces` не досить: вікно застосунку зі значком у Dock лишається на просторі, де його відкрили, хоч би що казала поведінка колекції. На всі простори виходить тільки `NSPanel`, тому в `app/overlay/macos.rs` клас вікна на час виставляння прапорців підмінюється на `NSPanel` (з ним заходить стиль `NonactivatingPanel`), а одразу по тому повертається початковий: залишити вікно панеллю не можна, tao віддає `NSKVONotifying_TaoWindow`, і підміна класу назавжди ламає спостерігачів KVO, які тримає на вікні AppKit — застосунок падає на `removeObserver`. Прапорці виставляються заново при кожному показі й завжди в головному потоці через `run_on_main_thread`. Це єдиний шматок AppKit у `src-tauri`, і він лежить в `app/macos_window.rs`, бо ним користуються обидва вікна поверх усіх: оверлей і вибір області.
 - Позицію оверлей отримує один раз, на моніторі під курсором, і саме після `show()`: tao центрує вікно при першому показі, тому позиція, виставлена раніше, губиться. Далі вікно не рухається саме. Тягне його користувач за шапку, і це власний обробник `pointerdown` з `setPosition`, а не `data-tauri-drag-region`: регіон пропускає натискання, які влучили в дочірній елемент, а в шапці їх майже суцільно.
 - `set_content_protected(true)` прибирає оверлей із демонстрації екрана. Побічний ефект: його не видно і на звичайному знімку екрана, хоча на екрані він є. Перевіряти його наявність інструментами варто через `CGWindowListCopyWindowInfo`, а не через скриншот, а належність до просторів — через приватну `CGSCopySpacesForWindows`: у відповіді мають бути всі простори.
 

@@ -3,19 +3,19 @@ import { useMeetings } from '~/features/history/useMeetings';
 import { SessionSidebar } from '~/features/session/SessionSidebar';
 import { useMeetingSetup } from '~/features/session/useMeetingSetup';
 import { useSession } from '~/features/session/useSession';
-import type { UserSettings } from '~/shared/ipc';
+import type { Hotkeys, UserSettings } from '~/shared/ipc';
 
 export interface MainWindowProps {
   defaults: UserSettings | null;
   onRemember: (settings: UserSettings) => void;
-  hotkey: string;
+  hotkeys: Hotkeys;
   onOpenMeeting: (id: string) => void;
 }
 
 export function MainWindow({
   defaults,
   onRemember,
-  hotkey,
+  hotkeys,
   onOpenMeeting,
 }: MainWindowProps) {
   const session = useSession();
@@ -29,7 +29,7 @@ export function MainWindow({
         language={setup.language}
         state={session.state}
         busy={session.busy}
-        hotkey={hotkey}
+        hotkeys={hotkeys}
         notice={session.notice}
         error={session.error}
         onProfileChange={setup.setProfile}

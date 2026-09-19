@@ -62,6 +62,7 @@ export interface Generation {
   id: string;
   mode: GenerationMode;
   output: string;
+  hasScreenshot: boolean;
   createdAt: string;
 }
 
@@ -87,6 +88,7 @@ export interface UserSettings {
 export interface Hotkeys {
   reply: string;
   alternative: string;
+  screenshot: string;
   hide: string;
   interact: string;
 }
@@ -98,7 +100,15 @@ export interface LocalSettings {
 }
 
 export type ErrorKind =
-  'audio' | 'backend' | 'settings' | 'permission' | 'access' | 'cancelled' | 'window';
+  | 'audio'
+  | 'backend'
+  | 'settings'
+  | 'permission'
+  | 'access'
+  | 'screen'
+  | 'session'
+  | 'cancelled'
+  | 'window';
 
 export type BackendFailure =
   'unauthorized' | 'notFound' | 'conflict' | 'unavailable' | 'unexpected';

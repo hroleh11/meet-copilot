@@ -20,7 +20,7 @@ desktop/src/
   shared/i18n/          UI strings
 ```
 
-Two Vite entries, one per window. Both share `shared/`, neither imports from the other's feature folders except through `shared/`.
+Three Vite entries, one per window (`main`, `overlay`, `selection`). They share `shared/`, and none imports from another's feature folders except through `shared/`.
 
 ## Components
 
@@ -42,7 +42,8 @@ Two Vite entries, one per window. Both share `shared/`, neither imports from the
 - `shared/ipc/commands.ts`: one typed function per Tauri command, wrapping `invoke` with request and response types.
 - `shared/ipc/events.ts`: event name constants and payload types mirroring `desktop/src-tauri/src/events.rs`. Keep both in sync in the same change.
 - `shared/ipc/types.ts`: domain types serialized from Rust (`Meeting`, `MeetingDetails`, `TranscriptSegment`, `LocalSettings`, `UserSettings`, ...). Field names match Rust `serde` output, which is `camelCase` via `#[serde(rename_all = "camelCase")]`.
-- Errors from commands are `{ kind, message }`; surface `message` in the UI, branch on `kind` only when the UI reacts differently.
+- An error from `app:error` is transient: `useTransientMessage` clears it after twelve seconds, because a banner that stays reads as the state of the last thing the user did.
+- Errors from commands are `{ kind, failure, message }`. The message from Rust is English and stays out of the UI: `shared/lib/command-error.ts` turns `failure` first and then `kind` into Ukrainian. Every new kind needs an entry there, otherwise it shows up as the generic "the server answered with an error".
 
 ## Settings screen
 
@@ -75,6 +76,11 @@ Two Vite entries, one per window. Both share `shared/`, neither imports from the
 
 - `features/access` owns `useAccess` and the single paywall screen. It is the only UI that knows about entitlement; other features render normally and the app shell swaps in the paywall when `useAccess` says denied.
 - First version: `useAccess` always returns allowed. The backend-unreachable and invalid-token states are ordinary errors shown by the session feature, not paywall states.
+
+## Region selection window
+
+- `selection.tsx` → `SelectionApp` → `features/generation/RegionSelector` is the whole window: a transparent surface that dims the screen, draws the rectangle being dragged and reports it with `finishSelection`. Escape, a right click or a click without a drag call `cancelSelection`.
+- The rectangle is reported in CSS pixels of the window; Rust adds the monitor origin and scale. The component never talks to the screen itself.
 
 ## Overlay window
 

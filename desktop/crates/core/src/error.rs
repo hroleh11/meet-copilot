@@ -24,6 +24,12 @@ pub enum Error {
     #[error("{0}")]
     Access(String),
 
+    #[error("{0}")]
+    Screen(String),
+
+    #[error("{0}")]
+    Session(String),
+
     #[error("operation was cancelled")]
     Cancelled,
 }

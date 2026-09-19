@@ -35,6 +35,7 @@ export function toGenerationResponse(generation: Generation): GenerationResponse
     id: generation.id,
     mode: generation.mode,
     output: generation.output,
+    hasScreenshot: generation.hasScreenshot,
     createdAt: generation.createdAt,
   };
 }

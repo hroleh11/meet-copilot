@@ -4,6 +4,7 @@ import { useAuth } from '~/features/auth/useAuth';
 import { useSettings } from '~/features/settings/useSettings';
 import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
+import { useTransientMessage } from '~/shared/lib/useTransientMessage';
 import { ChatScreen } from './ChatScreen';
 import { MainWindow } from './MainWindow';
 import { MeetingScreen } from './MeetingScreen';
@@ -39,9 +40,9 @@ export function App() {
   const auth = useAuth();
   const settings = useSettings(auth.signedIn);
   const [view, setView] = useState<View>({ name: 'main' });
-  const [eventError, setEventError] = useState<string | null>(null);
+  const [eventError, showEventError] = useTransientMessage();
 
-  useAppEvents(useCallback((message: string) => setEventError(message), []));
+  useAppEvents(showEventError);
 
   const back = previous(view);
 
@@ -89,7 +90,7 @@ export function App() {
         <MainWindow
           defaults={settings.user}
           onRemember={settings.saveUser}
-          hotkey={settings.local.hotkeys.reply}
+          hotkeys={settings.local.hotkeys}
           onOpenMeeting={(meetingId) => {
             setView({ name: 'meeting', meetingId });
           }}

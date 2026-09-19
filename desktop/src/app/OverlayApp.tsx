@@ -24,6 +24,7 @@ export function OverlayApp() {
       interactive={interactive}
       lines={lines}
       text={answer.text}
+      withScreenshot={answer.withScreenshot}
       streaming={answer.streaming}
       error={answer.error}
     />

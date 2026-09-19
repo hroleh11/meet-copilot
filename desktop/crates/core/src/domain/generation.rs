@@ -13,6 +13,7 @@ pub struct Generation {
     pub id: String,
     pub mode: GenerationMode,
     pub output: String,
+    pub has_screenshot: bool,
     pub created_at: String,
 }
 

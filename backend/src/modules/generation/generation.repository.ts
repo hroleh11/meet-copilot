@@ -15,6 +15,7 @@ export class GenerationRepository {
     inputTokens: number;
     cachedInputTokens: number;
     outputTokens: number;
+    hasScreenshot: boolean;
   }): Promise<Generation> {
     return this.prisma.generation.create({ data });
   }

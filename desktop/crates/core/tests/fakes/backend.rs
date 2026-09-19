@@ -19,6 +19,7 @@ use meet_copilot_core::{
         MeetingStatus, Profile, TokenUsage, TranscriptSegment, Usage, UserSettings,
     },
     error::{Error, Result},
+    screenshot::Screenshot,
 };
 
 #[derive(Debug, Clone)]
@@ -49,6 +50,7 @@ pub struct FakeBackend {
     answer: Mutex<Vec<Answer>>,
     pace: Mutex<Duration>,
     asked: Mutex<Vec<GenerationMode>>,
+    pictures: Mutex<Vec<Option<Screenshot>>>,
 }
 
 impl FakeBackend {
@@ -70,6 +72,10 @@ impl FakeBackend {
 
     pub fn modes_asked(&self) -> Vec<GenerationMode> {
         self.asked.lock().expect("lock").clone()
+    }
+
+    pub fn pictures_asked(&self) -> Vec<Option<Screenshot>> {
+        self.pictures.lock().expect("lock").clone()
     }
 }
 
@@ -162,8 +168,17 @@ impl BackendApi for FakeBackend {
         Box::pin(stream::empty())
     }
 
-    fn generate(&self, _id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
+    fn generate(
+        &self,
+        _id: &MeetingId,
+        mode: GenerationMode,
+        screenshot: Option<&Screenshot>,
+    ) -> DeltaStream<'_> {
         self.asked.lock().expect("lock").push(mode);
+        self.pictures
+            .lock()
+            .expect("lock")
+            .push(screenshot.cloned());
 
         let answer = self.answer.lock().expect("lock").clone();
         let pace = *self.pace.lock().expect("lock");

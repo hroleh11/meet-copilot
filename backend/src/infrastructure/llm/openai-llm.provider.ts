@@ -12,6 +12,7 @@ import {
   type LlmUsage,
 } from './llm.provider';
 import { toHttpException } from './openai-error.mapper';
+import { toStreamInput } from './openai-input.mapper';
 import { toFunctionTools, toResponseInput } from './openai-tools.mapper';
 
 @Injectable()
@@ -115,7 +116,7 @@ export class OpenAiLlmProvider extends LlmProvider {
         {
           model: request.model,
           instructions: request.system,
-          input: request.blocks.join('\n\n'),
+          input: toStreamInput(request.blocks, request.image),
           reasoning: { effort: request.effort },
           max_output_tokens: request.maxTokens,
           stream: true,

@@ -8,12 +8,18 @@ export interface LlmUsage {
   outputTokens: number;
 }
 
+export interface LlmImage {
+  mimeType: string;
+  dataBase64: string;
+}
+
 export interface LlmRequest {
   model: string;
   effort: LlmEffort;
   maxTokens: number;
   system: string;
   blocks: string[];
+  image?: LlmImage;
 }
 
 export interface LlmCompletion {

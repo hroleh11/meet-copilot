@@ -44,6 +44,7 @@ const details: MeetingDetailsResponse = {
       id: 'g1',
       mode: 'reply',
       output: 'Замикання це функція з доступом до зовнішньої області.',
+      hasScreenshot: false,
       createdAt: new Date('2026-09-19T13:10:00.000Z'),
     },
   ],

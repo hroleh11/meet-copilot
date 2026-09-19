@@ -38,7 +38,7 @@ describe('Reliability (e2e)', () => {
     const response = await request(harness.server)
       .post('/api/v1/meetings')
       .set(...bearer(owner.accessToken))
-      .send({ profile: 'daily', language: 'uk', title: 'т'.repeat(400_000) })
+      .send({ profile: 'daily', language: 'uk', title: 'т'.repeat(700_000) })
       .expect(413);
 
     expect(response.body).toMatchObject({ statusCode: 413 });

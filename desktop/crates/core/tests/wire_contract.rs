@@ -77,6 +77,7 @@ fn meeting_details_stay_flat_like_the_backend_class() {
             "id": "gen-1",
             "mode": "reply",
             "output": "Бо це вся робота.",
+            "hasScreenshot": true,
             "createdAt": "2026-09-18T00:30:00.000Z"
         }],
         "usage": {
@@ -91,6 +92,7 @@ fn meeting_details_stay_flat_like_the_backend_class() {
     assert_eq!(details.meeting.profile, MeetingProfile::ClientCall);
     assert_eq!(details.segments[0].speaker, Speaker::Other);
     assert_eq!(details.generations[0].mode, GenerationMode::Reply);
+    assert!(details.generations[0].has_screenshot);
     assert_eq!(details.usage.cached_input_tokens, 64);
     assert_eq!(details.overview.as_deref(), Some("Обговорили ціну."));
 }

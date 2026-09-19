@@ -9,4 +9,8 @@ export type {
   SegmentResponse,
 } from './dto/meetings.responses';
 export { StaleMeetingsCloser } from './stale-meetings.closer';
-export type { MeetingLiveState, WindowSegment } from './types/meetings.types';
+export type {
+  MeetingLiveState,
+  MeetingScreenshot,
+  WindowSegment,
+} from './types/meetings.types';

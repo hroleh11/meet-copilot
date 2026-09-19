@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type { GenerationMode } from '~/generated/prisma/enums';
 import { formatTranscript } from '~/modules/context';
 import type { MeetingLiveState, WindowSegment } from '~/modules/meetings';
-import { languageInstruction, MODE_PROMPTS } from './prompts/mode.prompts';
+import {
+  languageInstruction,
+  MODE_PROMPTS,
+  SCREENSHOT_PROMPT,
+} from './prompts/mode.prompts';
 import { DEFAULT_STYLE, PERSONA_PROMPT } from './prompts/persona.prompt';
 import { PROFILE_PROMPTS } from './prompts/profile.prompts';
 
@@ -12,6 +16,7 @@ export interface PromptInput {
   recent: WindowSegment[];
   previousAnswer: string | null;
   mode: GenerationMode;
+  hasScreenshot: boolean;
 }
 
 export interface Prompt {
@@ -46,6 +51,10 @@ function buildBlocks(input: PromptInput): string[] {
 
   if (input.recent.length > 0) {
     blocks.push(`Recent transcript:\n${formatTranscript(input.recent)}`);
+  }
+
+  if (input.hasScreenshot) {
+    blocks.push(SCREENSHOT_PROMPT);
   }
 
   if (input.mode === 'alternative' && input.previousAnswer) {

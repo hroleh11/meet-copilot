@@ -1,6 +1,3 @@
-#[cfg(target_os = "macos")]
-mod macos;
-
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Manager, Monitor, PhysicalPosition, WebviewWindow};
@@ -42,7 +39,7 @@ pub fn show(app: &AppHandle) {
     }
 
     #[cfg(target_os = "macos")]
-    macos::float_above_everything(&window);
+    super::macos_window::float_above_everything(&window, super::macos_window::Key::Leaves);
 }
 
 pub fn hide(app: &AppHandle) {

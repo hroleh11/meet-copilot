@@ -6,6 +6,11 @@ export interface MeetingLiveState {
   style: string;
 }
 
+export interface MeetingScreenshot {
+  mimeType: string;
+  dataBase64: string;
+}
+
 export interface WindowSegment {
   id: string;
   speaker: Speaker;

@@ -14,12 +14,11 @@ use objc2_screen_capture_kit::{
 use tokio::sync::mpsc::{self, Sender};
 use tokio_util::sync::CancellationToken;
 
-use super::{
-    content::{shareable_content, wait_for},
-    stream_output::SystemAudioOutput,
-    thread_safe::ThreadSafe,
+use super::stream_output::SystemAudioOutput;
+use crate::{
+    capture_kit::{shareable_content, wait_for, ThreadSafe},
+    permissions::{request_screen_recording_access, screen_recording_access},
 };
-use crate::permissions::{request_screen_recording_access, screen_recording_access};
 
 const CAPTURE_RATE_HZ: usize = 48_000;
 const CAPTURE_CHANNELS: usize = 2;

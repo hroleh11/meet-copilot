@@ -11,6 +11,8 @@ const BY_FAILURE: Record<BackendFailure, string> = {
 
 const BY_KIND: Partial<Record<ErrorKind, string>> = {
   permission: uk.errors.permission,
+  screen: uk.errors.screen,
+  session: uk.errors.noMeeting,
   access: uk.errors.access,
   cancelled: uk.errors.cancelled,
 };

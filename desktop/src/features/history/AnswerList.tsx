@@ -22,6 +22,7 @@ export function AnswerList({ generations }: AnswerListProps) {
         <article key={generation.id} className="flex flex-col gap-1">
           <span className="text-caption tracking-wide text-ink-tertiary uppercase">
             {MODE[generation.mode]} · {formatDateTime(generation.createdAt)}
+            {generation.hasScreenshot ? ` · ${uk.answer.withScreenshot}` : ''}
           </span>
           <p className="text-body whitespace-pre-wrap text-ink-primary">
             {generation.output}

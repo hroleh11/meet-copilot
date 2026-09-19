@@ -10,6 +10,7 @@ use crate::{
     domain::{GenerationMode, MeetingId},
     error::{Error, Result},
     generation::event::GenerationEvent,
+    screenshot::Screenshot,
 };
 
 pub struct GenerationDeps {
@@ -34,6 +35,7 @@ impl Generator {
         &mut self,
         meeting_id: MeetingId,
         mode: GenerationMode,
+        screenshot: Option<Screenshot>,
         events: Sender<GenerationEvent>,
     ) -> Result<()> {
         self.cancel();
@@ -50,15 +52,16 @@ impl Generator {
         let backend = Arc::clone(&self.deps.backend);
 
         tokio::spawn(async move {
-            if events
-                .send(GenerationEvent::Started { mode })
-                .await
-                .is_err()
-            {
+            let started = GenerationEvent::Started {
+                mode,
+                with_screenshot: screenshot.is_some(),
+            };
+
+            if events.send(started).await.is_err() {
                 return;
             }
 
-            let outcome = collect(backend, &meeting_id, mode, &events, cancel).await;
+            let outcome = collect(backend, &meeting_id, mode, screenshot, &events, cancel).await;
 
             if let Some(event) = outcome {
                 let _ = events.send(event).await;
@@ -79,10 +82,11 @@ async fn collect(
     backend: Arc<dyn BackendApi>,
     meeting_id: &MeetingId,
     mode: GenerationMode,
+    screenshot: Option<Screenshot>,
     events: &Sender<GenerationEvent>,
     cancel: CancellationToken,
 ) -> Option<GenerationEvent> {
-    let mut deltas = backend.generate(meeting_id, mode);
+    let mut deltas = backend.generate(meeting_id, mode, screenshot.as_ref());
 
     loop {
         let delta = tokio::select! {

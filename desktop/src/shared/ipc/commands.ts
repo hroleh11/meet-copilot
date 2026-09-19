@@ -101,3 +101,15 @@ export const generate = (mode: GenerationMode): Promise<void> =>
   invoke('generate', { mode });
 
 export const cancelGeneration = (): Promise<void> => invoke('cancel_generation');
+
+export interface SelectionRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export const finishSelection = (rect: SelectionRect): Promise<void> =>
+  invoke('finish_selection', { rect });
+
+export const cancelSelection = (): Promise<void> => invoke('cancel_selection');

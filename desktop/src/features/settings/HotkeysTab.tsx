@@ -13,11 +13,18 @@ export interface HotkeysTabProps {
 const LABELS: Record<keyof Hotkeys, string> = {
   reply: uk.settings.hotkeyReply,
   alternative: uk.settings.hotkeyAlternative,
+  screenshot: uk.settings.hotkeyScreenshot,
   hide: uk.settings.hotkeyHide,
   interact: uk.settings.hotkeyInteract,
 };
 
-const KEYS: (keyof Hotkeys)[] = ['reply', 'alternative', 'hide', 'interact'];
+const KEYS: (keyof Hotkeys)[] = [
+  'reply',
+  'alternative',
+  'screenshot',
+  'hide',
+  'interact',
+];
 
 export function HotkeysTab({ settings, onSave }: HotkeysTabProps) {
   const [hotkeys, setHotkeys] = useResettableDraft(settings.hotkeys);

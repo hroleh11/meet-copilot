@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
         overlay: fileURLToPath(new URL('./overlay.html', import.meta.url)),
+        selection: fileURLToPath(new URL('./selection.html', import.meta.url)),
       },
     },
   },

@@ -14,7 +14,7 @@ export function useGenerationEvents(): void {
 
     const subscriptions = [
       listen<GenerationStartedEvent>(APP_EVENT.generationStarted, (event) => {
-        store.begin(event.payload.mode);
+        store.begin(event.payload.mode, event.payload.withScreenshot);
       }),
       listen<GenerationDeltaEvent>(APP_EVENT.generationDelta, (event) => {
         store.append(event.payload.text);

@@ -8,6 +8,7 @@ use meet_copilot_core::{
     domain::{GenerationMode, TokenUsage},
     error::{Error, Result},
     generation::{GenerationDeps, GenerationEvent, Generator},
+    screenshot::Screenshot,
 };
 use tokio::{sync::mpsc, time::timeout};
 
@@ -57,6 +58,7 @@ async fn an_answer_arrives_piece_by_piece_and_then_finishes() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -64,7 +66,8 @@ async fn an_answer_arrives_piece_by_piece_and_then_finishes() -> Result<()> {
     assert_eq!(
         next(&mut harness.events).await,
         GenerationEvent::Started {
-            mode: GenerationMode::Reply
+            mode: GenerationMode::Reply,
+            with_screenshot: false
         }
     );
     assert_eq!(
@@ -103,6 +106,7 @@ async fn the_mode_reaches_the_backend() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Alternative,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -132,6 +136,7 @@ async fn a_failure_from_the_server_is_reported_once() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -162,6 +167,7 @@ async fn an_answer_that_stops_early_says_so() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -193,6 +199,7 @@ async fn a_new_request_silences_the_one_before_it() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -200,7 +207,8 @@ async fn a_new_request_silences_the_one_before_it() -> Result<()> {
     assert_eq!(
         next(&mut harness.events).await,
         GenerationEvent::Started {
-            mode: GenerationMode::Reply
+            mode: GenerationMode::Reply,
+            with_screenshot: false
         }
     );
 
@@ -215,6 +223,7 @@ async fn a_new_request_silences_the_one_before_it() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Alternative,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -260,6 +269,7 @@ async fn cancelling_leaves_the_channel_quiet() -> Result<()> {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await?;
@@ -286,10 +296,49 @@ async fn a_denied_account_never_reaches_the_backend() {
         .start(
             MEETING.to_owned(),
             GenerationMode::Reply,
+            None,
             harness.sender.clone(),
         )
         .await;
 
     assert!(matches!(refused, Err(Error::Access(_))));
     assert!(harness.backend.modes_asked().is_empty());
+}
+
+#[tokio::test]
+async fn a_screenshot_travels_with_the_question() -> Result<()> {
+    let mut harness = harness(Arc::new(FakeAccess::allowed()));
+
+    harness
+        .backend
+        .answer_with(vec![Answer::Done("generation-1".to_owned())]);
+
+    let picture = Screenshot {
+        mime_type: "image/jpeg".to_owned(),
+        bytes: vec![1, 2, 3],
+    };
+
+    harness
+        .generator
+        .start(
+            MEETING.to_owned(),
+            GenerationMode::Reply,
+            Some(picture.clone()),
+            harness.sender.clone(),
+        )
+        .await?;
+
+    assert_eq!(
+        next(&mut harness.events).await,
+        GenerationEvent::Started {
+            mode: GenerationMode::Reply,
+            with_screenshot: true
+        }
+    );
+
+    next(&mut harness.events).await;
+
+    assert_eq!(harness.backend.pictures_asked(), vec![Some(picture)]);
+
+    Ok(())
 }

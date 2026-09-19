@@ -29,6 +29,7 @@ export class GenerationController {
       userId,
       meetingId,
       dto.mode,
+      dto.screenshot ?? null,
       abort.signal,
     );
 

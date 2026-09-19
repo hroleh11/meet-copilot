@@ -1,8 +1,11 @@
 mod audio_check;
 mod emitter;
+#[cfg(target_os = "macos")]
+mod macos_window;
 mod meeting_session;
 mod microphone_choice;
 mod platform_sources;
+mod screen_capture;
 mod shutdown;
 mod state;
 
@@ -10,6 +13,7 @@ pub mod answers;
 pub mod hotkeys;
 pub mod meeting_chat;
 pub mod overlay;
+pub mod selection;
 
 pub use answers::Answers;
 pub use audio_check::{AudioCheck, AudioCheckStatus};

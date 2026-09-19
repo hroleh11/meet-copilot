@@ -20,6 +20,7 @@ const details = (over: Partial<Details> = {}): Details => ({
       id: 'g-1',
       mode: 'reply',
       output: 'Два тижні на перший етап.',
+      hasScreenshot: true,
       createdAt: '2026-02-03T09:20:00.000Z',
     },
   ],
@@ -63,6 +64,12 @@ describe('MeetingDetails', () => {
     render(<MeetingDetails details={details()} />);
 
     expect(screen.getByText('30 хв 00 с')).toBeInTheDocument();
+  });
+
+  it('marks an answer that was drafted from a screenshot', () => {
+    render(<MeetingDetails details={details()} />);
+
+    expect(screen.getByText(/зі знімком екрана/)).toBeInTheDocument();
   });
 
   it('says when a meeting produced no answers', () => {

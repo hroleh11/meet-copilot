@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useState } from 'react';
 import type { AudioPermission } from '~/shared/ipc';
 import {
@@ -30,13 +31,29 @@ export function useAudioSources(): UseAudioSourcesResult {
   }, []);
 
   useEffect(() => {
-    systemAudioAllowed()
-      .then((allowed) => {
-        setScreenRecording(allowed ? 'connected' : 'missing');
-      })
-      .catch(() => {
-        setScreenRecording('unchecked');
+    const check = (): void => {
+      systemAudioAllowed()
+        .then((allowed) => {
+          setScreenRecording(allowed ? 'connected' : 'missing');
+        })
+        .catch(() => {
+          setScreenRecording('unchecked');
+        });
+    };
+
+    check();
+
+    const listening = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) {
+        check();
+      }
+    });
+
+    return () => {
+      void listening.then((stop) => {
+        stop();
       });
+    };
   }, []);
 
   const openPermission = useCallback((permission: AudioPermission) => {

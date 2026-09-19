@@ -4,7 +4,11 @@ import type { Env } from '~/common/config';
 import type { GenerationMode } from '~/generated/prisma/enums';
 import { LlmProvider, type LlmEffort, type LlmUsage } from '~/infrastructure/llm';
 import { ContextWindow } from '~/modules/context';
-import { MeetingStateStore, MeetingsService } from '~/modules/meetings';
+import {
+  MeetingStateStore,
+  MeetingsService,
+  type MeetingScreenshot,
+} from '~/modules/meetings';
 import { UsageRecorder } from '~/modules/usage';
 import { GenerationRepository } from './generation.repository';
 import { PromptBuilder, type Prompt } from './prompt.builder';
@@ -32,6 +36,7 @@ export class GenerationService {
     userId: string,
     meetingId: string,
     mode: GenerationMode,
+    screenshot: MeetingScreenshot | null,
     signal: AbortSignal,
   ): Promise<AsyncIterable<GenerationEvent>> {
     const meeting = await this.meetingsService.requireOwned(userId, meetingId);
@@ -54,15 +59,38 @@ export class GenerationService {
         : Promise.resolve(null),
     ]);
 
+    const image = await this.resolveScreenshot(meetingId, mode, screenshot);
+
     const prompt = this.promptBuilder.build({
       state,
       summary,
       recent,
       previousAnswer,
       mode,
+      hasScreenshot: image !== null,
     });
 
-    return this.run(meetingId, userId, mode, prompt, signal);
+    return this.run(meetingId, userId, mode, prompt, image, signal);
+  }
+
+  private async resolveScreenshot(
+    meetingId: string,
+    mode: GenerationMode,
+    screenshot: MeetingScreenshot | null,
+  ): Promise<MeetingScreenshot | null> {
+    if (screenshot) {
+      await this.meetingStateStore.writeScreenshot(meetingId, screenshot);
+
+      return screenshot;
+    }
+
+    if (mode === 'alternative') {
+      return this.meetingStateStore.readScreenshot(meetingId);
+    }
+
+    await this.meetingStateStore.clearScreenshot(meetingId);
+
+    return null;
   }
 
   private async *run(
@@ -70,6 +98,7 @@ export class GenerationService {
     userId: string,
     mode: GenerationMode,
     prompt: Prompt,
+    image: MeetingScreenshot | null,
     signal: AbortSignal,
   ): AsyncIterable<GenerationEvent> {
     const model = this.configService.getOrThrow<string>('REPLY_MODEL');
@@ -85,6 +114,7 @@ export class GenerationService {
           maxTokens: REPLY_MAX_TOKENS,
           system: prompt.system,
           blocks: prompt.blocks,
+          ...(image ? { image } : {}),
         },
         signal,
       );
@@ -115,6 +145,7 @@ export class GenerationService {
       output,
       stopReason,
       usage,
+      hasScreenshot: image !== null,
     });
 
     if (!signal.aborted) {
@@ -126,13 +157,20 @@ export class GenerationService {
     meetingId: string,
     userId: string,
     mode: GenerationMode,
-    result: { model: string; output: string; stopReason: string | null; usage: LlmUsage },
+    result: {
+      model: string;
+      output: string;
+      stopReason: string | null;
+      usage: LlmUsage;
+      hasScreenshot: boolean;
+    },
   ): Promise<string> {
     const generation = await this.generationRepository.create({
       meetingId,
       mode,
       output: result.output,
       stopReason: result.stopReason,
+      hasScreenshot: result.hasScreenshot,
       ...result.usage,
     });
 

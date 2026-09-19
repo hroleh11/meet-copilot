@@ -60,7 +60,8 @@
     "longDescription": "Meet Copilot слухає мікрофон і звук зустрічі, показує живий транскрипт і за гарячою клавішею готує відповідь в оверлеї.",
     "macOS": {
       "entitlements": "entitlements.plist",
-      "minimumSystemVersion": "13.0"
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "Meet Copilot Dev"
     }
   },
   "plugins": {

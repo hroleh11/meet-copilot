@@ -1,4 +1,4 @@
-use meet_copilot_core::{domain::GenerationMode, settings::Hotkeys};
+use meet_copilot_core::{domain::GenerationMode, error::Result, settings::Hotkeys};
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -10,6 +10,7 @@ use crate::{
 #[derive(Debug, Clone, Copy)]
 enum Action {
     Ask(GenerationMode),
+    AskAboutScreen,
     ToggleOverlay,
     ToggleOverlayInteraction,
 }
@@ -25,6 +26,7 @@ pub fn register(app: &AppHandle, hotkeys: &Hotkeys) {
         &hotkeys.alternative,
         Action::Ask(GenerationMode::Alternative),
     );
+    bind(app, &hotkeys.screenshot, Action::AskAboutScreen);
     bind(app, &hotkeys.hide, Action::ToggleOverlay);
     bind(app, &hotkeys.interact, Action::ToggleOverlayInteraction);
 }
@@ -49,10 +51,20 @@ fn run(app: AppHandle, action: Action) {
         Action::ToggleOverlayInteraction => overlay::toggle_interaction(&app),
         Action::Ask(mode) => {
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = answers::ask(&app, mode).await {
-                    Emitter::new(app.clone()).app_error(CommandError::from(error).into());
-                }
+                report(&app, answers::ask(&app, mode).await);
             });
         }
+        Action::AskAboutScreen => {
+            tauri::async_runtime::spawn(async move {
+                report(&app, answers::ask_about_screen(&app).await);
+            });
+        }
+    }
+}
+
+fn report(app: &AppHandle, outcome: Result<()>) {
+    if let Err(error) = outcome {
+        tracing::warn!("the hotkey could not be served: {error}");
+        Emitter::new(app.clone()).app_error(CommandError::from(error).into());
     }
 }

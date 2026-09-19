@@ -23,11 +23,22 @@ const input = (overrides: Partial<PromptInput> = {}): PromptInput => ({
   recent: [],
   previousAnswer: null,
   mode: GenerationMode.reply,
+  hasScreenshot: false,
   ...overrides,
 });
 
 describe('PromptBuilder', () => {
   const builder = new PromptBuilder();
+
+  it('tells the model to read the screenshot when one is attached', () => {
+    const prompt = builder.build(input({ hasScreenshot: true }));
+
+    expect(prompt.blocks.join('\n')).toContain('attached a screenshot');
+  });
+
+  it('says nothing about a screenshot when none came with the request', () => {
+    expect(builder.build(input()).blocks.join('\n')).not.toContain('screenshot');
+  });
 
   it('falls back to the default style when the user set none', () => {
     expect(builder.build(input()).system).toContain('competent colleague');

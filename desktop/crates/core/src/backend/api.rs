@@ -6,6 +6,7 @@ use crate::{
         UserSettings,
     },
     error::Result,
+    screenshot::Screenshot,
 };
 
 use super::{
@@ -36,7 +37,12 @@ pub trait BackendApi: Send + Sync {
 
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
 
-    fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_>;
+    fn generate(
+        &self,
+        id: &MeetingId,
+        mode: GenerationMode,
+        screenshot: Option<&Screenshot>,
+    ) -> DeltaStream<'_>;
 
     async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
 

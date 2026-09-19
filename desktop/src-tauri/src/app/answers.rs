@@ -6,12 +6,13 @@ use meet_copilot_core::{
     domain::{GenerationMode, MeetingId},
     error::{Error, Result},
     generation::{GenerationDeps, GenerationEvent, Generator},
+    screenshot::Screenshot,
 };
 use tauri::{AppHandle, Manager};
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
-    app::{overlay, AppState, Emitter},
+    app::{overlay, screen_capture, AppState, Emitter},
     events::{
         GenerationDeltaEvent, GenerationFailedEvent, GenerationFinishedEvent,
         GenerationStartedEvent,
@@ -40,11 +41,14 @@ impl Answers {
         &mut self,
         meeting_id: MeetingId,
         mode: GenerationMode,
+        screenshot: Option<Screenshot>,
         emitter: Emitter,
     ) -> Result<()> {
         let (events, incoming) = mpsc::channel::<GenerationEvent>(ANSWER_CHANNEL_CAPACITY);
 
-        self.generator.start(meeting_id, mode, events).await?;
+        self.generator
+            .start(meeting_id, mode, screenshot, events)
+            .await?;
         self.silence_previous();
         self.forwarder = Some(tokio::spawn(forward(incoming, emitter)));
 
@@ -64,24 +68,46 @@ impl Answers {
 }
 
 pub async fn ask(app: &AppHandle, mode: GenerationMode) -> Result<()> {
-    let state = app.state::<AppState>();
+    let meeting_id = running_meeting(app).await?;
 
-    let meeting_id = state
+    start(app, meeting_id, mode, None).await
+}
+
+pub async fn ask_about_screen(app: &AppHandle) -> Result<()> {
+    let meeting_id = running_meeting(app).await?;
+
+    match screen_capture::capture_region(app).await? {
+        Some(picture) => start(app, meeting_id, GenerationMode::Reply, Some(picture)).await,
+        None => Ok(()),
+    }
+}
+
+async fn running_meeting(app: &AppHandle) -> Result<MeetingId> {
+    app.state::<AppState>()
         .session()
         .await
         .lock()
         .await
         .meeting_id()
-        .ok_or_else(|| Error::Audio("No meeting is running right now".to_owned()))?;
+        .ok_or_else(|| Error::Session("No meeting is running right now".to_owned()))
+}
 
+async fn start(
+    app: &AppHandle,
+    meeting_id: MeetingId,
+    mode: GenerationMode,
+    screenshot: Option<Screenshot>,
+) -> Result<()> {
     overlay::show(app);
+
+    let state = app.state::<AppState>();
 
     let asked = state
         .answers()
         .await
         .lock()
         .await
-        .ask(meeting_id, mode, Emitter::new(app.clone()))
+        .ask(meeting_id, mode, screenshot, Emitter::new(app.clone()))
         .await;
 
     asked
@@ -90,8 +116,14 @@ pub async fn ask(app: &AppHandle, mode: GenerationMode) -> Result<()> {
 async fn forward(mut incoming: mpsc::Receiver<GenerationEvent>, emitter: Emitter) {
     while let Some(event) = incoming.recv().await {
         match event {
-            GenerationEvent::Started { mode } => {
-                emitter.generation_started(GenerationStartedEvent { mode });
+            GenerationEvent::Started {
+                mode,
+                with_screenshot,
+            } => {
+                emitter.generation_started(GenerationStartedEvent {
+                    mode,
+                    with_screenshot,
+                });
             }
             GenerationEvent::Delta { text } => {
                 emitter.generation_delta(GenerationDeltaEvent { text });

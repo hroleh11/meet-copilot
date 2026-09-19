@@ -11,7 +11,9 @@ rust-version = "1.82"
 meet-copilot-core = { path = "crates/core" }
 meet-copilot-platform-macos = { path = "crates/platform-macos" }
 async-trait = "0.1.89"
+base64 = "0.22.1"
 futures-core = "0.3.31"
+image = { version = "0.25.10", default-features = false, features = ["jpeg"] }
 futures-util = { version = "0.3.34", default-features = false, features = ["sink", "std"] }
 serde = { version = "1.0.228", features = ["derive"] }
 reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls", "stream"] }
@@ -33,10 +35,10 @@ objc2-app-kit = { version = "0.3.2", features = ["NSWindow", "NSResponder", "NSG
 objc2-core-audio = "0.3.2"
 objc2-core-audio-types = "0.3.2"
 objc2-core-foundation = "0.3.2"
-objc2-core-graphics = { version = "0.3.2", features = ["CGWindow"] }
+objc2-core-graphics = { version = "0.3.2", features = ["CGWindow", "CGImage", "CGDataProvider"] }
 objc2-core-media = { version = "0.3.2", features = ["CMSampleBuffer", "CMBlockBuffer", "CMFormatDescription", "CMTime", "objc2-core-audio-types"] }
 objc2-foundation = { version = "0.3.2", features = ["NSArray", "NSError", "NSString", "NSURL", "NSValue"] }
-objc2-screen-capture-kit = { version = "0.3.2", features = ["SCStream", "SCShareableContent", "SCError", "block2", "objc2-core-media"] }
+objc2-screen-capture-kit = { version = "0.3.2", features = ["SCStream", "SCShareableContent", "SCScreenshotManager", "SCError", "block2", "objc2-core-media", "objc2-core-graphics"] }
 
 [profile.release]
 codegen-units = 1

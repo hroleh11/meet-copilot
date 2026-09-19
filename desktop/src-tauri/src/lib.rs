@@ -62,6 +62,8 @@ pub fn run() {
             commands::start_session,
             commands::stop_session,
             commands::generate,
+            commands::finish_selection,
+            commands::cancel_selection,
             commands::cancel_generation,
         ])
         .build(tauri::generate_context!())

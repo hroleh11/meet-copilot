@@ -4,6 +4,7 @@ use crate::domain::{GenerationMode, TokenUsage};
 pub enum GenerationEvent {
     Started {
         mode: GenerationMode,
+        with_screenshot: bool,
     },
     Delta {
         text: String,

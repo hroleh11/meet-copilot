@@ -3,10 +3,11 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_BACKEND_URL: &str = "http://localhost:5070/api/v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", default)]
 pub struct Hotkeys {
     pub reply: String,
     pub alternative: String,
+    pub screenshot: String,
     pub hide: String,
     pub interact: String,
 }
@@ -16,6 +17,7 @@ impl Default for Hotkeys {
         Self {
             reply: "Alt+R".to_owned(),
             alternative: "CommandOrControl+Shift+A".to_owned(),
+            screenshot: "Alt+S".to_owned(),
             hide: "CommandOrControl+Shift+H".to_owned(),
             interact: "CommandOrControl+Shift+M".to_owned(),
         }

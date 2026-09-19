@@ -32,7 +32,8 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 
 ## Errors
 
-- `crates/core/src/error.rs` defines `Error` with `thiserror` and `Result<T>` alias. Variants per area: `Audio`, `Backend`, `Settings`, `Permission`, `Access`, `Cancelled`.
+- `crates/core/src/error.rs` defines `Error` with `thiserror` and `Result<T>` alias. Variants per area: `Audio`, `Backend`, `Settings`, `Permission`, `Access`, `Screen`, `Session`, `Cancelled`.
+- A variant is only worth adding when the UI has something different to say about it, because the desktop shows Ukrainian text picked by `kind` and never the English message from Rust. A kind with no entry in `command-error.ts` reaches the user as "the server answered with an error", which is how a missing permission once looked like a backend outage.
 - `Backend` carries the HTTP status or close code and the server message; 401 and 4401 map to "invalid access token", connection refused to "backend unavailable", 404 and 4404 to "meeting not found".
 - Tauri commands return `Result<T, CommandError>` where `CommandError { kind, message }` is `serde::Serialize`, built from `Error` in one `From` impl.
 
@@ -66,6 +67,18 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - Generate: a second `reqwest` client with only a connect timeout, because the answer streams for as long as it takes. Parse SSE `event:` and `data:` lines into `Delta::{Text, Done}`; an `error` event and an unknown event both become `Err`. The `done` usage carries token counts only, never audio seconds.
 - `Generator` owns the current answer: start cancels the previous token, checks `AccessPolicy`, then streams `GenerationEvent::{Started, Delta, Finished, Failed}` into an `mpsc`. Cancelling drops the stream, which is what tells the backend to stop and store the partial answer. A body that ends without `done` is a `Failed`, and the text written so far stays on screen.
 - Hotkeys register through `tauri-plugin-global-shortcut` from `LocalSettings`, once at setup and again whenever settings are saved. A handler only acts on `ShortcutState::Pressed`.
+
+## Screen capture
+
+- `ScreenCapture` is a trait in `crates/core/src/screenshot`, implemented by `RegionCapture` in `platform-macos`. It takes a `CaptureRect` in points plus the display scale and answers with a `Screenshot`.
+- Never shell out to `/usr/sbin/screencapture`. macOS checks Screen Recording against the *responsible* process of the child, which in development is WebStorm, and when it is not granted the tool exits zero with an empty stderr and a picture of the desktop with no windows in it. The wallpaper then reaches the model instead of the question. `SCScreenshotManager` inside our own process uses the same permission the meeting audio already uses and reports a refusal as an error.
+- `capture_kit/` holds what both captures need from ScreenCaptureKit: `shareable_content`, `wait_for` and `ThreadSafe`. The screenshot path adds `SCContentFilter` over the display holding the rect, `sourceRect` in that display's points and a frame size of points times scale, so a Retina region arrives at native resolution.
+- The selection UI is ours (`src-tauri/src/app/selection.rs` plus the `selection` window): the system crosshair never hands back its rectangle. One window covers the union of every display, because the screen being asked about is usually not the screen the app sits on, and a window over one monitor leaves nothing to draw on elsewhere.
+- Sharpness comes from the display the rectangle landed on (`CGDisplayModeGetPixelWidth` over its width in points), never from the window: two displays rarely agree on how many pixels a point is worth. The window is built inside `run_on_main_thread`, because AppKit builds windows nowhere else and the hotkey runs on a tokio worker, and it is content protected so the dimming never lands in the shot.
+- A window is reused when it is still there rather than rebuilt: `close()` only posts a message to the event loop, so a window that was just closed still owns its label and the next build fails with "already exists". A second press while a selection is open is ignored.
+- `app/macos_window.rs` raises both windows that float above everything, and both keep `NonactivatingPanel`. Dropping that style to win the keyboard is a trap: the window then activates the app, and macOS pulls the user to the space the app lives on — the browser they wanted to capture is on another space. The selection window passes `Key::Takes` (`makeKeyAndOrderFront`), which a nonactivating panel may have without activating the app, and Escape is also registered as a global shortcut for the duration of the selection.
+- Shrinking lives in core, not in the platform crate: `screenshot::shrink` reads BGRA rows honouring `stride`, takes the long edge down to 1400 px and encodes JPEG at falling quality until it fits 400 KB. The picture travels inside the generate body, so the budget is part of the wire contract.
+- `Generator::start` takes `Option<Screenshot>` and reports it in `GenerationEvent::Started { mode, with_screenshot }`. The meeting is checked before the selection opens.
 
 ## Settings and secrets
 

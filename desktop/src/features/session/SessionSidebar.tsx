@@ -1,7 +1,8 @@
 import { uk } from '~/shared/i18n/uk';
-import type { Language, MeetingProfile, SessionState } from '~/shared/ipc';
+import type { Hotkeys, Language, MeetingProfile, SessionState } from '~/shared/ipc';
 import { SectionLabel } from '~/shared/ui';
 import { AudioSourceStatus } from './AudioSourceStatus';
+import { HotkeyHints } from './HotkeyHints';
 import { LanguageSelect } from './LanguageSelect';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { StartMeetingButton } from './StartMeetingButton';
@@ -12,7 +13,7 @@ export interface SessionSidebarProps {
   language: Language;
   state: SessionState;
   busy: boolean;
-  hotkey: string;
+  hotkeys: Hotkeys;
   notice: string | null;
   error: string | null;
   onProfileChange: (profile: MeetingProfile) => void;
@@ -26,7 +27,7 @@ export function SessionSidebar({
   language,
   state,
   busy,
-  hotkey,
+  hotkeys,
   notice,
   error,
   onProfileChange,
@@ -67,13 +68,10 @@ export function SessionSidebar({
       {notice ? <p className="text-caption text-danger">{uk.meeting.problem}</p> : null}
       {error ? <p className="text-caption text-danger">{error}</p> : null}
 
-      <StartMeetingButton
-        state={state}
-        busy={busy}
-        hotkey={hotkey}
-        onStart={onStart}
-        onStop={onStop}
-      />
+      <div className="flex flex-col gap-2">
+        <StartMeetingButton state={state} busy={busy} onStart={onStart} onStop={onStop} />
+        <HotkeyHints reply={hotkeys.reply} screenshot={hotkeys.screenshot} />
+      </div>
     </aside>
   );
 }

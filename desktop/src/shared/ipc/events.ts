@@ -74,6 +74,7 @@ export interface SourceStatusEvent {
 
 export interface GenerationStartedEvent {
   mode: GenerationMode;
+  withScreenshot: boolean;
 }
 
 export interface GenerationDeltaEvent {
