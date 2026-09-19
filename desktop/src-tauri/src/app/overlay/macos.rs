@@ -1,62 +1,50 @@
-use std::ptr::NonNull;
-
-use block2::RcBlock;
 use objc2::rc::Retained;
+use objc2::runtime::AnyObject;
+use objc2::{ffi, ClassType};
 use objc2_app_kit::{
-    NSWindow, NSWindowCollectionBehavior, NSWindowLevel, NSWorkspace,
-    NSWorkspaceActiveSpaceDidChangeNotification,
+    NSPanel, NSWindow, NSWindowCollectionBehavior, NSWindowLevel, NSWindowStyleMask,
 };
-use objc2_foundation::{NSNotification, NSOperationQueue};
-use tauri::{AppHandle, Manager, WebviewWindow};
-
-use super::LABEL;
+use tauri::WebviewWindow;
 
 const CG_SCREEN_SAVER_WINDOW_LEVEL: i32 = 1000;
 
 pub fn float_above_everything(window: &WebviewWindow) {
+    let overlay = window.clone();
+
+    if let Err(error) = window.run_on_main_thread(move || raise(&overlay)) {
+        tracing::warn!("could not raise the overlay: {error}");
+    }
+}
+
+fn raise(window: &WebviewWindow) {
     let Some(native) = native_window(window) else {
         return;
     };
 
     native.setLevel(CG_SCREEN_SAVER_WINDOW_LEVEL as NSWindowLevel);
     native.setHidesOnDeactivate(false);
-    native.setCollectionBehavior(
+
+    join_every_space(&native);
+}
+
+/// A window of an app that owns a Dock icon stays on the space it was opened on
+/// however its collection behaviour is set: only an NSPanel joins every space.
+/// The original class comes back once the flags are set, because keeping the
+/// window an NSPanel drops the KVO observers AppKit holds on it.
+fn join_every_space(window: &NSWindow) {
+    let object: *mut AnyObject = (window as *const NSWindow).cast_mut().cast();
+    let original = unsafe { ffi::object_setClass(object, NSPanel::class()) };
+
+    window.setStyleMask(window.styleMask() | NSWindowStyleMask::NonactivatingPanel);
+    window.setCollectionBehavior(
         NSWindowCollectionBehavior::CanJoinAllSpaces
             | NSWindowCollectionBehavior::FullScreenAuxiliary
             | NSWindowCollectionBehavior::Stationary
             | NSWindowCollectionBehavior::IgnoresCycle,
     );
+    window.orderFrontRegardless();
 
-    native.orderFrontRegardless();
-}
-
-/// A window that joins every space still stays behind on the space it was ordered
-/// front in, so it is ordered front again whenever the user switches spaces.
-pub fn follow_spaces(app: &AppHandle) {
-    let handle = app.clone();
-
-    let on_change = RcBlock::new(move |_: NonNull<NSNotification>| {
-        let Some(window) = handle.get_webview_window(LABEL) else {
-            return;
-        };
-
-        if window.is_visible().unwrap_or(false) {
-            if let Some(native) = native_window(&window) {
-                native.orderFrontRegardless();
-            }
-        }
-    });
-
-    unsafe {
-        NSWorkspace::sharedWorkspace()
-            .notificationCenter()
-            .addObserverForName_object_queue_usingBlock(
-                Some(NSWorkspaceActiveSpaceDidChangeNotification),
-                None,
-                Some(&NSOperationQueue::mainQueue()),
-                &on_change,
-            );
-    }
+    unsafe { ffi::object_setClass(object, original) };
 }
 
 fn native_window(window: &WebviewWindow) -> Option<Retained<NSWindow>> {

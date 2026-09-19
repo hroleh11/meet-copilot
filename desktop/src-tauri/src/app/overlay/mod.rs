@@ -24,9 +24,6 @@ pub fn prepare(app: &AppHandle) {
     }
 
     show(app);
-
-    #[cfg(target_os = "macos")]
-    macos::follow_spaces(app);
 }
 
 pub fn show(app: &AppHandle) {
