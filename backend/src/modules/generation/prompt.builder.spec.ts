@@ -33,7 +33,7 @@ describe('PromptBuilder', () => {
   it('tells the model to read the screenshot when one is attached', () => {
     const prompt = builder.build(input({ hasScreenshot: true }));
 
-    expect(prompt.blocks.join('\n')).toContain('attached a screenshot');
+    expect(prompt.blocks.join('\n')).toContain('showed a screenshot');
   });
 
   it('says nothing about a screenshot when none came with the request', () => {

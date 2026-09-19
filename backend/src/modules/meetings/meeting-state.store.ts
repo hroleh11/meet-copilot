@@ -70,10 +70,6 @@ export class MeetingStateStore {
     return stored === null ? null : (JSON.parse(stored) as MeetingScreenshot);
   }
 
-  clearScreenshot(meetingId: string): Promise<void> {
-    return this.redis.delete(screenshotKey(meetingId));
-  }
-
   appendToWindow(meetingId: string, segment: WindowSegment): Promise<void> {
     return this.redis.pushToList(windowKey(meetingId), JSON.stringify(segment));
   }

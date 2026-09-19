@@ -134,7 +134,7 @@ describe('Generation (e2e)', () => {
     await generate('reply', picture).expect(200);
 
     expect(provider.requests[0]?.image).toEqual(picture);
-    expect(provider.requests[0]?.blocks.join('\n')).toContain('attached a screenshot');
+    expect(provider.requests[0]?.blocks.join('\n')).toContain('showed a screenshot');
 
     const details = await request(harness.server)
       .get(`/api/v1/meetings/${meetingId}`)
@@ -154,14 +154,12 @@ describe('Generation (e2e)', () => {
     expect(provider.requests[0]?.image).toEqual(picture);
   });
 
-  it('forgets the screenshot once a question comes without one', async () => {
-    await generate('reply').expect(200);
-
+  it('keeps the screenshot for the question that follows it', async () => {
     provider.requests = [];
 
-    await generate('alternative').expect(200);
+    await generate('reply').expect(200);
 
-    expect(provider.requests[0]?.image).toBeUndefined();
+    expect(provider.requests[0]?.image).toEqual(picture);
   });
 
   it('refuses a screenshot in a format the model does not read', async () => {

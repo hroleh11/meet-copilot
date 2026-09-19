@@ -14,7 +14,7 @@ export const MODE_PROMPTS: Record<GenerationMode, string> = {
 };
 
 export const SCREENSHOT_PROMPT =
-  'The user attached a screenshot of a part of their screen, taken a moment ago. Read what is on it — code, an error, a diagram, a document — and answer the question with it. Do not describe the picture.';
+  'The user showed a screenshot of part of their screen a short while ago — code, an error, a diagram, a document. It is still on the table: read it and answer from it, follow-up questions about it included. Do not describe the picture. Ignore it only if the conversation has clearly moved to something else.';
 
 export function languageName(language: Language): string {
   return LANGUAGE_NAME[language];

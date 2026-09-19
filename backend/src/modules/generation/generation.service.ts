@@ -59,7 +59,7 @@ export class GenerationService {
         : Promise.resolve(null),
     ]);
 
-    const image = await this.resolveScreenshot(meetingId, mode, screenshot);
+    const image = await this.resolveScreenshot(meetingId, screenshot);
 
     const prompt = this.promptBuilder.build({
       state,
@@ -73,24 +73,19 @@ export class GenerationService {
     return this.run(meetingId, userId, mode, prompt, image, signal);
   }
 
+  /// A screenshot stays on the table until it expires or a newer one replaces
+  /// it: the question after it is usually about the same screen.
   private async resolveScreenshot(
     meetingId: string,
-    mode: GenerationMode,
     screenshot: MeetingScreenshot | null,
   ): Promise<MeetingScreenshot | null> {
-    if (screenshot) {
-      await this.meetingStateStore.writeScreenshot(meetingId, screenshot);
-
-      return screenshot;
-    }
-
-    if (mode === 'alternative') {
+    if (!screenshot) {
       return this.meetingStateStore.readScreenshot(meetingId);
     }
 
-    await this.meetingStateStore.clearScreenshot(meetingId);
+    await this.meetingStateStore.writeScreenshot(meetingId, screenshot);
 
-    return null;
+    return screenshot;
   }
 
   private async *run(
