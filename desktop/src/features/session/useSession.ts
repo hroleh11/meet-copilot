@@ -17,20 +17,15 @@ interface UseSessionResult {
 export function useSession(): UseSessionResult {
   const state = useSessionStore((store) => store.state);
   const notice = useSessionStore((store) => store.notice);
-  const clearTranscript = useSessionStore((store) => store.clearTranscript);
   const [error, setError] = useState<string | null>(null);
 
-  const start = useCallback(
-    (profile: MeetingProfile, language: Language) => {
-      setError(null);
-      clearTranscript();
+  const start = useCallback((profile: MeetingProfile, language: Language) => {
+    setError(null);
 
-      startSession(profile, language).catch((cause: unknown) => {
-        setError(errorMessage(cause, uk.errors.session));
-      });
-    },
-    [clearTranscript],
-  );
+    startSession(profile, language).catch((cause: unknown) => {
+      setError(errorMessage(cause, uk.errors.session));
+    });
+  }, []);
 
   const stop = useCallback(() => {
     setError(null);

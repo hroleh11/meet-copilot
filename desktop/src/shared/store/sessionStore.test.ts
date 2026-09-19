@@ -74,6 +74,28 @@ describe('source statuses', () => {
     ]);
   });
 
+  it('forgets the transcript once the meeting is over', () => {
+    const store = useSessionStore.getState();
+
+    store.addLine(final('seg-1', 'other', 'Перше.'));
+    store.setState('stopping', 'm-1', null);
+
+    expect(useSessionStore.getState().lines).toHaveLength(1);
+
+    useSessionStore.getState().setState('idle', null, null);
+
+    expect(useSessionStore.getState().lines).toEqual([]);
+  });
+
+  it('starts the next meeting with an empty transcript', () => {
+    const store = useSessionStore.getState();
+
+    store.addLine(final('seg-1', 'other', 'Стара зустріч.'));
+    store.setState('starting', null, null);
+
+    expect(useSessionStore.getState().lines).toEqual([]);
+  });
+
   it('forgets the sources once the meeting is over', () => {
     const store = useSessionStore.getState();
 

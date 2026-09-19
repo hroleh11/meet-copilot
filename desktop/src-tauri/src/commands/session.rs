@@ -42,6 +42,8 @@ pub async fn start_session(
 
 #[tauri::command]
 pub async fn stop_session(app: AppHandle, state: State<'_, AppState>) -> Result<(), CommandError> {
+    state.answers().await.lock().await.cancel();
+
     let session = state.session().await;
     let mut session = session.lock().await;
 

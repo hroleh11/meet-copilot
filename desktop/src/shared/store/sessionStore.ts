@@ -26,7 +26,6 @@ interface SessionStore {
   ) => void;
   setSource: (status: SourceStatus) => void;
   addLine: (line: TranscriptLine) => void;
-  clearTranscript: () => void;
 }
 
 export const useSessionStore = create<SessionStore>((set) => ({
@@ -41,12 +40,16 @@ export const useSessionStore = create<SessionStore>((set) => ({
       meetingId,
       notice,
       sources: state === 'listening' ? store.sources : [],
+      lines: running(state) ? store.lines : [],
     })),
   setSource: (status) =>
     set((store) => ({ sources: replaceSource(store.sources, status) })),
   addLine: (line) => set((store) => ({ lines: merge(store.lines, line) })),
-  clearTranscript: () => set({ lines: [] }),
 }));
+
+function running(state: SessionState): boolean {
+  return state === 'listening' || state === 'stopping';
+}
 
 function replaceSource(sources: SourceStatus[], status: SourceStatus): SourceStatus[] {
   const kept = sources.filter((source) => source.speaker !== status.speaker);

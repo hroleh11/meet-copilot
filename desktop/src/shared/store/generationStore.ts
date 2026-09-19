@@ -11,17 +11,23 @@ interface GenerationStore {
   append: (text: string) => void;
   finish: () => void;
   fail: (message: string) => void;
+  clear: () => void;
 }
 
-export const useGenerationStore = create<GenerationStore>((set) => ({
+const EMPTY = {
   mode: null,
   withScreenshot: false,
   text: '',
   streaming: false,
   error: null,
+};
+
+export const useGenerationStore = create<GenerationStore>((set) => ({
+  ...EMPTY,
   begin: (mode, withScreenshot) =>
     set({ mode, withScreenshot, text: '', streaming: true, error: null }),
   append: (text) => set((store) => ({ text: store.text + text })),
   finish: () => set({ streaming: false }),
   fail: (message) => set({ streaming: false, error: message }),
+  clear: () => set(EMPTY),
 }));

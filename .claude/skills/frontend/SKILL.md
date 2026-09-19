@@ -89,6 +89,7 @@ Three Vite entries, one per window (`main`, `overlay`, `selection`). They share 
 - The window must not take keyboard focus; keep it free of inputs.
 - It is a second Vite entry (`overlay.html` → `src/overlay.tsx` → `OverlayApp`) sharing `shared/`. Both entries are listed in `build.rollupOptions.input`.
 - The overlay subscribes to the generation events itself through `useGenerationEvents`; the main window does not mirror the answer.
+- Each window has its own React root and therefore its own zustand stores. A store cleared in the main window stays untouched in the overlay, which is how the transcript of a finished meeting used to sit there into the next one. Anything the overlay must forget is forgotten from state the overlay itself sees: `sessionStore.setState` keeps the lines only while the meeting is `listening` or `stopping`, and `useAnswer` clears the answer on `idle`.
 
 ## Language
 
