@@ -54,9 +54,7 @@ export class GenerationService {
     const [{ recent }, summary, previousAnswer] = await Promise.all([
       this.contextWindow.read(meetingId),
       this.meetingStateStore.readSummary(meetingId),
-      mode === 'alternative'
-        ? this.meetingStateStore.readLastAnswer(meetingId)
-        : Promise.resolve(null),
+      this.meetingStateStore.readLastAnswer(meetingId),
     ]);
 
     const image = await this.resolveScreenshot(meetingId, screenshot);

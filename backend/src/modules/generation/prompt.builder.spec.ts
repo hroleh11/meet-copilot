@@ -94,12 +94,17 @@ describe('PromptBuilder', () => {
     expect(prompt.blocks[4]).toContain('Ukrainian');
   });
 
-  it('leaves out the previous answer unless another angle was asked for', () => {
-    const prompt = builder.build(
+  it('calls the previous answer a draft to redo only when another angle was asked for', () => {
+    const drafted = builder.build(
+      input({ mode: GenerationMode.alternative, previousAnswer: 'Стара відповідь' }),
+    );
+    const context = builder.build(
       input({ mode: GenerationMode.reply, previousAnswer: 'Стара відповідь' }),
     );
 
-    expect(prompt.blocks.join('\n')).not.toContain('Стара відповідь');
+    expect(drafted.blocks.join('\n')).toContain('Answer already drafted');
+    expect(context.blocks.join('\n')).not.toContain('Answer already drafted');
+    expect(context.blocks.join('\n')).toContain('not something to repeat');
   });
 
   it.each([

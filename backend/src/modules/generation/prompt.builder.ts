@@ -5,6 +5,7 @@ import type { MeetingLiveState, WindowSegment } from '~/modules/meetings';
 import {
   languageInstruction,
   MODE_PROMPTS,
+  PREVIOUS_ANSWER_LABELS,
   SCREENSHOT_PROMPT,
 } from './prompts/mode.prompts';
 import { DEFAULT_STYLE, PERSONA_PROMPT } from './prompts/persona.prompt';
@@ -57,8 +58,8 @@ function buildBlocks(input: PromptInput): string[] {
     blocks.push(SCREENSHOT_PROMPT);
   }
 
-  if (input.mode === 'alternative' && input.previousAnswer) {
-    blocks.push(`Answer already drafted:\n${input.previousAnswer}`);
+  if (input.previousAnswer) {
+    blocks.push(`${PREVIOUS_ANSWER_LABELS[input.mode]}\n${input.previousAnswer}`);
   }
 
   blocks.push(MODE_PROMPTS[input.mode]);

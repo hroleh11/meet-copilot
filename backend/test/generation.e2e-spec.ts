@@ -166,6 +166,16 @@ describe('Generation (e2e)', () => {
     await generate('reply', { mimeType: 'image/gif', dataBase64: 'AQID' }).expect(400);
   });
 
+  it('shows the model its own last answer when the next question comes', async () => {
+    provider.requests = [];
+
+    await generate('reply').expect(200);
+
+    expect(provider.requests[0]?.blocks.join('\n')).toContain(
+      'You suggested this a moment ago',
+    );
+  });
+
   it('rejects a mode that does not exist', async () => {
     await generate('rewrite').expect(400);
   });

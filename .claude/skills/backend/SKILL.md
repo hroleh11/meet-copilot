@@ -132,7 +132,8 @@ const response = await this.client.responses.create({
 
 - Input comes from `MeetingStateStore` and `ContextWindow`. Output is `{ system, blocks }`.
 - System text = persona + profile prompt + style. Nothing that varies per request, so the cached prefix stays byte-identical across a meeting.
-- Blocks in order: summary, recent segments as `[me] ...` / `[other] ...`, previous answer for alternative mode, mode instruction, language instruction.
+- Blocks in order: summary, recent segments as `[me] ...` / `[other] ...`, the screenshot note when one is on the table, the previous answer, mode instruction, language instruction.
+- The previous answer travels in both modes, labelled differently in `PREVIOUS_ANSWER_LABELS`: a draft to redo for `alternative`, context that must not be repeated for `reply`. A follow-up about the answer itself has nothing else to stand on, since only what was said aloud reaches the transcript.
 - Persona, profile prompts and the default style live in `modules/generation/prompts/*.ts` as exported constants, one file per profile. Tune wording there, not in the builder.
 - Reply constraints in the persona: spoken style, first person, readable aloud in 15 seconds, no headings or lists, no preamble. Answer in the meeting language regardless of the transcript language.
 
