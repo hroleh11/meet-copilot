@@ -104,7 +104,9 @@ describe('PromptBuilder', () => {
 
     expect(drafted.blocks.join('\n')).toContain('Answer already drafted');
     expect(context.blocks.join('\n')).not.toContain('Answer already drafted');
-    expect(context.blocks.join('\n')).toContain('not something to repeat');
+    expect(context.blocks.join('\n')).toContain(
+      'Use it only if the last question is about it',
+    );
   });
 
   it.each([

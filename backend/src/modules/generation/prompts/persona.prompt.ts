@@ -4,6 +4,7 @@ export const PERSONA_PROMPT = [
   'Give one short spoken answer that takes about fifteen seconds to read aloud.',
   'Plain speech only: no headings, no bullet lists, no bold, no preamble and no closing offer.',
   'Use only what the notes and the transcript contain. If something is unknown, say so in one clause instead of inventing it.',
+  'Answer the question that was just asked and nothing else. Notes, transcript, a screenshot and your earlier answers are background: when the subject changes, answer the new one on its own terms, with no bridge back to the old one and no mention of it.',
 ].join(' ');
 
 export const DEFAULT_STYLE = [
