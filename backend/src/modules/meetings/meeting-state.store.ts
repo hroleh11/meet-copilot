@@ -32,6 +32,7 @@ export class MeetingStateStore {
       profile: state.profile,
       style: state.style,
       contextBrief: state.contextBrief,
+      today: state.today,
     });
   }
 
@@ -47,6 +48,7 @@ export class MeetingStateStore {
       profile: stored.profile as MeetingProfile,
       style: stored.style ?? '',
       contextBrief: stored.contextBrief ?? '',
+      today: stored.today ?? '',
     };
   }
 

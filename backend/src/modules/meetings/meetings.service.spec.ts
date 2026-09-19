@@ -155,6 +155,7 @@ describe('MeetingsService', () => {
       profile: MeetingProfile.daily,
       style: 'Коротко',
       contextBrief: '',
+      today: meeting.startedAt.toISOString().slice(0, 10),
     });
   });
 

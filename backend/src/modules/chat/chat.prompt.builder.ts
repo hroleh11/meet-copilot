@@ -5,13 +5,14 @@ import type { Language } from '~/generated/prisma/enums';
 import type { LlmItem } from '~/infrastructure/llm';
 import { languageName } from '~/modules/generation';
 import type { MeetingDetailsResponse } from '~/modules/meetings';
-import { CHAT_PERSONA_PROMPT } from './prompts/chat.prompt';
+import { CHAT_PERSONA_PROMPT, meetingDayNote } from './prompts/chat.prompt';
 
 const TRANSCRIPT_INLINE_MAX_CHARS = 12_000;
 const HISTORY_TURNS = 6;
 
 export interface ChatPromptInput {
   language: Language;
+  today: string;
   materials: string | null;
   notes: string | null;
   details: MeetingDetailsResponse;
@@ -47,6 +48,7 @@ export class ChatPromptBuilder {
       text: [
         fence('question', input.question),
         `Answer in ${languageName(input.language)}.`,
+        meetingDayNote(input.today),
       ].join('\n\n'),
     });
 

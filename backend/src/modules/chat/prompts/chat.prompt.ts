@@ -7,3 +7,10 @@ export const CHAT_PERSONA_PROMPT = [
   'When the meeting truly does not hold the answer, say so plainly in one sentence.',
   'Answer in prose, short and specific, the way a colleague would recap it.',
 ].join(' ');
+
+/// The chat can be opened long after the meeting ran, so the anchor is the day of
+/// the meeting rather than today: its materials were frozen then, and a range that
+/// said «present» meant that day.
+export function meetingDayNote(day: string): string {
+  return `That meeting ran on ${day}. Read anything in the materials that runs to the present as running up to that day, and add up every date range before naming a span of time.`;
+}

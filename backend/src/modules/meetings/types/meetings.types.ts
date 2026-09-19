@@ -5,6 +5,7 @@ export interface MeetingLiveState {
   profile: MeetingProfile;
   style: string;
   contextBrief: string;
+  today: string;
 }
 
 export interface MeetingScreenshot {

@@ -17,6 +17,7 @@ import { MeetingsRepository } from './meetings.repository';
 import { toDetailsResponse, toMeetingResponse } from './meetings.mapper';
 
 const DEFAULT_PAGE = 20;
+const DAY_LENGTH = 10;
 
 @Injectable()
 export class MeetingsService {
@@ -56,6 +57,7 @@ export class MeetingsService {
       profile: meeting.profile,
       style: settings.style ?? '',
       contextBrief: contextBrief ?? '',
+      today: asDay(meeting.startedAt),
     });
 
     return toMeetingResponse(meeting);
@@ -138,6 +140,10 @@ export class MeetingsService {
 
     return meeting;
   }
+}
+
+function asDay(moment: Date): string {
+  return moment.toISOString().slice(0, DAY_LENGTH);
 }
 
 function asProjectFilter(projectId?: string): string | null | undefined {

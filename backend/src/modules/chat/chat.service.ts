@@ -11,6 +11,8 @@ import type { ChatMessageResponse, ChatSessionResponse } from './dto/chat.respon
 import { MeetingToolbox } from './tools/meeting.toolbox';
 import type { ChatEvent } from './types/chat.types';
 
+const DAY_LENGTH = 10;
+
 interface Exchange {
   userId: string;
   meetingId: string;
@@ -89,6 +91,7 @@ export class ChatService {
 
     const prompt = this.promptBuilder.build({
       language: meeting.language,
+      today: meeting.startedAt.toISOString().slice(0, DAY_LENGTH),
       materials: meeting.contextBrief,
       notes: meeting.summary,
       details,

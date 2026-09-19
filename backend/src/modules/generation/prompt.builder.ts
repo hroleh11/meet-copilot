@@ -10,6 +10,7 @@ import type {
 } from '~/modules/meetings';
 import {
   languageInstruction,
+  todayNote,
   MODE_PROMPTS,
   NOTHING_SAID,
   SCREENSHOT_NOTE,
@@ -68,8 +69,12 @@ function buildMessages(input: PromptInput): LlmMessage[] {
   }
 
   const now = said(formatTranscript(input.spoken), input.screenshot);
+  const asked = [
+    MODE_PROMPTS[input.mode],
+    ...(input.state.today ? [todayNote(input.state.today)] : []),
+  ].join('\n\n');
 
-  messages.push({ ...now, text: `${now.text}\n\n${MODE_PROMPTS[input.mode]}` });
+  messages.push({ ...now, text: `${now.text}\n\n${asked}` });
 
   return messages;
 }

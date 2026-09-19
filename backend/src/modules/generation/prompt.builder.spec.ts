@@ -7,6 +7,7 @@ const state = (overrides: Partial<MeetingLiveState> = {}): MeetingLiveState => (
   profile: MeetingProfile.daily,
   style: '',
   contextBrief: '',
+  today: '2026-09-19',
   ...overrides,
 });
 
@@ -41,6 +42,23 @@ describe('PromptBuilder', () => {
 
   it('falls back to the default style when the user set none', () => {
     expect(builder.build(input()).system).toContain('competent colleague');
+  });
+
+  /// «Feb 2025 — Present» in a résumé means nothing without a today to measure it
+  /// against, and the model filled the gap with its own horizon: asked about years
+  /// of experience it answered «about a year» to a résumé showing almost two. The
+  /// day has to stand next to the question; in the system text it was still short.
+  it('puts the day beside the question, not in the system text', () => {
+    const prompt = builder.build(input({ state: state({ today: '2026-09-19' }) }));
+
+    expect(prompt.system).not.toContain('Today is');
+    expect(prompt.messages.at(-1)?.text).toContain('Today is 2026-09-19');
+  });
+
+  it('leaves the day out when the meeting state has none', () => {
+    const prompt = builder.build(input({ state: state({ today: '' }) }));
+
+    expect(prompt.messages.at(-1)?.text).not.toContain('Today is');
   });
 
   it('uses the style the meeting froze at its start', () => {
