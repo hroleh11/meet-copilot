@@ -46,7 +46,24 @@ Two Vite entries, one per window. Both share `shared/`, neither imports from the
 
 ## Settings screen
 
-- Two sections that map to two commands: local settings (backend URL, token, input device, hotkeys) and user settings from the backend (style, default language, default profile). Save buttons are separate; a failed backend save leaves local settings untouched.
+- Four tabs in a left rail: General (user settings from the backend: default profile, default language, answer style, plus the account row), Audio (input device, level meters, the check), Hotkeys, Advanced (backend URL, connection check). The tab is local state of the screen, not a route.
+- The tabs still map to the same two commands, and each tab saves what it edits: the General tab writes user settings, the other three merge their part into `LocalSettings` and write it. Save buttons stay per tab; a failed backend save leaves local settings untouched.
+- A tab is built from `SettingsGroup` (uppercase label plus a card) and `SettingsRow` (label on the left, control on the right, `stacked` when the control is a textarea). Controls inside a card take `tone="recessed"` so they read as fields against the elevated card, in both themes.
+
+## Meeting screen
+
+- `app/MeetingScreen.tsx` is the only place a meeting is read: the chats of that meeting on the left (`features/chat/ChatsSidebar`), the meeting itself in the middle (`features/history/MeetingDetails`). No list of other meetings here; those are reached from the main screen.
+- The middle column is one card per thing: the meeting with its short overview, the transcript, the answers, the cost. They are separate `Panel`s on purpose — run together they read as one grey wall.
+- Lists page themselves through `useMeetings` and `useEndOfList`: a page is asked for as the bottom comes into reach, and a short page means the end. The overlay transcript grows the other way with `useTranscriptScroll`, which also stops following the bottom while the user reads.
+
+## Chat screen
+
+- A chat is another screen of the main window, not a window of its own: `View` in `app/App.tsx` carries `chat` with `meetingId` and `chatId`, and back from a chat leads to its meeting rather than to the main screen.
+- It reads like a messenger: the question on the right in an accent bubble, the answer on the left, the time in the corner, `useStickToBottom` keeping the newest message in sight until the user scrolls up to read.
+- `useChat` keeps the question being answered in `pending` and moves it into the history when the backend reports the stored message, so a streaming answer never needs a store. Chat events carry `chatId`, and a window ignores everything that is not its own.
+- The exchange being written also lives in a ref. A state updater must stay pure: growing the answer or appending to the history from inside one makes React run it twice under `StrictMode`, which is how the finished answer once landed in the thread twice. Compute the next value, then call the setter with it.
+- `ChatsSidebar` stands beside both screens, with the open chat outlined on the chat one. It takes `onOpenChat` and `onChatRemoved` and never navigates itself; the app shell decides what opening a chat means and leaves a chat that was deleted while open.
+- Deleting goes through `shared/ui/ConfirmDialog`, which names the chat it is about and answers Escape and a click outside. It is an ordinary overlay rather than a native `<dialog>`: the native one is driven imperatively and jsdom has no `showModal`, so it could not be tested. The destructive button is `variant="danger"`. The list is refetched when `answered` changes, so a chat that has just earned its name from the first question shows it without a trip back to the meeting.
 
 ## Transcript rendering
 

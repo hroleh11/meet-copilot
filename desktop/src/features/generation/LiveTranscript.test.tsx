@@ -26,15 +26,19 @@ describe('LiveTranscript', () => {
     expect(screen.getByText('Фінальний').className).toContain('text-ink-primary');
   });
 
-  it('keeps only the last four lines on screen', () => {
-    const lines = ['1', '2', '3', '4', '5'].map((id) =>
-      line({ id, text: `репліка ${id}` }),
+  it('holds the newest lines and keeps the older ones a scroll away', () => {
+    const lines = Array.from({ length: 60 }, (_, index) =>
+      line({ id: String(index), text: `репліка ${index}` }),
     );
 
     render(<LiveTranscript lines={lines} />);
 
-    expect(screen.queryByText('репліка 1')).not.toBeInTheDocument();
-    expect(screen.getByText('репліка 5')).toBeInTheDocument();
+    expect(screen.getByText('репліка 59')).toBeInTheDocument();
+    expect(screen.getByText('репліка 20')).toBeInTheDocument();
+    expect(screen.queryByText('репліка 19')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Гортайте вгору, щоб побачити попередні репліки.'),
+    ).toBeInTheDocument();
   });
 
   it('labels who said each line', () => {

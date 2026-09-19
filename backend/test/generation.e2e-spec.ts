@@ -15,6 +15,10 @@ class FakeLlmProvider extends LlmProvider {
     throw new Error('The generation route only streams');
   }
 
+  streamTools(): AsyncIterable<never> {
+    throw new Error('Generation has no tools');
+  }
+
   async *stream(request: LlmRequest): AsyncIterable<LlmEvent> {
     this.requests.push(request);
 

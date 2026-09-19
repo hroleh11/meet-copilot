@@ -39,6 +39,7 @@ enum UsageKind {
   generate
   summarize
   stt
+  chat
 }
 
 model User {
@@ -102,13 +103,15 @@ model Meeting {
   title     String?
   status    MeetingStatus  @default(live)
   summary   String?
+  overview  String?
   startedAt DateTime       @default(now()) @map("started_at")
   endedAt   DateTime?      @map("ended_at")
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  segments    Segment[]
-  generations Generation[]
-  usageEvents UsageEvent[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  segments     Segment[]
+  generations  Generation[]
+  chatSessions ChatSession[]
+  usageEvents  UsageEvent[]
 
   @@index([userId, startedAt])
   @@map("meetings")
@@ -144,6 +147,33 @@ model Generation {
 
   @@index([meetingId, createdAt])
   @@map("generations")
+}
+
+model ChatSession {
+  id        String   @id @default(uuid())
+  meetingId String   @map("meeting_id")
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  meeting  Meeting       @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([meetingId, updatedAt])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  question  String
+  answer    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }
 
 model UsageEvent {

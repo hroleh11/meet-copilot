@@ -42,10 +42,11 @@ export function toGenerationResponse(generation: Generation): GenerationResponse
 export function toDetailsResponse(
   meeting: MeetingWithContent,
   usage: UsageTotals,
+  overview: string | null,
 ): MeetingDetailsResponse {
   return {
     ...toMeetingResponse(meeting),
-    summary: meeting.summary,
+    overview,
     segments: meeting.segments.map(toSegmentResponse),
     generations: meeting.generations.map(toGenerationResponse),
     usage,

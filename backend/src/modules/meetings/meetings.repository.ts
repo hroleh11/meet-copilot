@@ -45,10 +45,15 @@ export class MeetingsRepository {
     });
   }
 
-  listOwned(userId: string): Promise<Meeting[]> {
+  listOwned(
+    userId: string,
+    page: { limit: number; cursor?: string },
+  ): Promise<Meeting[]> {
     return this.prisma.meeting.findMany({
       where: { userId },
       orderBy: { startedAt: 'desc' },
+      take: page.limit,
+      ...(page.cursor ? { cursor: { id: page.cursor }, skip: 1 } : {}),
     });
   }
 
@@ -71,6 +76,10 @@ export class MeetingsRepository {
 
   async updateSummary(meetingId: string, summary: string): Promise<void> {
     await this.prisma.meeting.update({ where: { id: meetingId }, data: { summary } });
+  }
+
+  async updateOverview(meetingId: string, overview: string): Promise<void> {
+    await this.prisma.meeting.update({ where: { id: meetingId }, data: { overview } });
   }
 
   finish(meetingId: string): Promise<Meeting> {

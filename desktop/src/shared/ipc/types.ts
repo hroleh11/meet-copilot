@@ -2,6 +2,7 @@ export type Language = 'uk' | 'en' | 'ru';
 export type MeetingProfile = 'daily' | 'interview_candidate' | 'client_call';
 export type MeetingStatus = 'live' | 'finished';
 export type Speaker = 'me' | 'other';
+export type AudioPermission = 'microphone' | 'systemAudio';
 export type GenerationMode = 'reply' | 'alternative';
 export type SessionState = 'idle' | 'starting' | 'listening' | 'stopping';
 
@@ -16,6 +17,20 @@ export interface AudioDevice {
   name: string;
   isDefault: boolean;
   bluetooth: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string | null;
+  messageCount: number;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  question: string;
+  answer: string;
+  createdAt: string;
 }
 
 export interface Usage {
@@ -51,7 +66,7 @@ export interface Generation {
 }
 
 export interface MeetingDetails extends Meeting {
-  summary: string | null;
+  overview: string | null;
   segments: TranscriptSegment[];
   generations: Generation[];
   usage: Usage;
@@ -73,6 +88,7 @@ export interface Hotkeys {
   reply: string;
   alternative: string;
   hide: string;
+  interact: string;
 }
 
 export interface LocalSettings {
@@ -82,7 +98,7 @@ export interface LocalSettings {
 }
 
 export type ErrorKind =
-  'audio' | 'backend' | 'settings' | 'permission' | 'access' | 'cancelled';
+  'audio' | 'backend' | 'settings' | 'permission' | 'access' | 'cancelled' | 'window';
 
 export type BackendFailure =
   'unauthorized' | 'notFound' | 'conflict' | 'unavailable' | 'unexpected';

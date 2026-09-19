@@ -8,6 +8,7 @@ mod state;
 
 pub mod answers;
 pub mod hotkeys;
+pub mod meeting_chat;
 pub mod overlay;
 
 pub use answers::Answers;

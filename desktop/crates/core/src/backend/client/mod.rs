@@ -1,7 +1,9 @@
 mod backend_client;
+mod chat;
 mod credentials;
 mod failure;
 mod generation;
+mod query;
 mod speech;
 mod sse;
 mod transport;

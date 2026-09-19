@@ -1,10 +1,12 @@
 mod api;
+mod chat;
 mod client;
 mod endpoint;
 mod generate;
 mod stt;
 
 pub use api::BackendApi;
+pub use chat::{ChatDelta, ChatId, ChatMessage, ChatSession, ChatStream};
 pub use client::{BackendClient, CredentialHolder, Credentials, Transport};
 pub use endpoint::{BackendEndpoint, Health, Tokens};
 pub use generate::{Delta, DeltaPayload, DeltaStream, DonePayload, ErrorPayload};

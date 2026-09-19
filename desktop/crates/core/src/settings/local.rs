@@ -8,6 +8,7 @@ pub struct Hotkeys {
     pub reply: String,
     pub alternative: String,
     pub hide: String,
+    pub interact: String,
 }
 
 impl Default for Hotkeys {
@@ -16,6 +17,7 @@ impl Default for Hotkeys {
             reply: "Alt+R".to_owned(),
             alternative: "CommandOrControl+Shift+A".to_owned(),
             hide: "CommandOrControl+Shift+H".to_owned(),
+            interact: "CommandOrControl+Shift+M".to_owned(),
         }
     }
 }

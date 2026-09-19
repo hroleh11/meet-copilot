@@ -1,6 +1,6 @@
 use meet_copilot_core::{
     audio::AudioFrame,
-    backend::{SttEvent, SttMessage, Tokens},
+    backend::{ChatMessage, ChatSession, SttEvent, SttMessage, Tokens},
     domain::{
         GenerationMode, Language, Meeting, MeetingDetails, MeetingProfile, MeetingStatus, Speaker,
         UserSettings,
@@ -65,7 +65,7 @@ fn meeting_details_stay_flat_like_the_backend_class() {
         "status": "finished",
         "startedAt": "2026-09-18T00:00:00.000Z",
         "endedAt": "2026-09-18T01:00:00.000Z",
-        "summary": "Обговорили ціну.",
+        "overview": "Обговорили ціну.",
         "segments": [{
             "id": "seg-1",
             "speaker": "other",
@@ -92,7 +92,45 @@ fn meeting_details_stay_flat_like_the_backend_class() {
     assert_eq!(details.segments[0].speaker, Speaker::Other);
     assert_eq!(details.generations[0].mode, GenerationMode::Reply);
     assert_eq!(details.usage.cached_input_tokens, 64);
-    assert_eq!(details.summary.as_deref(), Some("Обговорили ціну."));
+    assert_eq!(details.overview.as_deref(), Some("Обговорили ціну."));
+}
+
+#[test]
+fn a_chat_message_matches_the_backend_response() {
+    let message = ChatMessage {
+        id: "message-1".to_owned(),
+        question: "Про що домовились?".to_owned(),
+        answer: "Про перенесення релізу на понеділок.".to_owned(),
+        created_at: "2026-09-19T10:00:00.000Z".to_owned(),
+    };
+
+    roundtrip(
+        &message,
+        json!({
+            "id": "message-1",
+            "question": "Про що домовились?",
+            "answer": "Про перенесення релізу на понеділок.",
+            "createdAt": "2026-09-19T10:00:00.000Z"
+        }),
+    );
+}
+
+#[test]
+fn a_chat_without_questions_has_no_title() {
+    roundtrip(
+        &ChatSession {
+            id: "33333333-3333-4333-8333-333333333333".to_owned(),
+            title: None,
+            message_count: 0,
+            updated_at: "2026-09-19T10:00:00.000Z".to_owned(),
+        },
+        json!({
+            "id": "33333333-3333-4333-8333-333333333333",
+            "title": null,
+            "messageCount": 0,
+            "updatedAt": "2026-09-19T10:00:00.000Z"
+        }),
+    );
 }
 
 #[test]

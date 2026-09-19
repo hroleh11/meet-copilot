@@ -1,7 +1,7 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
+export interface ButtonProps extends ComponentPropsWithRef<'button'> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   children: ReactNode;
 }
 
@@ -10,6 +10,7 @@ const STYLES = {
   secondary:
     'border border-separator bg-surface-elevated text-ink-primary hover:brightness-95 disabled:opacity-40',
   ghost: 'text-accent hover:bg-separator disabled:opacity-40',
+  danger: 'bg-danger text-white hover:brightness-95 disabled:opacity-40',
 } as const;
 
 export function Button({ variant = 'primary', className = '', ...props }: ButtonProps) {

@@ -1,8 +1,10 @@
-import { LocalSettingsPanel } from '~/features/settings/LocalSettingsPanel';
-import { UserSettingsPanel } from '~/features/settings/UserSettingsPanel';
-import { uk } from '~/shared/i18n/uk';
+import { useState } from 'react';
+import { AdvancedTab } from '~/features/settings/AdvancedTab';
+import { AudioTab } from '~/features/settings/AudioTab';
+import { GeneralTab } from '~/features/settings/GeneralTab';
+import { HotkeysTab } from '~/features/settings/HotkeysTab';
+import { SettingsNav, type SettingsTab } from '~/features/settings/SettingsNav';
 import type { LocalSettings, UserSettings } from '~/shared/ipc';
-import { Button } from '~/shared/ui';
 
 export interface SettingsScreenProps {
   local: LocalSettings | null;
@@ -25,27 +27,41 @@ export function SettingsScreen({
   onTestConnection,
   onSignOut,
 }: SettingsScreenProps) {
+  const [tab, setTab] = useState<SettingsTab>('general');
+
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4">
-      {local ? (
-        <LocalSettingsPanel
-          settings={local}
-          onSave={onSaveLocal}
-          onTestConnection={onTestConnection}
-        />
-      ) : null}
+    <div className="flex min-h-0 flex-grow">
+      <SettingsNav tab={tab} onChange={setTab} />
 
-      {user ? <UserSettingsPanel settings={user} onSave={onSaveUser} /> : null}
+      <div className="min-h-0 flex-grow overflow-y-auto p-5">
+        <div className="mx-auto flex max-w-[640px] flex-col gap-5">
+          {tab === 'general' && user ? (
+            <GeneralTab
+              settings={user}
+              email={email}
+              onSave={onSaveUser}
+              onSignOut={onSignOut}
+            />
+          ) : null}
 
-      {status ? <p className="text-body text-success">{status}</p> : null}
+          {tab === 'audio' && local ? (
+            <AudioTab settings={local} onSave={onSaveLocal} />
+          ) : null}
 
-      <div className="flex items-center justify-between">
-        <span className="text-body text-ink-secondary">
-          {uk.auth.signedInAs} {email}
-        </span>
-        <Button variant="secondary" className="h-8" onClick={onSignOut}>
-          {uk.auth.signOut}
-        </Button>
+          {tab === 'hotkeys' && local ? (
+            <HotkeysTab settings={local} onSave={onSaveLocal} />
+          ) : null}
+
+          {tab === 'advanced' && local ? (
+            <AdvancedTab
+              settings={local}
+              onSave={onSaveLocal}
+              onTestConnection={onTestConnection}
+            />
+          ) : null}
+
+          {status ? <p className="text-body text-success">{status}</p> : null}
+        </div>
       </div>
     </div>
   );

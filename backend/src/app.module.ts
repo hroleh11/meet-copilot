@@ -13,6 +13,7 @@ import { PrismaModule } from '~/infrastructure/prisma';
 import { RedisModule } from '~/infrastructure/redis';
 import { SttProviderModule } from '~/infrastructure/stt';
 import { AuthModule } from '~/modules/auth';
+import { ChatModule } from '~/modules/chat';
 import { ContextModule } from '~/modules/context';
 import { GenerationModule } from '~/modules/generation';
 import { HealthModule } from '~/modules/health';
@@ -38,6 +39,7 @@ import { UserModule } from '~/modules/user';
     SttProviderModule,
     LlmProviderModule,
     AuthModule,
+    ChatModule,
     UserModule,
     SettingsModule,
     UsageModule,

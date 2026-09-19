@@ -9,6 +9,7 @@ use crate::{
 };
 
 use super::{
+    chat::{ChatId, ChatMessage, ChatSession, ChatStream},
     endpoint::{Health, Tokens},
     generate::DeltaStream,
 };
@@ -31,9 +32,19 @@ pub trait BackendApi: Send + Sync {
 
     async fn finish_meeting(&self, id: &MeetingId) -> Result<Meeting>;
 
-    async fn list_meetings(&self) -> Result<Vec<Meeting>>;
+    async fn list_meetings(&self, limit: u32, cursor: Option<&str>) -> Result<Vec<Meeting>>;
 
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
 
     fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_>;
+
+    async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
+
+    async fn start_meeting_chat(&self, id: &MeetingId) -> Result<ChatSession>;
+
+    async fn chat_messages(&self, id: &MeetingId, chat: &ChatId) -> Result<Vec<ChatMessage>>;
+
+    async fn delete_meeting_chat(&self, id: &MeetingId, chat: &ChatId) -> Result<()>;
+
+    fn ask_in_chat(&self, id: &MeetingId, chat: &ChatId, question: &str) -> ChatStream<'_>;
 }

@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   AudioDevice,
+  AudioPermission,
+  ChatMessage,
+  ChatSession,
   GenerationMode,
   Language,
   LocalSettings,
@@ -45,6 +48,11 @@ export const checkBackend = (): Promise<string> => invoke('check_backend');
 export const listAudioDevices = (): Promise<AudioDevice[]> =>
   invoke('list_audio_devices');
 
+export const openAudioPermission = (permission: AudioPermission): Promise<void> =>
+  invoke('open_audio_permission', { permission });
+
+export const systemAudioAllowed = (): Promise<boolean> => invoke('system_audio_allowed');
+
 export interface AudioCheckStatus {
   systemAudioProblem: string | null;
 }
@@ -59,7 +67,23 @@ export interface StartedMeeting {
   systemAudioProblem: string | null;
 }
 
-export const listMeetings = (): Promise<Meeting[]> => invoke('list_meetings');
+export const listMeetings = (cursor: string | null): Promise<Meeting[]> =>
+  invoke('list_meetings', { cursor });
+
+export const meetingChats = (id: string, query: string | null): Promise<ChatSession[]> =>
+  invoke('meeting_chats', { id, query });
+
+export const startMeetingChat = (id: string): Promise<ChatSession> =>
+  invoke('start_meeting_chat', { id });
+
+export const chatMessages = (id: string, chat: string): Promise<ChatMessage[]> =>
+  invoke('chat_messages', { id, chat });
+
+export const deleteMeetingChat = (id: string, chat: string): Promise<void> =>
+  invoke('delete_meeting_chat', { id, chat });
+
+export const askInChat = (id: string, chat: string, question: string): Promise<void> =>
+  invoke('ask_in_chat', { id, chat, question });
 
 export const getMeeting = (id: string): Promise<MeetingDetails> =>
   invoke('get_meeting', { id });

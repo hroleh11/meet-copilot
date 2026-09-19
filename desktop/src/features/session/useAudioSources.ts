@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react';
-import { listAudioDevices } from '~/shared/ipc/commands';
+import { useCallback, useEffect, useState } from 'react';
+import type { AudioPermission } from '~/shared/ipc';
+import {
+  listAudioDevices,
+  openAudioPermission,
+  systemAudioAllowed,
+} from '~/shared/ipc/commands';
 import { useSessionStore } from '~/shared/store/sessionStore';
 import type { SourceAvailability } from './AudioSourceStatus';
 
 interface UseAudioSourcesResult {
   microphone: SourceAvailability;
   systemAudio: SourceAvailability;
+  openPermission: (permission: AudioPermission) => void;
 }
 
 export function useAudioSources(): UseAudioSourcesResult {
   const sources = useSessionStore((store) => store.sources);
   const [devices, setDevices] = useState<SourceAvailability>('unchecked');
+  const [screenRecording, setScreenRecording] = useState<SourceAvailability>('unchecked');
 
   useEffect(() => {
     listAudioDevices()
@@ -20,6 +27,20 @@ export function useAudioSources(): UseAudioSourcesResult {
       .catch(() => {
         setDevices('missing');
       });
+  }, []);
+
+  useEffect(() => {
+    systemAudioAllowed()
+      .then((allowed) => {
+        setScreenRecording(allowed ? 'connected' : 'missing');
+      })
+      .catch(() => {
+        setScreenRecording('unchecked');
+      });
+  }, []);
+
+  const openPermission = useCallback((permission: AudioPermission) => {
+    void openAudioPermission(permission);
   }, []);
 
   const live = (speaker: 'me' | 'other'): SourceAvailability | null => {
@@ -34,6 +55,7 @@ export function useAudioSources(): UseAudioSourcesResult {
 
   return {
     microphone: live('me') ?? devices,
-    systemAudio: live('other') ?? 'unchecked',
+    systemAudio: live('other') ?? screenRecording,
+    openPermission,
   };
 }

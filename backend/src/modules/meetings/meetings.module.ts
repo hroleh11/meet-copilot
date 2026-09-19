@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SettingsModule } from '~/modules/settings';
 import { UsageModule } from '~/modules/usage';
+import { MeetingOverviewWriter } from './meeting-overview.writer';
 import { MeetingStateStore } from './meeting-state.store';
 import { MeetingsController } from './meetings.controller';
 import { MeetingsRepository } from './meetings.repository';
@@ -14,6 +15,7 @@ import { StaleMeetingsCloser } from './stale-meetings.closer';
     MeetingsService,
     MeetingsRepository,
     MeetingStateStore,
+    MeetingOverviewWriter,
     StaleMeetingsCloser,
   ],
   exports: [MeetingsService, MeetingsRepository, MeetingStateStore, StaleMeetingsCloser],

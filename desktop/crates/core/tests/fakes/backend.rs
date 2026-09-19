@@ -9,7 +9,10 @@ use std::{
 use async_trait::async_trait;
 use futures_util::{stream, StreamExt};
 use meet_copilot_core::{
-    backend::{BackendApi, Delta, DeltaStream, Health, Tokens},
+    backend::{
+        BackendApi, ChatId, ChatMessage, ChatSession, ChatStream, Delta, DeltaStream, Health,
+        Tokens,
+    },
     backend_failure::BackendFailure,
     domain::{
         Generation, GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingProfile,
@@ -131,8 +134,32 @@ impl BackendApi for FakeBackend {
         Ok(meeting(MeetingStatus::Finished))
     }
 
-    async fn list_meetings(&self) -> Result<Vec<Meeting>> {
+    async fn list_meetings(&self, _limit: u32, _cursor: Option<&str>) -> Result<Vec<Meeting>> {
         Ok(vec![meeting(MeetingStatus::Finished)])
+    }
+
+    async fn meeting_chats(
+        &self,
+        _id: &MeetingId,
+        _query: Option<&str>,
+    ) -> Result<Vec<ChatSession>> {
+        Ok(Vec::new())
+    }
+
+    async fn start_meeting_chat(&self, _id: &MeetingId) -> Result<ChatSession> {
+        unused()
+    }
+
+    async fn chat_messages(&self, _id: &MeetingId, _chat: &ChatId) -> Result<Vec<ChatMessage>> {
+        Ok(Vec::new())
+    }
+
+    async fn delete_meeting_chat(&self, _id: &MeetingId, _chat: &ChatId) -> Result<()> {
+        unused()
+    }
+
+    fn ask_in_chat(&self, _id: &MeetingId, _chat: &ChatId, _question: &str) -> ChatStream<'_> {
+        Box::pin(stream::empty())
     }
 
     fn generate(&self, _id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
@@ -153,7 +180,7 @@ impl BackendApi for FakeBackend {
     async fn meeting(&self, _id: &MeetingId) -> Result<MeetingDetails> {
         Ok(MeetingDetails {
             meeting: meeting(MeetingStatus::Finished),
-            summary: None,
+            overview: None,
             segments: Vec::<TranscriptSegment>::new(),
             generations: Vec::<Generation>::new(),
             usage: Usage::default(),

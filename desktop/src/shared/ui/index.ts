@@ -1,7 +1,11 @@
 export { Button } from './Button';
+export { ConfirmDialog } from './ConfirmDialog';
 export { Field } from './Field';
 export * from './icons';
 export { LevelMeter } from './LevelMeter';
 export { Panel } from './Panel';
 export { SectionLabel } from './SectionLabel';
+export { SegmentedControl } from './SegmentedControl';
+export { Select } from './Select';
 export { TextInput } from './TextInput';
+export { TypingDots } from './TypingDots';

@@ -1,8 +1,3 @@
-use std::{
-    sync::mpsc::{sync_channel, SyncSender},
-    time::Duration,
-};
-
 use block2::RcBlock;
 use dispatch2::DispatchQueue;
 use meet_copilot_core::{
@@ -14,18 +9,21 @@ use objc2::{rc::Retained, runtime::ProtocolObject, AnyThread};
 use objc2_core_media::CMTime;
 use objc2_foundation::{NSArray, NSError};
 use objc2_screen_capture_kit::{
-    SCContentFilter, SCShareableContent, SCStream, SCStreamConfiguration, SCStreamOutputType,
+    SCContentFilter, SCStream, SCStreamConfiguration, SCStreamOutputType,
 };
 use tokio::sync::mpsc::{self, Sender};
 use tokio_util::sync::CancellationToken;
 
-use super::{stream_output::SystemAudioOutput, thread_safe::ThreadSafe};
+use super::{
+    content::{shareable_content, wait_for},
+    stream_output::SystemAudioOutput,
+    thread_safe::ThreadSafe,
+};
 use crate::permissions::{request_screen_recording_access, screen_recording_access};
 
 const CAPTURE_RATE_HZ: usize = 48_000;
 const CAPTURE_CHANNELS: usize = 2;
 const RAW_CHANNEL_CAPACITY: usize = 32;
-const SETUP_TIMEOUT: Duration = Duration::from_secs(10);
 const FRAME_SIZE_PX: usize = 2;
 
 pub struct SystemAudioSource {
@@ -138,18 +136,6 @@ fn build_stream(output: &Retained<SystemAudioOutput>) -> Result<Retained<SCStrea
     })
 }
 
-fn shareable_content() -> Result<ThreadSafe<SCShareableContent>> {
-    wait_for("list the displays", |done| {
-        let handler = RcBlock::new(
-            move |content: *mut SCShareableContent, error: *mut NSError| {
-                let _ = done.send(describe(content, error));
-            },
-        );
-
-        unsafe { SCShareableContent::getShareableContentWithCompletionHandler(&handler) };
-    })?
-}
-
 fn attach_output(stream: &Retained<SCStream>, output: &Retained<SystemAudioOutput>) -> Result<()> {
     let queue = DispatchQueue::new("com.meetcopilot.system-audio", None);
     let handler = ProtocolObject::from_ref(&**output);
@@ -177,30 +163,6 @@ fn start_capture(stream: &Retained<SCStream>) -> Result<()> {
 
         unsafe { stream.startCaptureWithCompletionHandler(Some(&handler)) };
     })?
-}
-
-fn describe(
-    content: *mut SCShareableContent,
-    error: *mut NSError,
-) -> Result<ThreadSafe<SCShareableContent>> {
-    if let Some(error) = unsafe { error.as_ref() } {
-        return Err(Error::Permission(format!(
-            "Could not read what is on screen: {error}"
-        )));
-    }
-
-    unsafe { Retained::retain(content) }
-        .map(ThreadSafe::new)
-        .ok_or_else(|| Error::Audio("macOS returned no capturable content".to_owned()))
-}
-
-fn wait_for<T: Send + 'static>(what: &str, begin: impl FnOnce(SyncSender<T>)) -> Result<T> {
-    let (done, wait) = sync_channel(1);
-
-    begin(done);
-
-    wait.recv_timeout(SETUP_TIMEOUT)
-        .map_err(|_| Error::Audio(format!("macOS did not answer in time when asked to {what}")))
 }
 
 fn spawn_processing_task(

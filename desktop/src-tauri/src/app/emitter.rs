@@ -2,11 +2,12 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter as TauriEmitter};
 
 use crate::events::{
-    AppErrorEvent, AudioLevelEvent, AuthStateEvent, GenerationDeltaEvent, GenerationFailedEvent,
-    GenerationFinishedEvent, GenerationStartedEvent, SessionStateEvent, SourceStatusEvent,
-    TranscriptSegmentEvent, APP_ERROR, AUDIO_LEVEL, AUTH_STATE, GENERATION_DELTA,
-    GENERATION_FAILED, GENERATION_FINISHED, GENERATION_STARTED, SESSION_STATE, SOURCE_STATUS,
-    TRANSCRIPT_SEGMENT,
+    AppErrorEvent, AudioLevelEvent, AuthStateEvent, ChatDeltaEvent, ChatFailedEvent,
+    ChatFinishedEvent, GenerationDeltaEvent, GenerationFailedEvent, GenerationFinishedEvent,
+    GenerationStartedEvent, OverlayInteractionEvent, SessionStateEvent, SourceStatusEvent,
+    TranscriptSegmentEvent, APP_ERROR, AUDIO_LEVEL, AUTH_STATE, CHAT_DELTA, CHAT_FAILED,
+    CHAT_FINISHED, GENERATION_DELTA, GENERATION_FAILED, GENERATION_FINISHED, GENERATION_STARTED,
+    OVERLAY_INTERACTION, SESSION_STATE, SOURCE_STATUS, TRANSCRIPT_SEGMENT,
 };
 
 #[derive(Clone)]
@@ -25,6 +26,22 @@ impl Emitter {
 
     pub fn app_error(&self, event: AppErrorEvent) {
         self.send(APP_ERROR, event);
+    }
+
+    pub fn chat_delta(&self, event: ChatDeltaEvent) {
+        self.send(CHAT_DELTA, event);
+    }
+
+    pub fn chat_finished(&self, event: ChatFinishedEvent) {
+        self.send(CHAT_FINISHED, event);
+    }
+
+    pub fn chat_failed(&self, event: ChatFailedEvent) {
+        self.send(CHAT_FAILED, event);
+    }
+
+    pub fn overlay_interaction(&self, event: OverlayInteractionEvent) {
+        self.send(OVERLAY_INTERACTION, event);
     }
 
     pub fn audio_level(&self, event: AudioLevelEvent) {

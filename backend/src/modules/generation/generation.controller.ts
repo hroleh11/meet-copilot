@@ -4,7 +4,7 @@ import type { Response } from 'express';
 import { GetCurrentUserId } from '~/common/decorators';
 import { GenerateDto } from './dto/generation.dto';
 import { GenerationService } from './generation.service';
-import { openSseStream, writeSseEvent } from './sse.writer';
+import { openSseStream, writeSseEvent } from '~/common/sse';
 
 @ApiTags('generation')
 @Controller('meetings')

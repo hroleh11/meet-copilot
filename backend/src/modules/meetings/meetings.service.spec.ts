@@ -4,6 +4,7 @@ import type { Meeting } from '~/generated/prisma/client';
 import { Language, MeetingProfile } from '~/generated/prisma/enums';
 import { SettingsService } from '~/modules/settings';
 import { UsageRepository } from '~/modules/usage';
+import { MeetingOverviewWriter } from './meeting-overview.writer';
 import { MeetingStateStore } from './meeting-state.store';
 import { MeetingsRepository } from './meetings.repository';
 import { MeetingsService } from './meetings.service';
@@ -17,6 +18,7 @@ const meeting: Meeting = {
   title: null,
   status: 'live',
   summary: null,
+  overview: null,
   startedAt: new Date(),
   endedAt: null,
 };
@@ -61,6 +63,13 @@ async function build(): Promise<{
       MeetingsService,
       { provide: MeetingsRepository, useValue: repository },
       { provide: MeetingStateStore, useValue: stateStore },
+      {
+        provide: MeetingOverviewWriter,
+        useValue: {
+          prepare: () => Promise.resolve(),
+          ensure: () => Promise.resolve(null),
+        },
+      },
       {
         provide: SettingsService,
         useValue: {

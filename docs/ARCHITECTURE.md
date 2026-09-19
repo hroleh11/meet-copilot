@@ -38,6 +38,7 @@ backend/src
     stt/           WebSocket-шлюз
     context/       ContextWindow, Summarizer
     generation/    SSE-генерація, PromptBuilder, prompts
+    chat/          чати по завершеній зустрічі, ChatAgent та інструменти по ній
     usage/         UsageRecorder
     health/
 
@@ -63,8 +64,9 @@ desktop/src-tauri/src
   deep_link/     обробка meetcopilot://auth
 
 desktop/src
-  app/           оболонка головного вікна: шапка, вкладки «Зустріч», «Історія», «Налаштування»
-  features/      auth, session, generation, settings, history, onboarding, access
+  main.tsx, overlay.tsx            по точці входу на вікно
+  app/           екрани головного вікна та оболонка оверлея
+  features/      auth, session, generation, settings, history, chat, access
   shared/theme/  tokens.css, згенерований із дизайн-системи
   shared/        ipc, ui, store, lib, i18n
 ```
@@ -97,8 +99,13 @@ desktop/src
 
 - `POST /meetings` `{ profile, language, title? }` → `{ id, status, startedAt }`
 - `POST /meetings/:id/finish` → `{ id, status, endedAt }`
-- `GET /meetings` → список без транскриптів, новіші першими
-- `GET /meetings/:id` → зустріч, `summary`, `segments`, `generations`, `usage`
+- `GET /meetings?limit&cursor` → сторінка списку без транскриптів, новіші першими. Курсор це id останньої зустрічі на екрані, а кінець списку видно з того, що сторінка прийшла коротшою за `limit`, тож окремої обгортки з `hasMore` немає
+- `GET /meetings/:id` → зустріч, `overview`, `segments`, `generations`, `usage`
+- `GET /meetings/:id/chats?query=` → чати по цій зустрічі, останній змінений першим. `query` шукає і по назві чату, і по тому, що в ньому питали
+- `POST /meetings/:id/chats` → новий чат по цій зустрічі
+- `GET /meetings/:id/chats/:chatId` → питання й відповіді цього чату, старіші першими
+- `POST /meetings/:id/chats/:chatId` `{ question }` → SSE зі стрімом відповіді, як у генерації
+- `DELETE /meetings/:id/chats/:chatId` → видаляє чат разом з усім, що в ньому питали
 
 Бекенд віддає лише спожиті токени й секунди аудіо. Приблизну вартість рахує застосунок у `desktop/src/features/history/cost.ts`: тарифи лежать одним набором констант, бо точні гроші з'являться разом із підпискою і рахуватиме їх бекенд.
 
@@ -111,6 +118,20 @@ desktop/src
 Закінчує розмову клієнт текстовим повідомленням `{ "type": "finish" }`, а не розривом сокета. Deepgram віддає останню репліку лише після флашу, тому бекенд на `finish` закриває потік розпізнавання, дочікує записи фінальних сегментів, надсилає їх клієнту і аж тоді закриває сокет кодом 1000. Клієнт після `finish` читає сокет далі, поки той не закриється, з запобіжником у 5 секунд.
 
 Це звичайний WebSocket-сервер, приєднаний до події `upgrade` HTTP-сервера, а не шлюз Nest: сирий PCM не має конверта `event`/`data`, якого чекає адаптер Nest, і ідентифікатор зустрічі потрібен у шляху. Deepgram теж викликається прямим WebSocket, без їхнього SDK.
+
+### `POST /meetings/:id/chats/:chatId` → SSE
+
+Питання до завершеної зустрічі. Чатів по одній зустрічі може бути скільки завгодно, кожен зі своєю історією; назву чат отримує з першого питання і більше її не міняє.
+
+Модель не отримує готову витяжку, а сама працює зустріч інструментами: `meeting_facts` (коли почалась і скінчилась, скільки тривала, скільки говорила кожна сторона, скільки реплік і відповідей), `search_transcript`, `read_transcript` і `list_answers`. Через це питання на кшталт «скільки тривала зустріч» має відповідь, а довгий транскрипт не треба запихати в промпт цілком: короткий їде разом із ним, довгий читається інструментами. Цикл живе в `ChatAgent` і має межу в шість ходів; кожен наступний хід продовжує попередній через `previous_response_id`, тому провайдер тримає своє міркування, а назад їдуть лише результати інструментів.
+
+Усе, що зустріч наговорила, приходить до моделі в тегах `<notes>`, `<facts>`, `<transcript>`, `<question>` і в результатах інструментів, а системний промпт каже, що це матеріал, а не інструкції: вказівки, ролі й прохання, знайдені всередині, не виконуються. Самі теги вирізаються з вмісту в `chat/untrusted.ts`, щоб текст із зустрічі не міг закрити огорожу й заговорити від нашого імені.
+
+Обмін зберігається в `chat_messages`, тому історія чату є при наступному відкритті, а токени всіх ходів сумуються і йдуть у `UsageRecorder` з видом `chat`. Формат подій той самий, що в генерації, тільки `done` несе `messageId`, тож розбір SSE у ядрі розділений: спільний `sse::frames` віддає кадри, а кожна фіча читає свій `done`.
+
+### Резюме зустрічі
+
+`Meeting.summary` це щільні нотатки, якими живиться копайлот під час зустрічі, і читати їх людині нема сенсу. Для екрана є `Meeting.overview`: максимум три речення про те, чим була зустріч, без переказу питань і відповідей. Пише його `MeetingOverviewWriter` у модулі зустрічей моделлю резюме — один раз, після завершення. `finish` запускає його у фоні, `GET /meetings/:id` дочікується, якщо тексту ще немає, а спроба, що вже йде, спільна для обох, тому двічі за нього не платимо. Деталі зустрічі віддають лише `overview`; нотатки лишаються на сервері.
 
 ### `POST /meetings/:id/generate` → SSE
 
@@ -142,10 +163,13 @@ User            id, email, name, createdAt, updatedAt
 UserCredentials userId, hashedPassword?, googleId?
 AuthSession     id, userId, hashedRt, expiresAt, createdAt
 UserSettings    userId, style?, defaultLanguage, defaultProfile
-Meeting         id, userId, profile, language, title, status, summary?, startedAt, endedAt?
+Meeting         id, userId, profile, language, title, status, summary?, overview?,
+                startedAt, endedAt?
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
 Generation      id, meetingId, mode, output, stopReason, inputTokens, cachedInputTokens,
                 outputTokens, createdAt
+ChatSession     id, meetingId, title?, createdAt, updatedAt
+ChatMessage     id, sessionId, question, answer, createdAt
 UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, createdAt
 ```
 
@@ -214,6 +238,11 @@ trait BackendApi {
     async fn list_meetings(&self) -> Result<Vec<Meeting>>;
     async fn meeting(&self, id: &MeetingId) -> Result<MeetingDetails>;
     fn generate(&self, id: &MeetingId, mode: GenerationMode) -> BoxStream<'_, Result<Delta>>;
+    async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
+    async fn start_meeting_chat(&self, id: &MeetingId) -> Result<ChatSession>;
+    async fn chat_messages(&self, id: &MeetingId, chat: &ChatId) -> Result<Vec<ChatMessage>>;
+    async fn delete_meeting_chat(&self, id: &MeetingId, chat: &ChatId) -> Result<()>;
+    fn ask_in_chat(&self, id: &MeetingId, chat: &ChatId, question: &str) -> ChatStream<'_>;
 }
 
 trait SttGateway {
@@ -275,17 +304,22 @@ HTTP-клієнт для генерації окремий, без загаль�
 
 ### IPC
 
-Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `list_meetings`, `get_meeting`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
 
-Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `app:error`.
+Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `chat:delta`, `chat:finished`, `chat:failed`, `app:error`. Події чату несуть `chatId`, а не зустріч: екран чату бере лише свої.
 
-`source:status` приходить по одній події на джерело одразу після старту зустрічі: `{ speaker, active }`. UI показує з них статуси мікрофона й звуку зустрічі і забуває їх, коли зустріч закінчується.
+`source:status` приходить по одній події на джерело одразу після старту зустрічі: `{ speaker, active }`. UI показує з них статуси мікрофона й звуку зустрічі і забуває їх, коли зустріч закінчується. Поки зустрічі немає, статус системного звуку береться з команди `system_audio_allowed`: без неї джерело вічно висіло б «не перевірено», хоча дозвіл уже виданий. Клік по рядку джерела відкриває потрібну панель macOS через `open_audio_permission`, і для звуку зустрічі це «Запис екрана», а не мікрофон.
 
 Назви подій і форми payload визначені один раз у `desktop/src-tauri/src/events.rs` і продубльовані типами в `desktop/src/shared/ipc/events.ts`.
 
 ### Вікна
 
-- Головне вікно: `titleBarStyle: "Overlay"` і `hiddenTitle`, тому світлофор системний, а свою смугу заголовка малює `app/TitleBar.tsx` із відступом під нього. Ліворуч бічна панель сесії (профіль, мова, джерела звуку, старт), праворуч останні зустрічі. Налаштування й повна історія — окремі види того самого вікна.
+- Екран зустрічі відкривається кліком по рядку в списку і показує саме її: ліворуч список чатів по цій зустрічі з пошуком і кнопкою «Новий чат», у центрі картки резюме, транскрипту, відповідей і витрат. Списку інших зустрічей тут немає: по них ходять із головного екрана, де сторінки довантажуються при гортанні.
+- Чат це ще один екран того самого вікна, а не нове вікно: `View` у `app/App.tsx` має варіант `chat` з `meetingId` і `chatId`, а стрілка назад веде зі чату на його зустріч, а не на головний екран. Сам екран виглядає як месенджер: питання праворуч акцентною бульбашкою, відповідь ліворуч, час у куті, тред тримається низу, поки користувач не почав гортати вгору.
+- Той самий список чатів стоїть ліворуч і на екрані зустрічі, і на екрані чату, де відкритий чат підсвічений рамкою: між чатами однієї зустрічі ходять не повертаючись назад. Видалення живе в рядку списку і питає підтвердження діалогом, який називає чат; якщо видалили відкритий чат, застосунок повертається на зустріч.
+- Головне вікно: `titleBarStyle: "Overlay"` і `hiddenTitle`, тому світлофор системний, а свою смугу заголовка малює `app/TitleBar.tsx` із відступом під нього. Ліворуч бічна панель сесії (профіль, мова, джерела звуку, старт), праворуч останні зустрічі. Налаштування й повна історія — окремі види того самого вікна. Налаштування розбиті на чотири вкладки в лівій рейці: «Загальні» (профіль, мова, стиль, акаунт), «Аудіо», «Гарячі клавіші», «Розширені». Вкладка це локальний стан екрана, не маршрут: вікно одне, і назад веде та сама стрілка в шапці. Кожна вкладка зберігає своє, тому кнопка «Зберегти» живе в ній, а не одна на весь екран.
+- Оверлей не ловить мишу: `set_ignore_cursor_events(true)` пропускає кліки в застосунок під ним, тож кнопка в браузері під оверлеєм натискається. Гаряча клавіша (`interact` у налаштуваннях) повертає вікну мишу, і лише в цьому режимі його можна тягнути, міняти розмір і гортати транскрипт; про режим UI дізнається з події `overlay:interaction` і підсвічує рамку. Кнопок в оверлеї немає взагалі, копіювання це виділення тексту в режимі взаємодії.
+- Транскрипт в оверлеї показує всю зустріч: тримається низу, доки користувач не почав гортати, а вгору довантажує по сорок реплік, тому довга зустріч не тримає в DOM тисячі рядків.
 - Оверлей видимий від старту застосунку, а не лише під час відповіді: це «меблі», які показують стан сесії, транскрипт і останню відповідь. Ховає й повертає його гаряча клавіша. Вікно оголошене в `tauri.conf.json` як прихованим, має власну точку входу `overlay.html` і власний набір дозволів. Живий транскрипт живе тут, а не в головному вікні: під час зустрічі користувач дивиться на зустріч, а не на застосунок.
 - Оверлей прозорий: `transparent: true` плюс `macOSPrivateApi`, бо без цього `backdrop-filter` малює суцільний прямокутник замість скла з макета. Ціна рішення — App Store відпадає, лишається роздача через DMG з нотаризацією. Системну тінь вимкнено (`shadow: false`), тінь малює CSS, інакше навколо прозорого вікна з'явиться прямокутна рамка.
 - Рівень вікна оверлея піднято до `NSScreenSaverWindowLevel`, а `collectionBehavior` це `CanJoinAllSpaces | FullScreenAuxiliary | Stationary | IgnoresCycle`, плюс `hidesOnDeactivate(false)`. Самого `CanJoinAllSpaces` не досить: вікно застосунку зі значком у Dock лишається на просторі, де його відкрили, хоч би що казала поведінка колекції. На всі простори виходить тільки `NSPanel`, тому в `app/overlay/macos.rs` клас вікна на час виставляння прапорців підмінюється на `NSPanel` (з ним заходить стиль `NonactivatingPanel`), а одразу по тому повертається початковий: залишити вікно панеллю не можна, tao віддає `NSKVONotifying_TaoWindow`, і підміна класу назавжди ламає спостерігачів KVO, які тримає на вікні AppKit — застосунок падає на `removeObserver`. Прапорці виставляються заново при кожному показі й завжди в головному потоці через `run_on_main_thread`. Це єдиний шматок AppKit у `src-tauri`.

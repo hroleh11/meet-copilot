@@ -16,6 +16,7 @@ const liveMeeting = (id: string): Meeting => ({
   title: null,
   status: 'live',
   summary: null,
+  overview: null,
   startedAt: new Date(Date.now() - 3_600_000),
   endedAt: null,
 });

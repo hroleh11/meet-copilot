@@ -1,5 +1,5 @@
 import { RecentMeetingsList } from '~/features/history/RecentMeetingsList';
-import { useHistory } from '~/features/history/useHistory';
+import { useMeetings } from '~/features/history/useMeetings';
 import { SessionSidebar } from '~/features/session/SessionSidebar';
 import { useMeetingSetup } from '~/features/session/useMeetingSetup';
 import { useSession } from '~/features/session/useSession';
@@ -7,20 +7,20 @@ import type { UserSettings } from '~/shared/ipc';
 
 export interface MainWindowProps {
   defaults: UserSettings | null;
+  onRemember: (settings: UserSettings) => void;
   hotkey: string;
   onOpenMeeting: (id: string) => void;
-  onOpenAll: () => void;
 }
 
 export function MainWindow({
   defaults,
+  onRemember,
   hotkey,
   onOpenMeeting,
-  onOpenAll,
 }: MainWindowProps) {
   const session = useSession();
-  const setup = useMeetingSetup(defaults);
-  const history = useHistory();
+  const setup = useMeetingSetup(defaults, onRemember);
+  const meetings = useMeetings();
 
   return (
     <div className="flex min-h-0 flex-grow">
@@ -41,11 +41,12 @@ export function MainWindow({
       />
 
       <RecentMeetingsList
-        meetings={history.meetings}
-        loading={history.loading}
-        error={history.error}
+        meetings={meetings.meetings}
+        loading={meetings.loading}
+        loadingMore={meetings.loadingMore}
+        error={meetings.error}
         onOpen={onOpenMeeting}
-        onOpenAll={onOpenAll}
+        onReachEnd={meetings.loadMore}
       />
     </div>
   );

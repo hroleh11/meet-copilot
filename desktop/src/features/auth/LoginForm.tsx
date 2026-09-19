@@ -21,6 +21,7 @@ export function LoginForm({ submitting, onSubmit }: LoginFormProps) {
     >
       <Field label={uk.auth.email}>
         <TextInput
+          className="w-full"
           type="email"
           autoComplete="username"
           placeholder={uk.auth.emailPlaceholder}
@@ -33,6 +34,7 @@ export function LoginForm({ submitting, onSubmit }: LoginFormProps) {
 
       <Field label={uk.auth.password}>
         <TextInput
+          className="w-full"
           type="password"
           autoComplete="current-password"
           placeholder={uk.auth.passwordPlaceholder}

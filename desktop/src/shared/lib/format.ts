@@ -3,6 +3,8 @@ const DATE_TIME = new Intl.DateTimeFormat('uk-UA', {
   timeStyle: 'short',
 });
 
+const TIME = new Intl.DateTimeFormat('uk-UA', { timeStyle: 'short' });
+
 const NUMBER = new Intl.NumberFormat('uk-UA');
 
 const MONEY = new Intl.NumberFormat('uk-UA', {
@@ -15,6 +17,10 @@ const SECONDS_IN_MINUTE = 60;
 
 export function formatDateTime(iso: string): string {
   return DATE_TIME.format(new Date(iso));
+}
+
+export function formatTime(iso: string): string {
+  return TIME.format(new Date(iso));
 }
 
 export function formatNumber(value: number): string {

@@ -77,7 +77,7 @@ export class UsageResponse {
 
 export class MeetingDetailsResponse extends MeetingResponse {
   @ApiProperty({ nullable: true, type: String })
-  summary: string | null;
+  overview: string | null;
 
   @ApiProperty({ type: [SegmentResponse] })
   segments: SegmentResponse[];

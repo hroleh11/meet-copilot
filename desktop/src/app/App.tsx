@@ -1,22 +1,39 @@
 import { useCallback, useState } from 'react';
 import { SignInScreen } from '~/features/auth/SignInScreen';
 import { useAuth } from '~/features/auth/useAuth';
-import { HistoryScreen } from '~/features/history/HistoryScreen';
 import { useSettings } from '~/features/settings/useSettings';
 import { uk } from '~/shared/i18n/uk';
 import { useAppEvents } from '~/shared/ipc/useAppEvents';
+import { ChatScreen } from './ChatScreen';
 import { MainWindow } from './MainWindow';
+import { MeetingScreen } from './MeetingScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { TitleBar } from './TitleBar';
 
 type View =
-  { name: 'main' } | { name: 'history'; meetingId: string | null } | { name: 'settings' };
+  | { name: 'main' }
+  | { name: 'meeting'; meetingId: string }
+  | { name: 'chat'; meetingId: string; chatId: string }
+  | { name: 'settings' };
 
 const TITLE: Record<View['name'], string> = {
   main: uk.appName,
-  history: uk.history.title,
+  meeting: uk.meeting.title,
+  chat: uk.chat.pageTitle,
   settings: uk.nav.settings,
 };
+
+/// Every screen but the first one goes back somewhere, and a chat goes back to
+/// the meeting it belongs to rather than all the way out.
+function previous(view: View): View | null {
+  if (view.name === 'main') {
+    return null;
+  }
+
+  return view.name === 'chat'
+    ? { name: 'meeting', meetingId: view.meetingId }
+    : { name: 'main' };
+}
 
 export function App() {
   const auth = useAuth();
@@ -25,6 +42,16 @@ export function App() {
   const [eventError, setEventError] = useState<string | null>(null);
 
   useAppEvents(useCallback((message: string) => setEventError(message), []));
+
+  const back = previous(view);
+
+  const leaveRemovedChat = useCallback((chatId: string) => {
+    setView((current) =>
+      current.name === 'chat' && current.chatId === chatId
+        ? { name: 'meeting', meetingId: current.meetingId }
+        : current,
+    );
+  }, []);
 
   if (!auth.ready || !settings.local) {
     return <main className="h-full bg-surface-primary" />;
@@ -47,11 +74,11 @@ export function App() {
       <TitleBar
         title={TITLE[view.name]}
         onBack={
-          view.name === 'main'
-            ? null
-            : () => {
-                setView({ name: 'main' });
+          back
+            ? () => {
+                setView(back);
               }
+            : null
         }
         onOpenSettings={() => {
           setView({ name: 'settings' });
@@ -61,35 +88,46 @@ export function App() {
       {view.name === 'main' ? (
         <MainWindow
           defaults={settings.user}
+          onRemember={settings.saveUser}
           hotkey={settings.local.hotkeys.reply}
           onOpenMeeting={(meetingId) => {
-            setView({ name: 'history', meetingId });
-          }}
-          onOpenAll={() => {
-            setView({ name: 'history', meetingId: null });
+            setView({ name: 'meeting', meetingId });
           }}
         />
       ) : null}
 
-      {view.name === 'history' ? (
-        <div className="min-h-0 flex-grow overflow-y-auto p-5">
-          <HistoryScreen initialMeetingId={view.meetingId} />
-        </div>
+      {view.name === 'meeting' ? (
+        <MeetingScreen
+          meetingId={view.meetingId}
+          onOpenChat={(chatId) => {
+            setView({ name: 'chat', meetingId: view.meetingId, chatId });
+          }}
+          onChatRemoved={leaveRemovedChat}
+        />
+      ) : null}
+
+      {view.name === 'chat' ? (
+        <ChatScreen
+          meetingId={view.meetingId}
+          chatId={view.chatId}
+          onOpenChat={(chatId) => {
+            setView({ name: 'chat', meetingId: view.meetingId, chatId });
+          }}
+          onChatRemoved={leaveRemovedChat}
+        />
       ) : null}
 
       {view.name === 'settings' ? (
-        <div className="min-h-0 flex-grow overflow-y-auto p-5">
-          <SettingsScreen
-            local={settings.local}
-            user={settings.user}
-            status={settings.status}
-            email={auth.profileEmail}
-            onSaveLocal={settings.saveLocal}
-            onSaveUser={settings.saveUser}
-            onTestConnection={settings.testConnection}
-            onSignOut={auth.signOut}
-          />
-        </div>
+        <SettingsScreen
+          local={settings.local}
+          user={settings.user}
+          status={settings.status}
+          email={auth.profileEmail}
+          onSaveLocal={settings.saveLocal}
+          onSaveUser={settings.saveUser}
+          onTestConnection={settings.testConnection}
+          onSignOut={auth.signOut}
+        />
       ) : null}
 
       {(settings.error ?? eventError) ? (

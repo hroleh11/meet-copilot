@@ -13,6 +13,10 @@ export const MODE_PROMPTS: Record<GenerationMode, string> = {
     'The answer above was already drafted and the user did not like it. Say the same thing from a different angle, with different wording and a different emphasis. Do not repeat its phrasing.',
 };
 
+export function languageName(language: Language): string {
+  return LANGUAGE_NAME[language];
+}
+
 export function languageInstruction(language: Language): string {
-  return `Answer in ${LANGUAGE_NAME[language]}, whatever language the transcript is in.`;
+  return `Answer in ${languageName(language)}, whatever language the transcript is in.`;
 }

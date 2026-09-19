@@ -70,7 +70,7 @@ describe('Meetings (e2e)', () => {
       .expect(200);
 
     expect(response.body).toMatchObject({
-      summary: null,
+      overview: null,
       segments: [],
       generations: [],
       usage: { inputTokens: 0, outputTokens: 0, audioSeconds: 0 },

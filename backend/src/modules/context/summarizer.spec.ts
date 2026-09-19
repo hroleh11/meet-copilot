@@ -73,6 +73,10 @@ class FakeLlmProvider extends LlmProvider {
     throw new Error('The summarizer never streams');
   }
 
+  streamTools(): AsyncIterable<never> {
+    throw new Error('The summarizer has no tools');
+  }
+
   complete(request: LlmRequest) {
     this.calls.push(request);
 

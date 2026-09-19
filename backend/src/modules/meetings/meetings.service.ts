@@ -2,17 +2,21 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Meeting } from '~/generated/prisma/client';
 import { SettingsService } from '~/modules/settings';
 import { UsageRepository } from '~/modules/usage';
-import type { CreateMeetingDto } from './dto/meetings.dto';
+import type { CreateMeetingDto, ListMeetingsDto } from './dto/meetings.dto';
 import type { MeetingDetailsResponse, MeetingResponse } from './dto/meetings.responses';
+import { MeetingOverviewWriter } from './meeting-overview.writer';
 import { MeetingStateStore } from './meeting-state.store';
 import { MeetingsRepository } from './meetings.repository';
 import { toDetailsResponse, toMeetingResponse } from './meetings.mapper';
+
+const DEFAULT_PAGE = 20;
 
 @Injectable()
 export class MeetingsService {
   constructor(
     private readonly meetingsRepository: MeetingsRepository,
     private readonly meetingStateStore: MeetingStateStore,
+    private readonly overviewWriter: MeetingOverviewWriter,
     private readonly settingsService: SettingsService,
     private readonly usageRepository: UsageRepository,
   ) {}
@@ -39,12 +43,16 @@ export class MeetingsService {
 
     const finished = await this.meetingsRepository.finish(meeting.id);
     await this.meetingStateStore.expire(meeting.id);
+    void this.overviewWriter.prepare(userId, meeting.id);
 
     return toMeetingResponse(finished);
   }
 
-  async list(userId: string): Promise<MeetingResponse[]> {
-    const meetings = await this.meetingsRepository.listOwned(userId);
+  async list(userId: string, query: ListMeetingsDto): Promise<MeetingResponse[]> {
+    const meetings = await this.meetingsRepository.listOwned(userId, {
+      limit: query.limit ?? DEFAULT_PAGE,
+      cursor: query.cursor,
+    });
 
     return meetings.map(toMeetingResponse);
   }
@@ -56,9 +64,12 @@ export class MeetingsService {
       throw new NotFoundException('Meeting not found');
     }
 
-    const usage = await this.usageRepository.totalsForMeeting(meeting.id);
+    const [usage, overview] = await Promise.all([
+      this.usageRepository.totalsForMeeting(meeting.id),
+      this.overviewWriter.ensure(meeting, userId),
+    ]);
 
-    return toDetailsResponse(meeting, usage);
+    return toDetailsResponse(meeting, usage, overview);
   }
 
   async requireOwned(userId: string, meetingId: string): Promise<Meeting> {

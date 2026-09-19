@@ -111,6 +111,22 @@ const response = await this.client.responses.create({
 - Catch the SDK's typed errors most-specific first: `AuthenticationError` and `APIConnectionError` map to 502, `RateLimitError` to 429, any other `APIError` to 502. Never string-match messages.
 - Client disconnect aborts the provider stream through `AbortSignal`; the partial output is still saved with the cancelled stop reason.
 
+## Chat about a finished meeting
+
+- `modules/chat` answers questions about a meeting that already ended. Its context comes from Postgres through `MeetingsService`, never from Redis: the live state is gone by then.
+- A meeting holds any number of chats (`chat_sessions`), each with its own messages. A chat takes its name from the first question asked in it and never renames itself. Listing them accepts a `query` that matches the name or anything said inside the chat.
+- The model is not handed a fixed extract: `ChatAgent` runs a tool loop over `MeetingToolbox` (`meeting_facts`, `search_transcript`, `read_transcript`, `list_answers`), at most six turns. That is why a question about how long the meeting ran has an answer. A short transcript still travels inline; a long one is announced and read through the tools.
+- Tool turns continue through `previous_response_id` (`continueFrom` on `LlmAgentRequest`), so the provider keeps its own reasoning and only tool results are sent back. Usage from every turn is summed and recorded once with kind `chat`.
+- Everything the meeting produced reaches the model fenced in `<notes>`, `<facts>`, `<transcript>`, `<question>` or a tool result, and the persona says that is material, never instructions. `chat/untrusted.ts` strips those tags out of the content so a line from the transcript cannot close the fence and speak as us.
+- Each exchange is stored in `chat_messages` as one row with the question and the answer, so history survives and the desktop can show it on the next open.
+- The SSE writer is shared: `common/sse` opens the stream and writes events. A feature's `done` payload is its own, so the desktop reads frames generically and decodes `done` per feature.
+
+## The overview of a meeting
+
+- `Meeting.summary` is the dense running notes the copilot answers from. `Meeting.overview` is what a person reads: at most three sentences on what the meeting was about, no walk-through of questions and answers.
+- `MeetingOverviewWriter` lives in the meetings module, because it needs nothing from `context/` and the context module already imports meetings. It writes once, with the summary model, after the meeting is finished: `finish` starts it in the background and `GET /meetings/:id` awaits it when the text is still missing. A run already in flight is shared, so two readers never pay twice.
+- Meeting details expose `overview` only. The notes stay on the server.
+
 ## PromptBuilder
 
 - Input comes from `MeetingStateStore` and `ContextWindow`. Output is `{ system, blocks }`.

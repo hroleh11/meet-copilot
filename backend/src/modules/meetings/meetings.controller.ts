@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GetCurrentUserId } from '~/common/decorators';
-import { CreateMeetingDto } from './dto/meetings.dto';
+import { CreateMeetingDto, ListMeetingsDto } from './dto/meetings.dto';
 import { MeetingDetailsResponse, MeetingResponse } from './dto/meetings.responses';
 import { MeetingsService } from './meetings.service';
 
@@ -31,10 +31,17 @@ export class MeetingsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Meetings of the current user, newest first' })
+  @ApiOperation({
+    summary: 'Meetings of the current user, newest first',
+    description:
+      'One page at a time: pass the id of the last meeting on screen as cursor.',
+  })
   @ApiOkResponse({ type: [MeetingResponse] })
-  list(@GetCurrentUserId() userId: string): Promise<MeetingResponse[]> {
-    return this.meetingsService.list(userId);
+  list(
+    @GetCurrentUserId() userId: string,
+    @Query() query: ListMeetingsDto,
+  ): Promise<MeetingResponse[]> {
+    return this.meetingsService.list(userId, query);
   }
 
   @Get(':id')

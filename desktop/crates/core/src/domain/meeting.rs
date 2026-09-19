@@ -33,7 +33,7 @@ pub struct Meeting {
 pub struct MeetingDetails {
     #[serde(flatten)]
     pub meeting: Meeting,
-    pub summary: Option<String>,
+    pub overview: Option<String>,
     pub segments: Vec<TranscriptSegment>,
     pub generations: Vec<Generation>,
     pub usage: Usage,

@@ -1,22 +1,30 @@
 import { uk } from '~/shared/i18n/uk';
 import type { TranscriptLine } from '~/shared/store/sessionStore';
+import { useTranscriptScroll } from './useTranscriptScroll';
 
 export interface LiveTranscriptProps {
   lines: TranscriptLine[];
 }
 
-const VISIBLE_LINES = 4;
-
 export function LiveTranscript({ lines }: LiveTranscriptProps) {
-  const visible = lines.slice(-VISIBLE_LINES);
+  const { viewport, visible, onScroll } = useTranscriptScroll(lines.length);
+  const shown = lines.slice(-visible);
 
   return (
-    <div className="flex flex-col gap-2">
-      {visible.length === 0 ? (
+    <div
+      ref={viewport}
+      onScroll={onScroll}
+      className="flex min-h-0 flex-grow flex-col gap-2 overflow-y-auto"
+    >
+      {shown.length === 0 ? (
         <p className="text-body text-ink-tertiary">{uk.meeting.emptyTranscript}</p>
       ) : null}
 
-      {visible.map((line) => (
+      {shown.length < lines.length ? (
+        <p className="text-caption text-ink-tertiary">{uk.answer.earlierLines}</p>
+      ) : null}
+
+      {shown.map((line) => (
         <p key={line.id} className="flex items-start gap-2">
           <span
             className={`mt-px shrink-0 rounded-sm px-1.5 py-0.5 text-caption font-bold uppercase ${

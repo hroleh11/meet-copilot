@@ -15,7 +15,6 @@ const SETTINGS_FILE: &str = "settings.json";
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_deep_link::init())
@@ -48,10 +47,17 @@ pub fn run() {
             commands::save_user_settings,
             commands::check_backend,
             commands::list_audio_devices,
+            commands::open_audio_permission,
+            commands::system_audio_allowed,
             commands::start_audio_check,
             commands::stop_audio_check,
             commands::list_meetings,
             commands::get_meeting,
+            commands::meeting_chats,
+            commands::start_meeting_chat,
+            commands::chat_messages,
+            commands::delete_meeting_chat,
+            commands::ask_in_chat,
             commands::session_state,
             commands::start_session,
             commands::stop_session,

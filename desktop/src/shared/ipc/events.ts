@@ -18,8 +18,31 @@ export const APP_EVENT = {
   generationDelta: 'generation:delta',
   generationFinished: 'generation:finished',
   generationFailed: 'generation:failed',
+  chatDelta: 'chat:delta',
+  chatFinished: 'chat:finished',
+  chatFailed: 'chat:failed',
+  overlayInteraction: 'overlay:interaction',
   appError: 'app:error',
 } as const;
+
+export interface ChatDeltaEvent {
+  chatId: string;
+  text: string;
+}
+
+export interface ChatFinishedEvent {
+  chatId: string;
+  messageId: string;
+}
+
+export interface ChatFailedEvent {
+  chatId: string;
+  message: string;
+}
+
+export interface OverlayInteractionEvent {
+  interactive: boolean;
+}
 
 export interface AuthStateEvent {
   signedIn: boolean;

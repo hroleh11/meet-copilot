@@ -1,3 +1,5 @@
+import type { LlmAgentEvent, LlmAgentRequest } from './llm.agent';
+
 export type LlmEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface LlmUsage {
@@ -28,4 +30,9 @@ export abstract class LlmProvider {
   abstract complete(request: LlmRequest): Promise<LlmCompletion>;
 
   abstract stream(request: LlmRequest, signal: AbortSignal): AsyncIterable<LlmEvent>;
+
+  abstract streamTools(
+    request: LlmAgentRequest,
+    signal: AbortSignal,
+  ): AsyncIterable<LlmAgentEvent>;
 }

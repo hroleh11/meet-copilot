@@ -1,5 +1,8 @@
-use meet_copilot_core::audio::{list_input_devices, AudioDevice};
-use serde::Serialize;
+use meet_copilot_core::{
+    audio::{list_input_devices, AudioDevice},
+    error::Error,
+};
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::{
@@ -13,6 +16,55 @@ pub struct AudioInput {
     #[serde(flatten)]
     pub device: AudioDevice,
     pub bluetooth: bool,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AudioPermission {
+    Microphone,
+    SystemAudio,
+}
+
+/// Asking ScreenCaptureKit is the only answer worth showing, and it is a round
+/// trip to macOS, so it runs off the UI thread.
+#[tauri::command]
+pub async fn system_audio_allowed() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        tokio::task::spawn_blocking(
+            meet_copilot_platform_macos::system_audio::system_audio_available,
+        )
+        .await
+        .unwrap_or(false)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// macOS asks for a permission once and keeps the answer, so a source that is
+/// not allowed can only be fixed in System Settings.
+#[tauri::command]
+pub fn open_audio_permission(permission: AudioPermission) -> Result<(), CommandError> {
+    #[cfg(target_os = "macos")]
+    {
+        use meet_copilot_platform_macos::permissions::{open_privacy_settings, PrivacyPane};
+
+        let pane = match permission {
+            AudioPermission::Microphone => PrivacyPane::Microphone,
+            AudioPermission::SystemAudio => PrivacyPane::ScreenRecording,
+        };
+
+        if !open_privacy_settings(pane) {
+            return Err(CommandError::from(Error::Permission(
+                "Could not open System Settings".to_owned(),
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

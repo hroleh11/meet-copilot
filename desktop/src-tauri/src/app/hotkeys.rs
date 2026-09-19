@@ -11,6 +11,7 @@ use crate::{
 enum Action {
     Ask(GenerationMode),
     ToggleOverlay,
+    ToggleOverlayInteraction,
 }
 
 pub fn register(app: &AppHandle, hotkeys: &Hotkeys) {
@@ -25,6 +26,7 @@ pub fn register(app: &AppHandle, hotkeys: &Hotkeys) {
         Action::Ask(GenerationMode::Alternative),
     );
     bind(app, &hotkeys.hide, Action::ToggleOverlay);
+    bind(app, &hotkeys.interact, Action::ToggleOverlayInteraction);
 }
 
 fn bind(app: &AppHandle, shortcut: &str, action: Action) {
@@ -44,6 +46,7 @@ fn bind(app: &AppHandle, shortcut: &str, action: Action) {
 fn run(app: AppHandle, action: Action) {
     match action {
         Action::ToggleOverlay => overlay::toggle(&app),
+        Action::ToggleOverlayInteraction => overlay::toggle_interaction(&app),
         Action::Ask(mode) => {
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = answers::ask(&app, mode).await {

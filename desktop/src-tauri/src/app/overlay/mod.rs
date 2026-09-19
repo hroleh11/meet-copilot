@@ -5,12 +5,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tauri::{AppHandle, Manager, Monitor, PhysicalPosition, WebviewWindow};
 
+use crate::{app::Emitter, events::OverlayInteractionEvent};
+
 pub const LABEL: &str = "overlay";
 
 const TOP_MARGIN: f64 = 56.0;
 const RIGHT_MARGIN: f64 = 64.0;
 
 static PLACED: AtomicBool = AtomicBool::new(false);
+static INTERACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn prepare(app: &AppHandle) {
     let Some(window) = window(app) else { return };
@@ -23,6 +26,7 @@ pub fn prepare(app: &AppHandle) {
         tracing::warn!("could not keep the overlay on every space: {error}");
     }
 
+    pass_clicks_through(&window, true);
     show(app);
 }
 
@@ -46,6 +50,24 @@ pub fn hide(app: &AppHandle) {
 
     if let Err(error) = window.hide() {
         tracing::warn!("could not hide the overlay: {error}");
+    }
+}
+
+/// The overlay sits over the meeting, so by default the mouse goes straight to
+/// whatever is underneath it. A hotkey hands the mouse back, and only then can
+/// the window be dragged, resized or scrolled.
+pub fn toggle_interaction(app: &AppHandle) {
+    let Some(window) = window(app) else { return };
+
+    let interactive = !INTERACTIVE.fetch_xor(true, Ordering::SeqCst);
+
+    pass_clicks_through(&window, !interactive);
+    Emitter::new(app.clone()).overlay_interaction(OverlayInteractionEvent { interactive });
+}
+
+fn pass_clicks_through(window: &WebviewWindow, through: bool) {
+    if let Err(error) = window.set_ignore_cursor_events(through) {
+        tracing::warn!("could not change how the overlay answers the mouse: {error}");
     }
 }
 

@@ -7,6 +7,7 @@ use serde::Serialize;
 use crate::{
     backend::{
         api::BackendApi,
+        chat::{ChatId, ChatMessage, ChatSession, ChatStream},
         endpoint::{BackendEndpoint, Health, Tokens},
         generate::DeltaStream,
         stt::{SttGateway, SttLane},
@@ -20,7 +21,9 @@ use crate::{
     settings::SecretStore,
 };
 
-use super::{credentials::CredentialHolder, generation, speech, transport::Transport};
+use super::{
+    chat, credentials::CredentialHolder, generation, query::escaped, speech, transport::Transport,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,9 +145,14 @@ impl BackendApi for BackendClient {
             .await
     }
 
-    async fn list_meetings(&self) -> Result<Vec<Meeting>> {
+    async fn list_meetings(&self, limit: u32, cursor: Option<&str>) -> Result<Vec<Meeting>> {
+        let path = match cursor {
+            Some(cursor) => format!("meetings?limit={limit}&cursor={cursor}"),
+            None => format!("meetings?limit={limit}"),
+        };
+
         self.transport
-            .authorized(Method::GET, "meetings", None::<&()>)
+            .authorized(Method::GET, &path, None::<&()>)
             .await
     }
 
@@ -156,6 +164,50 @@ impl BackendApi for BackendClient {
 
     fn generate(&self, id: &MeetingId, mode: GenerationMode) -> DeltaStream<'_> {
         generation::generate(self.transport(), id, mode)
+    }
+
+    async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>> {
+        let path = match query.map(escaped).filter(|query| !query.is_empty()) {
+            Some(query) => format!("meetings/{id}/chats?query={query}"),
+            None => format!("meetings/{id}/chats"),
+        };
+
+        self.transport
+            .authorized(Method::GET, &path, None::<&()>)
+            .await
+    }
+
+    async fn start_meeting_chat(&self, id: &MeetingId) -> Result<ChatSession> {
+        self.transport
+            .authorized(Method::POST, &format!("meetings/{id}/chats"), None::<&()>)
+            .await
+    }
+
+    async fn chat_messages(&self, id: &MeetingId, chat: &ChatId) -> Result<Vec<ChatMessage>> {
+        self.transport
+            .authorized(
+                Method::GET,
+                &format!("meetings/{id}/chats/{chat}"),
+                None::<&()>,
+            )
+            .await
+    }
+
+    async fn delete_meeting_chat(&self, id: &MeetingId, chat: &ChatId) -> Result<()> {
+        let _: serde_json::Value = self
+            .transport
+            .authorized(
+                Method::DELETE,
+                &format!("meetings/{id}/chats/{chat}"),
+                None::<&()>,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    fn ask_in_chat(&self, id: &MeetingId, chat: &ChatId, question: &str) -> ChatStream<'_> {
+        chat::ask(self.transport(), id, chat, question)
     }
 }
 

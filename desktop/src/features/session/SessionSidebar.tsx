@@ -58,6 +58,7 @@ export function SessionSidebar({
         <AudioSourceStatus
           microphone={sources.microphone}
           systemAudio={sources.systemAudio}
+          onOpenPermission={sources.openPermission}
         />
       </div>
 

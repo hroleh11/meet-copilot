@@ -4,16 +4,19 @@ use futures_util::{stream, Stream, StreamExt};
 use reqwest::Response;
 
 use crate::{
-    backend::generate::{Delta, DeltaPayload, DonePayload, ErrorPayload},
+    backend::generate::ErrorPayload,
     backend_failure::BackendFailure,
     error::{Error, Result},
 };
 
-use parser::{SseFrame, SseParser};
+pub use parser::SseFrame;
+use parser::SseParser;
 
 use super::failure::transport_error;
 
-pub fn deltas(response: Response) -> impl Stream<Item = Result<Delta>> {
+/// Every stream the backend serves speaks the same frames, and what a `done`
+/// event carries differs per feature, so the frames are handed over raw.
+pub fn frames(response: Response) -> impl Stream<Item = Result<SseFrame>> {
     let chunks = response.bytes_stream();
 
     stream::unfold(
@@ -27,8 +30,8 @@ pub fn deltas(response: Response) -> impl Stream<Item = Result<Delta>> {
                     }
                 };
 
-                let frames: Vec<Result<Delta>> = match std::str::from_utf8(&chunk) {
-                    Ok(text) => parser.push(text).into_iter().map(read).collect(),
+                let frames: Vec<Result<SseFrame>> = match std::str::from_utf8(&chunk) {
+                    Ok(text) => parser.push(text).into_iter().map(Ok).collect(),
                     Err(_) => vec![Err(Error::backend(
                         BackendFailure::Unexpected,
                         Some("The answer arrived in a shape we cannot read".to_owned()),
@@ -44,32 +47,27 @@ pub fn deltas(response: Response) -> impl Stream<Item = Result<Delta>> {
     .flat_map(stream::iter)
 }
 
-fn read(frame: SseFrame) -> Result<Delta> {
-    match frame.event.as_str() {
-        "delta" => decode::<DeltaPayload>(&frame.data).map(|payload| Delta::Text(payload.text)),
-        "done" => decode::<DonePayload>(&frame.data).map(|payload| Delta::Done {
-            generation_id: payload.generation_id,
-            stop_reason: payload.stop_reason,
-            usage: payload.usage,
-        }),
-        "error" => Err(Error::backend(
-            BackendFailure::Unexpected,
-            decode::<ErrorPayload>(&frame.data)
-                .ok()
-                .map(|payload| payload.message),
-        )),
-        _ => Err(Error::backend(
-            BackendFailure::Unexpected,
-            Some(format!("The server sent an unknown event {}", frame.event)),
-        )),
-    }
-}
-
-fn decode<T: serde::de::DeserializeOwned>(data: &str) -> Result<T> {
+pub fn decode<T: serde::de::DeserializeOwned>(data: &str) -> Result<T> {
     serde_json::from_str(data).map_err(|error| {
         Error::backend(
             BackendFailure::Unexpected,
             Some(format!("The answer could not be read: {error}")),
         )
     })
+}
+
+pub fn unknown_event(event: &str) -> Error {
+    Error::backend(
+        BackendFailure::Unexpected,
+        Some(format!("The server sent an unknown event {event}")),
+    )
+}
+
+pub fn reported_error(data: &str) -> Error {
+    Error::backend(
+        BackendFailure::Unexpected,
+        decode::<ErrorPayload>(data)
+            .ok()
+            .map(|payload| payload.message),
+    )
 }
