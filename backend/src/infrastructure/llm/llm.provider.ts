@@ -19,7 +19,20 @@ export interface LlmRequest {
   maxTokens: number;
   system: string;
   blocks: string[];
+}
+
+export interface LlmMessage {
+  role: 'user' | 'assistant';
+  text: string;
   image?: LlmImage;
+}
+
+export interface LlmStreamRequest {
+  model: string;
+  effort: LlmEffort;
+  maxTokens: number;
+  system: string;
+  messages: LlmMessage[];
 }
 
 export interface LlmCompletion {
@@ -35,7 +48,10 @@ export type LlmEvent =
 export abstract class LlmProvider {
   abstract complete(request: LlmRequest): Promise<LlmCompletion>;
 
-  abstract stream(request: LlmRequest, signal: AbortSignal): AsyncIterable<LlmEvent>;
+  abstract stream(
+    request: LlmStreamRequest,
+    signal: AbortSignal,
+  ): AsyncIterable<LlmEvent>;
 
   abstract streamTools(
     request: LlmAgentRequest,

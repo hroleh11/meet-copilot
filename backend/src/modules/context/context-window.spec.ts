@@ -1,5 +1,5 @@
 import type { WindowSegment } from '~/modules/meetings';
-import { splitByBudget } from './context-window';
+import { segmentsAfter, splitByBudget } from './context-window';
 
 const segment = (id: string, text: string): WindowSegment => ({
   id,
@@ -48,5 +48,25 @@ describe('splitByBudget', () => {
 
   it('handles an empty window', () => {
     expect(splitByBudget([], 100)).toEqual({ recent: [], stale: [] });
+  });
+});
+
+describe('segmentsAfter', () => {
+  const segments = [segment('a', 'one'), segment('b', 'two'), segment('c', 'three')];
+
+  it('keeps only what was said after the marked segment', () => {
+    expect(segmentsAfter(segments, 'a').map((s) => s.id)).toEqual(['b', 'c']);
+  });
+
+  it('finds nothing new when the marker is the newest segment', () => {
+    expect(segmentsAfter(segments, 'c')).toEqual([]);
+  });
+
+  it('treats the whole window as new when nothing was marked yet', () => {
+    expect(segmentsAfter(segments, null)).toEqual(segments);
+  });
+
+  it('falls back to the whole window when the marker was summarized away', () => {
+    expect(segmentsAfter(segments, 'gone')).toEqual(segments);
   });
 });

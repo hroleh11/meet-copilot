@@ -110,7 +110,8 @@ const response = await this.client.responses.create({
 - Reasoning models spend output tokens on thinking before the visible answer, so `max_output_tokens` has to leave room for both. A reply that comes back with `incomplete_details.reason === 'max_output_tokens'` means the budget was too tight, not that the model failed.
 - Catch the SDK's typed errors most-specific first: `AuthenticationError` and `APIConnectionError` map to 502, `RateLimitError` to 429, any other `APIError` to 502. Never string-match messages.
 - Client disconnect aborts the provider stream through `AbortSignal`; the partial output is still saved with the cancelled stop reason.
-- A request may carry `screenshot` (`{ mimeType, dataBase64 }`, jpeg or png). It becomes an `input_image` content item next to the text in `toStreamInput`, and the no-image path stays a plain string so the cached prefix does not move. The picture is kept in `meeting:{id}:screenshot` for `SCREENSHOT_TTL_SECONDS` and rides along with every generation while that key lives, because the question after a screenshot ("and why?") is about the same screen. It goes away when the key expires or a newer shot replaces it, never because the next question arrived without one. Postgres keeps only `Generation.hasScreenshot`.
+- `stream` takes `LlmStreamRequest`, a list of `LlmMessage` with roles, while `complete` keeps the one-shot `blocks` shape for the summarizer and the overview writer. `toStreamInput` maps a message to an `EasyInputMessage`, or to a `user` item with `input_text` plus `input_image` when it carries a picture.
+- A request may carry `screenshot` (`{ mimeType, dataBase64 }`, jpeg or png). It is stored inside the conversation turn it arrived with, so follow-ups see it and a new subject sees it behind them instead of attached to their own question. There is no screenshot TTL. Postgres keeps only `Generation.hasScreenshot`, which is true whenever any message in the request carried a picture.
 
 ## Chat about a finished meeting
 
@@ -130,11 +131,12 @@ const response = await this.client.responses.create({
 
 ## PromptBuilder
 
-- Input comes from `MeetingStateStore` and `ContextWindow`. Output is `{ system, blocks }`.
-- System text = persona + profile prompt + style. Nothing that varies per request, so the cached prefix stays byte-identical across a meeting.
-- Blocks in order: summary, recent segments as `[me] ...` / `[other] ...`, the screenshot note when one is on the table, the previous answer, mode instruction, language instruction.
-- The persona carries the scope rule: answer the question that was just asked and nothing else, everything else is background, and a change of subject gets an answer of its own with no bridge back. Context that is merely available leaks otherwise — an attached screenshot of a coding puzzle ends up inside advice about burnout.
-- The previous answer travels in both modes, labelled differently in `PREVIOUS_ANSWER_LABELS`: a draft to redo for `alternative`, material to use only if the question is about it for `reply`. A follow-up about the answer itself has nothing else to stand on, since only what was said aloud reaches the transcript.
+- Input comes from `MeetingStateStore` and `ContextWindow`. Output is `{ system, messages }`.
+- The request is a conversation, not one block: a turn is what was spoken since the previous draft (`user`) and the draft we gave for it (`assistant`). Messages in order: notes, past turns, then what has been said since plus the mode instruction. The question being asked is always the last message.
+- That structure is the whole point. Flattened into a single `user` message, a screenshot sent two questions ago arrives *together with* the current question, and the model ties them — correctly, given what it was shown. Two rounds of prompt wording failed to fix it; roles did. Never fold history back into one message.
+- System text = persona + profile prompt + style + language instruction. Nothing that varies per request, so the cached prefix stays byte-identical across a meeting and history only ever appends.
+- `spokenUpTo` in the meeting state hash is the id of the newest segment the model has seen; `segmentsAfter` cuts the new turn at it, falling back to the whole window when the summarizer has trimmed the marker away.
+- `alternative` rewrites the last turn's answer instead of appending a turn, so retries do not pile up in history. The turn log keeps the last six turns and only the newest screenshot among them, and the builder drops history pictures when this request brings its own, so a request never carries more than one image.
 - Persona, profile prompts and the default style live in `modules/generation/prompts/*.ts` as exported constants, one file per profile. Tune wording there, not in the builder.
 - Reply constraints in the persona: spoken style, first person, readable aloud in 15 seconds, no headings or lists, no preamble. Answer in the meeting language regardless of the transcript language.
 

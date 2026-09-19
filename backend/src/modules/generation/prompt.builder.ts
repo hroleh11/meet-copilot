@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { GenerationMode } from '~/generated/prisma/enums';
+import type { LlmMessage } from '~/infrastructure/llm';
 import { formatTranscript } from '~/modules/context';
-import type { MeetingLiveState, WindowSegment } from '~/modules/meetings';
+import type {
+  MeetingLiveState,
+  MeetingScreenshot,
+  MeetingTurn,
+  WindowSegment,
+} from '~/modules/meetings';
 import {
   languageInstruction,
   MODE_PROMPTS,
-  PREVIOUS_ANSWER_LABELS,
-  SCREENSHOT_PROMPT,
+  NOTHING_SAID,
+  SCREENSHOT_NOTE,
 } from './prompts/mode.prompts';
 import { DEFAULT_STYLE, PERSONA_PROMPT } from './prompts/persona.prompt';
 import { PROFILE_PROMPTS } from './prompts/profile.prompts';
@@ -14,15 +20,15 @@ import { PROFILE_PROMPTS } from './prompts/profile.prompts';
 export interface PromptInput {
   state: MeetingLiveState;
   summary: string | null;
-  recent: WindowSegment[];
-  previousAnswer: string | null;
+  turns: MeetingTurn[];
+  spoken: WindowSegment[];
+  screenshot: MeetingScreenshot | null;
   mode: GenerationMode;
-  hasScreenshot: boolean;
 }
 
 export interface Prompt {
   system: string;
-  blocks: string[];
+  messages: LlmMessage[];
 }
 
 @Injectable()
@@ -30,7 +36,7 @@ export class PromptBuilder {
   build(input: PromptInput): Prompt {
     return {
       system: buildSystem(input.state),
-      blocks: buildBlocks(input),
+      messages: buildMessages(input),
     };
   }
 }
@@ -40,30 +46,35 @@ function buildSystem(state: MeetingLiveState): string {
     PERSONA_PROMPT,
     PROFILE_PROMPTS[state.profile],
     state.style.trim() || DEFAULT_STYLE,
+    languageInstruction(state.language),
   ].join('\n\n');
 }
 
-function buildBlocks(input: PromptInput): string[] {
-  const blocks: string[] = [];
+function buildMessages(input: PromptInput): LlmMessage[] {
+  const messages: LlmMessage[] = [];
 
   if (input.summary) {
-    blocks.push(`Notes so far:\n${input.summary}`);
+    messages.push({ role: 'user', text: `Notes so far:\n${input.summary}` });
   }
 
-  if (input.recent.length > 0) {
-    blocks.push(`Recent transcript:\n${formatTranscript(input.recent)}`);
+  for (const turn of input.turns) {
+    messages.push(
+      said(turn.question, input.screenshot ? null : (turn.screenshot ?? null)),
+    );
+    messages.push({ role: 'assistant', text: turn.answer });
   }
 
-  if (input.hasScreenshot) {
-    blocks.push(SCREENSHOT_PROMPT);
-  }
+  const now = said(formatTranscript(input.spoken), input.screenshot);
 
-  if (input.previousAnswer) {
-    blocks.push(`${PREVIOUS_ANSWER_LABELS[input.mode]}\n${input.previousAnswer}`);
-  }
+  messages.push({ ...now, text: `${now.text}\n\n${MODE_PROMPTS[input.mode]}` });
 
-  blocks.push(MODE_PROMPTS[input.mode]);
-  blocks.push(languageInstruction(input.state.language));
+  return messages;
+}
 
-  return blocks;
+function said(transcript: string, screenshot: MeetingScreenshot | null): LlmMessage {
+  const heard = transcript || NOTHING_SAID;
+
+  return screenshot
+    ? { role: 'user', text: `${heard}\n\n${SCREENSHOT_NOTE}`, image: screenshot }
+    : { role: 'user', text: heard };
 }

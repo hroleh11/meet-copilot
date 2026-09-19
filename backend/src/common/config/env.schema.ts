@@ -24,7 +24,6 @@ const envSchema = z.object({
   SUMMARY_TRIGGER_CHARS: z.coerce.number().int().positive().default(3_000),
   FINISHED_MEETING_TTL_SECONDS: z.coerce.number().int().positive().default(86_400),
   LIVE_MEETING_IDLE_SECONDS: z.coerce.number().int().positive().default(900),
-  SCREENSHOT_TTL_SECONDS: z.coerce.number().int().positive().default(180),
   MAX_REQUEST_BODY_BYTES: z.coerce.number().int().positive().default(1_048_576),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
   STT_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),

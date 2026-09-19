@@ -5,9 +5,11 @@ import type { Language, MeetingProfile } from '~/generated/prisma/enums';
 import { RedisService } from '~/infrastructure/redis';
 import type {
   MeetingLiveState,
-  MeetingScreenshot,
+  MeetingTurn,
   WindowSegment,
 } from './types/meetings.types';
+
+const MAX_TURNS = 6;
 
 const stateKey = (meetingId: string): string => `meeting:${meetingId}:state`;
 const windowKey = (meetingId: string): string => `meeting:${meetingId}:window`;
@@ -15,7 +17,7 @@ const summaryKey = (meetingId: string): string => `meeting:${meetingId}:summary`
 const summarizeLockKey = (meetingId: string): string =>
   `meeting:${meetingId}:summarize:lock`;
 const aliveKey = (meetingId: string): string => `meeting:${meetingId}:alive`;
-const screenshotKey = (meetingId: string): string => `meeting:${meetingId}:screenshot`;
+const turnsKey = (meetingId: string): string => `meeting:${meetingId}:turns`;
 
 @Injectable()
 export class MeetingStateStore {
@@ -46,28 +48,42 @@ export class MeetingStateStore {
     };
   }
 
-  async readLastAnswer(meetingId: string): Promise<string | null> {
+  async readSpokenUpTo(meetingId: string): Promise<string | null> {
     const stored = await this.redis.readHash(stateKey(meetingId));
 
-    return stored.lastAnswer ?? null;
+    return stored.spokenUpTo ?? null;
   }
 
-  writeLastAnswer(meetingId: string, answer: string): Promise<void> {
-    return this.redis.writeHash(stateKey(meetingId), { lastAnswer: answer });
+  writeSpokenUpTo(meetingId: string, segmentId: string): Promise<void> {
+    return this.redis.writeHash(stateKey(meetingId), { spokenUpTo: segmentId });
   }
 
-  writeScreenshot(meetingId: string, screenshot: MeetingScreenshot): Promise<void> {
+  async readTurns(meetingId: string): Promise<MeetingTurn[]> {
+    const stored = await this.redis.read(turnsKey(meetingId));
+
+    return stored === null ? [] : (JSON.parse(stored) as MeetingTurn[]);
+  }
+
+  async appendTurn(meetingId: string, turn: MeetingTurn): Promise<void> {
+    const turns = [...(await this.readTurns(meetingId)), turn];
+
+    await this.writeTurns(meetingId, withNewestScreenshotOnly(turns.slice(-MAX_TURNS)));
+  }
+
+  async replaceLastAnswer(meetingId: string, turn: MeetingTurn): Promise<void> {
+    const turns = await this.readTurns(meetingId);
+    const previous = turns.at(-1);
+    const replaced = previous ? { ...previous, answer: turn.answer } : turn;
+
+    await this.writeTurns(meetingId, [...turns.slice(0, -1), replaced]);
+  }
+
+  private writeTurns(meetingId: string, turns: MeetingTurn[]): Promise<void> {
     return this.redis.set(
-      screenshotKey(meetingId),
-      JSON.stringify(screenshot),
-      this.configService.getOrThrow<number>('SCREENSHOT_TTL_SECONDS'),
+      turnsKey(meetingId),
+      JSON.stringify(turns),
+      this.configService.getOrThrow<number>('FINISHED_MEETING_TTL_SECONDS'),
     );
-  }
-
-  async readScreenshot(meetingId: string): Promise<MeetingScreenshot | null> {
-    const stored = await this.redis.read(screenshotKey(meetingId));
-
-    return stored === null ? null : (JSON.parse(stored) as MeetingScreenshot);
   }
 
   appendToWindow(meetingId: string, segment: WindowSegment): Promise<void> {
@@ -124,7 +140,15 @@ export class MeetingStateStore {
       this.redis.expire(windowKey(meetingId), ttl),
       this.redis.expire(summaryKey(meetingId), ttl),
       this.redis.delete(aliveKey(meetingId)),
-      this.redis.delete(screenshotKey(meetingId)),
+      this.redis.delete(turnsKey(meetingId)),
     ]);
   }
+}
+
+function withNewestScreenshotOnly(turns: MeetingTurn[]): MeetingTurn[] {
+  const newest = turns.findLastIndex((turn) => turn.screenshot);
+
+  return turns.map((turn, index) =>
+    index === newest ? turn : { question: turn.question, answer: turn.answer },
+  );
 }

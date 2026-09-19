@@ -9,6 +9,7 @@ import {
   type LlmCompletion,
   type LlmEvent,
   type LlmRequest,
+  type LlmStreamRequest,
   type LlmUsage,
 } from './llm.provider';
 import { toHttpException } from './openai-error.mapper';
@@ -108,7 +109,7 @@ export class OpenAiLlmProvider extends LlmProvider {
     }
   }
 
-  async *stream(request: LlmRequest, signal: AbortSignal): AsyncIterable<LlmEvent> {
+  async *stream(request: LlmStreamRequest, signal: AbortSignal): AsyncIterable<LlmEvent> {
     let events;
 
     try {
@@ -116,7 +117,7 @@ export class OpenAiLlmProvider extends LlmProvider {
         {
           model: request.model,
           instructions: request.system,
-          input: toStreamInput(request.blocks, request.image),
+          input: toStreamInput(request.messages),
           reasoning: { effort: request.effort },
           max_output_tokens: request.maxTokens,
           stream: true,

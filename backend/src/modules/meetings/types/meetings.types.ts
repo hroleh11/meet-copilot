@@ -11,6 +11,12 @@ export interface MeetingScreenshot {
   dataBase64: string;
 }
 
+export interface MeetingTurn {
+  question: string;
+  answer: string;
+  screenshot?: MeetingScreenshot;
+}
+
 export interface WindowSegment {
   id: string;
   speaker: Speaker;

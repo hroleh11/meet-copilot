@@ -1,13 +1,14 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Env } from '~/common/config';
-import type { GenerationMode } from '~/generated/prisma/enums';
+import { GenerationMode } from '~/generated/prisma/enums';
 import { LlmProvider, type LlmEffort, type LlmUsage } from '~/infrastructure/llm';
-import { ContextWindow } from '~/modules/context';
+import { ContextWindow, formatTranscript, segmentsAfter } from '~/modules/context';
 import {
   MeetingStateStore,
   MeetingsService,
   type MeetingScreenshot,
+  type MeetingTurn,
 } from '~/modules/meetings';
 import { UsageRecorder } from '~/modules/usage';
 import { GenerationRepository } from './generation.repository';
@@ -16,6 +17,15 @@ import type { GenerationEvent } from './types/generation.types';
 
 const REPLY_MAX_TOKENS = 2_000;
 const EMPTY_USAGE: LlmUsage = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 };
+
+interface Draft {
+  meetingId: string;
+  userId: string;
+  mode: GenerationMode;
+  prompt: Prompt;
+  turn: MeetingTurn;
+  spokenUpTo: string | null;
+}
 
 @Injectable()
 export class GenerationService {
@@ -51,49 +61,40 @@ export class GenerationService {
       throw new ConflictException('The live state of this meeting has expired');
     }
 
-    const [{ recent }, summary, previousAnswer] = await Promise.all([
+    const [{ recent }, summary, turns, spokenUpTo] = await Promise.all([
       this.contextWindow.read(meetingId),
       this.meetingStateStore.readSummary(meetingId),
-      this.meetingStateStore.readLastAnswer(meetingId),
+      this.meetingStateStore.readTurns(meetingId),
+      this.meetingStateStore.readSpokenUpTo(meetingId),
     ]);
 
-    const image = await this.resolveScreenshot(meetingId, screenshot);
+    const spoken = segmentsAfter(recent, spokenUpTo);
 
-    const prompt = this.promptBuilder.build({
-      state,
-      summary,
-      recent,
-      previousAnswer,
-      mode,
-      hasScreenshot: image !== null,
-    });
-
-    return this.run(meetingId, userId, mode, prompt, image, signal);
+    return this.run(
+      {
+        meetingId,
+        userId,
+        mode,
+        prompt: this.promptBuilder.build({
+          state,
+          summary,
+          turns,
+          spoken,
+          screenshot,
+          mode,
+        }),
+        turn: {
+          question: formatTranscript(spoken),
+          answer: '',
+          ...(screenshot ? { screenshot } : {}),
+        },
+        spokenUpTo: recent.at(-1)?.id ?? null,
+      },
+      signal,
+    );
   }
 
-  /// A screenshot stays on the table until it expires or a newer one replaces
-  /// it: the question after it is usually about the same screen.
-  private async resolveScreenshot(
-    meetingId: string,
-    screenshot: MeetingScreenshot | null,
-  ): Promise<MeetingScreenshot | null> {
-    if (!screenshot) {
-      return this.meetingStateStore.readScreenshot(meetingId);
-    }
-
-    await this.meetingStateStore.writeScreenshot(meetingId, screenshot);
-
-    return screenshot;
-  }
-
-  private async *run(
-    meetingId: string,
-    userId: string,
-    mode: GenerationMode,
-    prompt: Prompt,
-    image: MeetingScreenshot | null,
-    signal: AbortSignal,
-  ): AsyncIterable<GenerationEvent> {
+  private async *run(draft: Draft, signal: AbortSignal): AsyncIterable<GenerationEvent> {
     const model = this.configService.getOrThrow<string>('REPLY_MODEL');
     let output = '';
     let stopReason: string | null = 'cancelled';
@@ -105,9 +106,8 @@ export class GenerationService {
           model,
           effort: this.configService.getOrThrow<LlmEffort>('REPLY_EFFORT'),
           maxTokens: REPLY_MAX_TOKENS,
-          system: prompt.system,
-          blocks: prompt.blocks,
-          ...(image ? { image } : {}),
+          system: draft.prompt.system,
+          messages: draft.prompt.messages,
         },
         signal,
       );
@@ -125,7 +125,7 @@ export class GenerationService {
     } catch (error) {
       if (!signal.aborted) {
         this.logger.error(
-          `Generation failed for meeting ${meetingId}`,
+          `Generation failed for meeting ${draft.meetingId}`,
           error instanceof Error ? error.stack : String(error),
         );
         yield { type: 'error', data: { message: 'Could not draft an answer' } };
@@ -133,13 +133,7 @@ export class GenerationService {
       }
     }
 
-    const generationId = await this.persist(meetingId, userId, mode, {
-      model,
-      output,
-      stopReason,
-      usage,
-      hasScreenshot: image !== null,
-    });
+    const generationId = await this.persist(draft, { model, output, stopReason, usage });
 
     if (!signal.aborted) {
       yield { type: 'done', data: { generationId, stopReason, usage } };
@@ -147,38 +141,51 @@ export class GenerationService {
   }
 
   private async persist(
-    meetingId: string,
-    userId: string,
-    mode: GenerationMode,
+    draft: Draft,
     result: {
       model: string;
       output: string;
       stopReason: string | null;
       usage: LlmUsage;
-      hasScreenshot: boolean;
     },
   ): Promise<string> {
     const generation = await this.generationRepository.create({
-      meetingId,
-      mode,
+      meetingId: draft.meetingId,
+      mode: draft.mode,
       output: result.output,
       stopReason: result.stopReason,
-      hasScreenshot: result.hasScreenshot,
+      hasScreenshot: draft.prompt.messages.some((message) => message.image !== undefined),
       ...result.usage,
     });
 
     if (result.output) {
-      await this.meetingStateStore.writeLastAnswer(meetingId, result.output);
+      await this.remember(draft, result.output);
     }
 
     await this.usageRecorder.record({
-      userId,
-      meetingId,
+      userId: draft.userId,
+      meetingId: draft.meetingId,
       kind: 'generate',
       model: result.model,
       ...result.usage,
     });
 
     return generation.id;
+  }
+
+  private async remember(draft: Draft, answer: string): Promise<void> {
+    if (draft.mode === GenerationMode.alternative) {
+      await this.meetingStateStore.replaceLastAnswer(draft.meetingId, {
+        ...draft.turn,
+        answer,
+      });
+      return;
+    }
+
+    await this.meetingStateStore.appendTurn(draft.meetingId, { ...draft.turn, answer });
+
+    if (draft.spokenUpTo) {
+      await this.meetingStateStore.writeSpokenUpTo(draft.meetingId, draft.spokenUpTo);
+    }
   }
 }

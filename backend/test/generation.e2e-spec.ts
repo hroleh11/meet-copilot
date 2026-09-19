@@ -3,12 +3,13 @@ import {
   LlmProvider,
   type LlmCompletion,
   type LlmEvent,
-  type LlmRequest,
+  type LlmMessage,
+  type LlmStreamRequest,
 } from '~/infrastructure/llm';
 import { AppHarness, bearer, type TestAccount } from './app-harness';
 
 class FakeLlmProvider extends LlmProvider {
-  requests: LlmRequest[] = [];
+  requests: LlmStreamRequest[] = [];
   chunks = ['Я б скоротив ', 'анкету до трьох полів.'];
 
   complete(): Promise<LlmCompletion> {
@@ -19,7 +20,7 @@ class FakeLlmProvider extends LlmProvider {
     throw new Error('Generation has no tools');
   }
 
-  async *stream(request: LlmRequest): AsyncIterable<LlmEvent> {
+  async *stream(request: LlmStreamRequest): AsyncIterable<LlmEvent> {
     this.requests.push(request);
 
     for (const text of this.chunks) {
@@ -67,6 +68,10 @@ describe('Generation (e2e)', () => {
       .send(screenshot === undefined ? { mode } : { mode, screenshot });
 
   const picture = { mimeType: 'image/jpeg', dataBase64: 'AQID' };
+
+  const sent = (): LlmMessage[] => provider.requests[0]?.messages ?? [];
+
+  const lastSent = (): LlmMessage | undefined => sent().at(-1);
 
   beforeAll(async () => {
     harness = await AppHarness.boot((builder) =>
@@ -118,14 +123,28 @@ describe('Generation (e2e)', () => {
     expect(body.usage.outputTokens).toBe(18);
   });
 
-  it('shows the previous answer to the model when another angle is asked for', async () => {
+  it('replays the previous answer as its own turn when another angle is asked for', async () => {
     provider.requests = [];
 
     await generate('alternative').expect(200);
 
-    expect(provider.requests[0]?.blocks.join('\n')).toContain(
-      'Я б скоротив анкету до трьох полів.',
-    );
+    expect(sent().filter((message) => message.role === 'assistant')).toEqual([
+      { role: 'assistant', text: 'Я б скоротив анкету до трьох полів.' },
+    ]);
+    expect(lastSent()?.text).toContain('different angle');
+  });
+
+  it('keeps one answer per moment instead of stacking every retry', async () => {
+    provider.requests = [];
+    provider.chunks = ['Три поля замість дванадцяти.'];
+
+    await generate('alternative').expect(200);
+    provider.requests = [];
+    await generate('reply').expect(200);
+
+    expect(sent().filter((message) => message.role === 'assistant')).toEqual([
+      { role: 'assistant', text: 'Три поля замість дванадцяти.' },
+    ]);
   });
 
   it('hands the screenshot to the model and marks the answer with it', async () => {
@@ -133,8 +152,8 @@ describe('Generation (e2e)', () => {
 
     await generate('reply', picture).expect(200);
 
-    expect(provider.requests[0]?.image).toEqual(picture);
-    expect(provider.requests[0]?.blocks.join('\n')).toContain('showed a screenshot');
+    expect(lastSent()?.image).toEqual(picture);
+    expect(lastSent()?.text).toContain('part of my screen');
 
     const details = await request(harness.server)
       .get(`/api/v1/meetings/${meetingId}`)
@@ -146,34 +165,17 @@ describe('Generation (e2e)', () => {
     expect(generations.at(-1)?.hasScreenshot).toBe(true);
   });
 
-  it('shows the same screenshot again when another angle is asked for', async () => {
-    provider.requests = [];
-
-    await generate('alternative').expect(200);
-
-    expect(provider.requests[0]?.image).toEqual(picture);
-  });
-
-  it('keeps the screenshot for the question that follows it', async () => {
+  it('leaves the screenshot on the turn it came with when the next question arrives', async () => {
     provider.requests = [];
 
     await generate('reply').expect(200);
 
-    expect(provider.requests[0]?.image).toEqual(picture);
+    expect(sent().filter((message) => message.image)).toHaveLength(1);
+    expect(lastSent()?.image).toBeUndefined();
   });
 
   it('refuses a screenshot in a format the model does not read', async () => {
     await generate('reply', { mimeType: 'image/gif', dataBase64: 'AQID' }).expect(400);
-  });
-
-  it('shows the model its own last answer when the next question comes', async () => {
-    provider.requests = [];
-
-    await generate('reply').expect(200);
-
-    expect(provider.requests[0]?.blocks.join('\n')).toContain(
-      'You suggested this a moment ago',
-    );
   });
 
   it('rejects a mode that does not exist', async () => {

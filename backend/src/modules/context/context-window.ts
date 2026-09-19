@@ -48,3 +48,12 @@ export function splitByBudget(
     stale: segments.slice(0, firstRecent),
   };
 }
+
+export function segmentsAfter(
+  segments: WindowSegment[],
+  lastSpokenId: string | null,
+): WindowSegment[] {
+  const seen = segments.findIndex((segment) => segment.id === lastSpokenId);
+
+  return seen === -1 ? segments : segments.slice(seen + 1);
+}

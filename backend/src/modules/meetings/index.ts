@@ -12,5 +12,6 @@ export { StaleMeetingsCloser } from './stale-meetings.closer';
 export type {
   MeetingLiveState,
   MeetingScreenshot,
+  MeetingTurn,
   WindowSegment,
 } from './types/meetings.types';

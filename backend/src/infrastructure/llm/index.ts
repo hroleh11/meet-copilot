@@ -12,6 +12,8 @@ export {
   type LlmEffort,
   type LlmEvent,
   type LlmImage,
+  type LlmMessage,
   type LlmRequest,
+  type LlmStreamRequest,
   type LlmUsage,
 } from './llm.provider';

@@ -1,27 +1,24 @@
 import type { ResponseInput } from 'openai/resources/responses/responses';
-import type { LlmImage } from './llm.provider';
+import type { LlmImage, LlmMessage } from './llm.provider';
 
-export function toStreamInput(
-  blocks: string[],
-  image: LlmImage | undefined,
-): string | ResponseInput {
-  const text = blocks.join('\n\n');
+export function toStreamInput(messages: LlmMessage[]): ResponseInput {
+  return messages.map((message) =>
+    message.image
+      ? {
+          role: 'user' as const,
+          content: [
+            { type: 'input_text' as const, text: message.text },
+            toInputImage(message.image),
+          ],
+        }
+      : { role: message.role, content: message.text },
+  );
+}
 
-  if (!image) {
-    return text;
-  }
-
-  return [
-    {
-      role: 'user',
-      content: [
-        { type: 'input_text', text },
-        {
-          type: 'input_image',
-          detail: 'auto',
-          image_url: `data:${image.mimeType};base64,${image.dataBase64}`,
-        },
-      ],
-    },
-  ];
+function toInputImage(image: LlmImage) {
+  return {
+    type: 'input_image' as const,
+    detail: 'auto' as const,
+    image_url: `data:${image.mimeType};base64,${image.dataBase64}`,
+  };
 }
