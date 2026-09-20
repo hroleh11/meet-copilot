@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use meet_copilot_core::{
+use cueline_core::{
     access::AlwaysAllowed,
     backend::{BackendClient, SttEvent},
-    domain::{MeetingId, MeetingStart, SessionState, Speaker},
+    domain::{Language, Meeting, MeetingId, MeetingStart, SessionState, Speaker},
     error::Result,
     session::{Session, SessionDeps, StartRequest, StartedSession},
 };
@@ -40,6 +40,14 @@ impl MeetingSession {
 
     pub fn meeting_id(&self) -> Option<MeetingId> {
         self.session.meeting_id()
+    }
+
+    pub async fn switch_language(
+        &mut self,
+        language: Language,
+        reply_language: Option<Language>,
+    ) -> Result<Meeting> {
+        self.session.switch_language(language, reply_language).await
     }
 
     pub async fn start(

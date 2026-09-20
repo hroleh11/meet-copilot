@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use block2::RcBlock;
-use meet_copilot_core::{
+use cueline_core::{
     error::{Error, Result},
     screenshot::{shrink, CaptureRect, RawFrame, ScreenCapture, Screenshot},
 };

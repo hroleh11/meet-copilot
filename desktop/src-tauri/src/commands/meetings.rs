@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     backend::{BackendApi, ChatId, ChatMessage, ChatSession},
     domain::{Meeting, MeetingDetails, MeetingId, MeetingScope, ProjectId},
 };

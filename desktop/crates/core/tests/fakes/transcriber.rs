@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioFrame, SAMPLES_PER_FRAME},
     backend::{SttEvent, SttEvents, SttGateway, SttLane, SttSink},
     domain::{MeetingId, Speaker},

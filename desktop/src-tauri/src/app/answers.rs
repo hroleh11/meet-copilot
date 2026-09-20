@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use meet_copilot_core::{
+use cueline_core::{
     access::AlwaysAllowed,
     backend::BackendClient,
     domain::{GenerationMode, MeetingId},

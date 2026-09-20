@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     error::{Error, Result},
     screenshot::{CaptureRect, Screenshot},
 };
@@ -20,19 +20,18 @@ pub async fn capture_region(app: &AppHandle) -> Result<Option<Screenshot>> {
 /// rectangle only to be told that macOS was never going to hand it over.
 #[cfg(target_os = "macos")]
 async fn allowed() -> Result<()> {
-    let allowed =
-        tokio::task::spawn_blocking(meet_copilot_platform_macos::capture_kit::capture_allowed)
-            .await
-            .unwrap_or(false);
+    let allowed = tokio::task::spawn_blocking(cueline_platform_macos::capture_kit::capture_allowed)
+        .await
+        .unwrap_or(false);
 
     if allowed {
         return Ok(());
     }
 
-    meet_copilot_platform_macos::permissions::request_screen_recording_access();
+    cueline_platform_macos::permissions::request_screen_recording_access();
 
     Err(Error::Screen(
-        "Screen Recording is not allowed for Meet Copilot".to_owned(),
+        "Screen Recording is not allowed for Cueline".to_owned(),
     ))
 }
 
@@ -45,11 +44,9 @@ async fn allowed() -> Result<()> {
 
 #[cfg(target_os = "macos")]
 async fn capture(rect: CaptureRect) -> Result<Screenshot> {
-    use meet_copilot_core::screenshot::ScreenCapture;
+    use cueline_core::screenshot::ScreenCapture;
 
-    meet_copilot_platform_macos::RegionCapture
-        .capture(rect)
-        .await
+    cueline_platform_macos::RegionCapture.capture(rect).await
 }
 
 #[cfg(not(target_os = "macos"))]

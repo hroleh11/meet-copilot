@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use meet_copilot_core::domain::SessionState;
+use cueline_core::domain::SessionState;
 use tauri::{AppHandle, Manager};
 
 use super::{AppState, Emitter};

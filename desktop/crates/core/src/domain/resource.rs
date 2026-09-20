@@ -56,7 +56,7 @@ pub struct Resource {
 
 /// What was read out of a material. `digest` is the compressed version the model
 /// is given when the whole text did not fit the level's budget, so showing both
-/// is showing what the copilot actually sees.
+/// is showing what the assistant actually sees.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceContent {

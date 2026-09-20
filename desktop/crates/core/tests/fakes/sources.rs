@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
 };
 
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioFrame, AudioSource},
     error::{Error, Result},
     session::AudioSources,

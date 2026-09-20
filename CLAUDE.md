@@ -1,4 +1,4 @@
-# Meet Copilot
+# Cueline
 
 Monorepo with two parts. `backend/` is a NestJS server that owns all product state: users, meetings, transcripts, summaries, settings, prompts, provider keys. It does speech recognition (Deepgram) and reply generation (OpenAI). `desktop/` is a thin Tauri app: it captures audio, streams it to the backend, shows the live transcript, and on a global hotkey asks for a reply and shows it in an overlay. The desktop never talks to providers and has no local database.
 

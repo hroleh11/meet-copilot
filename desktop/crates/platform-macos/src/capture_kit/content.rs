@@ -4,7 +4,7 @@ use std::{
 };
 
 use block2::RcBlock;
-use meet_copilot_core::error::{Error, Result};
+use cueline_core::error::{Error, Result};
 use objc2::rc::Retained;
 use objc2_foundation::NSError;
 use objc2_screen_capture_kit::SCShareableContent;

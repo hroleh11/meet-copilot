@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioFrame, AudioSource, MicrophoneSource},
     domain::Speaker,
     error::Result,
@@ -65,7 +65,7 @@ fn start_system_audio(
     sources: &mut Vec<Box<dyn AudioSource>>,
     frames: mpsc::Sender<AudioFrame>,
 ) -> Option<String> {
-    use meet_copilot_platform_macos::SystemAudioSource;
+    use cueline_platform_macos::SystemAudioSource;
 
     let mut system_audio = SystemAudioSource::new();
 

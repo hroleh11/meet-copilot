@@ -1,6 +1,6 @@
 ---
 name: frontend
-description: Conventions for the React + TypeScript UI of Meet Copilot (desktop/src/). Load before writing or changing any component, hook, store, IPC wrapper, style or the overlay window UI.
+description: Conventions for the React + TypeScript UI of Cueline (desktop/src/). Load before writing or changing any component, hook, store, IPC wrapper, style or the overlay window UI.
 ---
 
 # Frontend conventions
@@ -54,15 +54,19 @@ Three Vite entries, one per window (`main`, `overlay`, `selection`). They share 
 ## Main screen and projects
 
 - The right side of the main window is `ProjectsBar` above `RecentMeetingsList`. A card shows a project's name and how many meetings it holds; the «Без проєкту» card comes first and stands for the meetings outside every project. Clicking a card narrows the list below it, clicking the open one again shows everything, so there is no separate project screen to walk to and back from.
-- A meeting joins a project by being dragged onto its card. `shared/lib/meetingDrag.ts` holds both halves: `useMeetingDrag` puts the id under `application/x-meet-copilot-meeting`, `useMeetingDrop` highlights a card only when that type is among `dataTransfer.types`, because the payload itself cannot be read before the drop. Dropping on «Без проєкту» takes the meeting out. The main window sets `dragDropEnabled: false` in `tauri.conf.json`; Tauri's own drag and drop is for files from the system and fights HTML5 dragging inside the webview.
+- A meeting joins a project by being dragged onto its card. `shared/lib/meetingDrag.ts` holds both halves: `useMeetingDrag` puts the id under `application/x-cueline-meeting`, `useMeetingDrop` highlights a card only when that type is among `dataTransfer.types`, because the payload itself cannot be read before the drop. Dropping on «Без проєкту» takes the meeting out. The main window sets `dragDropEnabled: false` in `tauri.conf.json`; Tauri's own drag and drop is for files from the system and fights HTML5 dragging inside the webview.
 - Renaming is in place through `shared/lib/useRename`: the pencil turns the title into a field, Enter saves, Escape cancels, an empty or unchanged name saves nothing. Deleting goes through `ConfirmDialog`, and a project holding meetings says in the dialog how many of them go with it.
 - Both lists re-read themselves instead of patching a row: `MainWindow` keeps one `revision` counter, every successful change bumps it, and `useProjects` and `useMeetings` reload on it. A meeting that moves leaves one list, joins another and changes two counters, so a local edit would drift from the server.
 - `useMeetings` takes the scope (`{ kind: 'all' | 'outside' | 'project', id? }`), which mirrors the adjacently tagged Rust enum `MeetingScope` and travels straight to `list_meetings`.
 
+## Language
+
+- The sidebar has two selects: «Мова розмови» (recognition, never disabled — an interview switches language while it runs) and «Мова відповіді», whose first option «Як у розмові» is `null` and is the default. Changing either during a meeting calls `switchMeetingLanguage`; before one, it is only remembered for the start.
+
 ## Materials
 
 - `features/resources` has one panel for all three levels: the list, «Додати файл» through `tauri-plugin-dialog`, and a form for pasted text. Only the `ResourceScope` differs, and the scope objects are module constants (`scopes.ts`) so the hook's effect does not refire on every render.
-- The user level is the «Матеріали» tab in settings, the project level appears above the meeting list while a project is open on the projects bar, and the meeting level sits on the start panel beside the profile, the language and the new project select. The project has to be chosen before the start now, because it decides which project materials the copilot is given; dragging a meeting onto a project afterwards still works as before.
+- The user level is the «Матеріали» tab in settings, the project level appears above the meeting list while a project is open on the projects bar, and the meeting level sits on the start panel beside the profile, the language and the new project select. The project has to be chosen before the start now, because it decides which project materials the assistant is given; dragging a meeting onto a project afterwards still works as before.
 - `useResources` follows a material while it is `pending`, because the upload answers before the document has been read. That same wait disables the start button, so a meeting never starts on a document nobody has read. After a start, `MainWindow` bumps `revision` and the staged list comes back empty: the meeting took them.
 - That follow is a `setInterval`, not one `setTimeout`. The ids being waited on do not change while they are still being read, so the effect never re-runs on its own and a single timeout asked exactly once — the panel then sat on «Читаємо…» until the screen was opened again. `useResources.test.tsx` pins it.
 - A ready material opens on a click into `ResourceViewer`, which shows the extracted text, or the digest when the document did not fit its level, because the digest is what the model is actually given. Limits come from `GET /resources/limits` rather than being repeated in the UI.

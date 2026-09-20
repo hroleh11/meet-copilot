@@ -54,6 +54,7 @@ export class MeetingsService {
 
     await this.meetingStateStore.initialize(meeting.id, {
       language: meeting.language,
+      replyLanguage: meeting.replyLanguage,
       profile: meeting.profile,
       style: settings.style ?? '',
       contextBrief: contextBrief ?? '',
@@ -98,10 +99,24 @@ export class MeetingsService {
       await this.projectsService.requireOwned(userId, dto.projectId);
     }
 
+    if (speaksDifferently(dto) && meeting.status !== 'live') {
+      throw new ConflictException('This meeting is already finished');
+    }
+
     const updated = await this.meetingsRepository.update(meeting.id, {
       ...(dto.title === undefined ? {} : { title: dto.title.trim() }),
       ...(dto.projectId === undefined ? {} : { projectId: dto.projectId }),
+      ...(dto.language === undefined ? {} : { language: dto.language }),
+      ...(dto.replyLanguage === undefined ? {} : { replyLanguage: dto.replyLanguage }),
     });
+
+    if (speaksDifferently(dto)) {
+      await this.meetingStateStore.writeLanguage(
+        updated.id,
+        updated.language,
+        updated.replyLanguage,
+      );
+    }
 
     return toMeetingResponse(updated);
   }
@@ -140,6 +155,13 @@ export class MeetingsService {
 
     return meeting;
   }
+}
+
+/// Switching the language mid-meeting is what an interview that opens in one and
+/// carries on in another needs. It only makes sense while the meeting is running,
+/// because what it really does is send the recognition lanes to reopen.
+function speaksDifferently(dto: UpdateMeetingDto): boolean {
+  return dto.language !== undefined || dto.replyLanguage !== undefined;
 }
 
 function asDay(moment: Date): string {

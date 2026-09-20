@@ -91,6 +91,7 @@ export interface ResourceLimits {
 export interface MeetingStart {
   profile: MeetingProfile;
   language: Language;
+  replyLanguage: Language | null;
   projectId: string | null;
   resourceIds: string[];
 }
@@ -100,6 +101,7 @@ export interface Meeting {
   projectId: string | null;
   profile: MeetingProfile;
   language: Language;
+  replyLanguage: Language | null;
   title: string | null;
   status: MeetingStatus;
   startedAt: string;

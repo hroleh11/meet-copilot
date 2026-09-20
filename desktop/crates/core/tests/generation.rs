@@ -2,14 +2,14 @@ mod fakes;
 
 use std::{sync::Arc, time::Duration};
 
-use fakes::{Answer, FakeAccess, FakeBackend};
-use meet_copilot_core::{
+use cueline_core::{
     access::{AccessPolicy, DenialReason},
     domain::{GenerationMode, TokenUsage},
     error::{Error, Result},
     generation::{GenerationDeps, GenerationEvent, Generator},
     screenshot::Screenshot,
 };
+use fakes::{Answer, FakeAccess, FakeBackend};
 use tokio::{sync::mpsc, time::timeout};
 
 const MEETING: &str = "11111111-1111-4111-8111-111111111111";

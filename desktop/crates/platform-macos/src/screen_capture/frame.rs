@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     error::{Error, Result},
     screenshot::RawFrame,
 };

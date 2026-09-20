@@ -1,4 +1,4 @@
-use meet_copilot_core::Error;
+use cueline_core::Error;
 use serde::Serialize;
 
 use crate::events::{BackendFailureLabel, ErrorKind};

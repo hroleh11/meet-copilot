@@ -7,6 +7,7 @@ const state = (overrides: Partial<MeetingLiveState> = {}): MeetingLiveState => (
   profile: MeetingProfile.daily,
   style: '',
   contextBrief: '',
+  replyLanguage: Language.uk,
   today: '2026-09-19',
   ...overrides,
 });
@@ -82,8 +83,33 @@ describe('PromptBuilder', () => {
     [Language.uk, 'Ukrainian'],
     [Language.en, 'English'],
     [Language.ru, 'Russian'],
-  ])('asks for the answer in %s', (language, name) => {
-    expect(builder.build(input({ state: state({ language }) })).system).toContain(name);
+  ])('asks for the answer in %s', (replyLanguage, name) => {
+    expect(builder.build(input({ state: state({ replyLanguage }) })).system).toContain(
+      name,
+    );
+  });
+
+  /// An interview can open in Ukrainian and carry on in English, and a draft in
+  /// the language nobody is speaking any more is useless.
+  it('follows whoever is speaking when no reply language was pinned', () => {
+    const system = builder.build(input({ state: state({ replyLanguage: null }) })).system;
+
+    expect(system).toContain('the language the other side is speaking right now');
+    expect(system).not.toContain('Ukrainian');
+  });
+
+  /// Asked «привіт, як справи», the assistant pitched the résumé: the interview
+  /// profile demanded an example from experience in every answer, and nothing
+  /// said when the materials were worth opening. Both now depend on the question.
+  it('lets a small question have a small answer', () => {
+    const system = builder.build(
+      input({ state: state({ contextBrief: '<materials/>' }) }),
+    ).system;
+
+    expect(system).toContain('a greeting gets a greeting');
+    expect(system).toContain(
+      'open it only when the last thing said actually calls for it',
+    );
   });
 
   it('keeps the system text identical for two requests in one meeting', () => {

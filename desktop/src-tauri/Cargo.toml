@@ -1,12 +1,12 @@
 [package]
-name = "meet-copilot"
+name = "cueline"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-description = "Meeting copilot that listens and drafts replies"
+description = "Meeting assistant that listens and drafts replies"
 
 [lib]
-name = "meet_copilot_lib"
+name = "cueline_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -14,7 +14,7 @@ tauri-build = { version = "2.5.1", features = [] }
 
 [dependencies]
 futures-util = { workspace = true }
-meet-copilot-core = { workspace = true }
+cueline-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tauri = { version = "2.9.2", features = ["macos-private-api"] }
@@ -33,7 +33,7 @@ block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-app-kit = { workspace = true }
 objc2-foundation = { workspace = true }
-meet-copilot-platform-macos = { workspace = true }
+cueline-platform-macos = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "4.2.0", features = ["linux-keyutils-keyring-store"] }

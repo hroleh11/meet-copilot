@@ -1,6 +1,6 @@
 ---
 name: backend
-description: Conventions for the NestJS backend of Meet Copilot (backend/): module layout, repository pattern, Prisma and Redis, auth guards, Swagger DTOs, the Deepgram speech stream, context and summarization, OpenAI generation over SSE. Load before writing or changing anything under backend/ or docker-compose.yml.
+description: Conventions for the NestJS backend of Cueline (backend/): module layout, repository pattern, Prisma and Redis, auth guards, Swagger DTOs, the Deepgram speech stream, context and summarization, OpenAI generation over SSE. Load before writing or changing anything under backend/ or docker-compose.yml.
 ---
 
 # Backend conventions
@@ -51,7 +51,7 @@ backend/src
 - There is no web client. The desktop app is the only consumer, so there are no cookies, no CSRF and no CORS: tokens travel in request bodies and the `Authorization: Bearer` header.
 - `AtGuard` (passport `jwt`) is global via `APP_GUARD`; `@Public()` opts a route out. `SubscriptionGuard` runs after it and in the first version lets everyone through. It exists so the subscription check has exactly one home later.
 - Refresh tokens are hashed with argon2 and stored per session in `auth_sessions`, one row per device. The session id rides in both tokens. Replaying a rotated refresh token deletes the session rather than issuing new ones.
-- Google sign-in opens the system browser; the callback redirects to `meetcopilot://auth?code=...` with a one-time code held in Redis for 60 seconds and consumed on exchange. Never an embedded webview, per RFC 8252.
+- Google sign-in opens the system browser; the callback redirects to `cueline://auth?code=...` with a one-time code held in Redis for 60 seconds and consumed on exchange. Never an embedded webview, per RFC 8252.
 - Login must never reveal whether an account exists: an unknown email and a wrong password return the identical error. Registration answers 409 on a taken email, which does reveal it; that stays until email verification exists.
 
 ## DTOs and Swagger
@@ -121,6 +121,12 @@ const response = await this.client.responses.create({
 - `PATCH /meetings/:id` carries `title?` and `projectId?`, where `projectId: null` takes the meeting out of its project. `null` and «absent» differ, so the DTO uses `@ValidateIf((_, value) => value !== null)` beside `@IsOptional()` and the service branches on `undefined`, never on falsiness.
 - `GET /meetings` filters with `projectId`, and the literal `none` (exported as `MEETINGS_OUTSIDE_PROJECTS`) means the meetings in no project at all. The repository takes `projectId?: string | null` — `undefined` for every meeting, `null` for the ones outside.
 
+## Language, mid-meeting
+
+- Recognition and reply are two settings now. `Meeting.language` is what Deepgram listens for; `Meeting.replyLanguage` is what the draft comes back in, and `null` there means «follow whoever is speaking», which is the default.
+- `PATCH /meetings/:id` accepts `language` and `replyLanguage`, refuses both with 409 once the meeting is finished, and writes the new pair into the Redis state as well as the row. That is all the backend does: the desktop's lanes reopen on their own, and `SttAuthenticator` reads the language off the meeting row as each one connects.
+- There is no `auto` recognition value. Deepgram's `language=multi` covers English, Spanish, French, German, Hindi, Russian, Portuguese, Japanese, Italian and Dutch; Ukrainian is supported by nova-3 only as a single-language stream. An interview that opens in Ukrainian and carries on in English therefore has to be switched by hand, and pretending otherwise would silently transcribe half of it as noise.
+
 ## Materials and the context brief
 
 - `modules/resources` owns the three levels a material can belong to: `user`, `project`, `meeting`. A material is a user's own object, not part of a meeting, which is what lets it be uploaded before the meeting exists: a meeting material with no `meetingId` is staged, and `POST /meetings` claims the ids it is given in the same call that creates the row. There is no draft meeting and no new `MeetingStatus`.
@@ -131,6 +137,7 @@ const response = await this.client.responses.create({
 - The name of an upload travels as its own form field. A multipart `filename` is decoded latin-1 by busboy, so a Cyrillic name comes back as mojibake; a field value is utf-8.
 - `ObjectStorage` (`infrastructure/storage`) is Cloudflare R2 behind `put` and `delete`. Only original bytes live there; every byte the prompt reads is in Postgres, so a live meeting never touches the bucket. Uploads go through Nest as multipart with the limit from `RESOURCE_MAX_BYTES` via `MulterModule`; `MAX_REQUEST_BODY_BYTES` stays the JSON limit.
 - `ResourceExtractor` reads PDFs with `unpdf` and decodes Markdown and text. A PDF with no text layer extracts to nothing, which is `failed` with a message about a scan; there is no OCR. `ResourceDigester` compresses what exceeds the level budget once per material with the summary model and records usage as `digest`.
+- Materials are reference, not a script. Told only what they *are*, the model worked through them: «привіт, як справи» came back as a résumé pitch. The interview profile demanded «a concrete example from experience» in every answer, and `MATERIALS_RULE` never said when to open the block. Both are conditional now, and the persona adds that a greeting gets a greeting. `MODE_PROMPTS.reply` was the third lever and the one that survived the first fix: «if nothing was asked, offer the most useful thing the user could contribute» turned a greeting into a pitch, because nothing had been asked. Pleasantries are now answered in kind and the offer is reserved for a real question or gap. Measure prompt changes over several runs, not one: the first fix came back clean nine times in a row here and still pitched in the app.
 - `ContextBriefBuilder` renders `<about-me>`, `<about-project>`, `<about-meeting>` in that order inside `<materials>`, fenced through `common/untrusted`. The order is the priority rule, the persona states it in words, and the shared budget is filled meeting first, so running out drops the user level rather than this call.
 - The meeting's day is frozen into the state next to the brief and travels in the last message, beside the mode instruction — not in the system text. Without it a résumé's «Feb 2025 — Present» has nothing to measure against and the model fills the gap from its own horizon. Measured on a real résumé: the day in the system text gave «about a year and a half», the day beside the question gave «a year and seven months» (only the last entry counted), and only `todayNote`'s «add up every date range, counting an open one up to today» produced the correct year and nine months. Keeping it out of the system text also leaves the cached prefix untouched. The chat has its own `meetingDayNote`, anchored to the day that meeting ran, because its materials were frozen then.
 - The brief is frozen at start into `Meeting.contextBrief` and the Redis state hash, next to the style and for the same reason: the system text must stay byte-identical for the whole meeting. The chat about a finished meeting reads that same frozen text from Postgres.
@@ -148,7 +155,7 @@ const response = await this.client.responses.create({
 
 ## The overview of a meeting
 
-- `Meeting.summary` is the dense running notes the copilot answers from. `Meeting.overview` is what a person reads: at most three sentences on what the meeting was about, no walk-through of questions and answers.
+- `Meeting.summary` is the dense running notes the assistant answers from. `Meeting.overview` is what a person reads: at most three sentences on what the meeting was about, no walk-through of questions and answers.
 - `MeetingOverviewWriter` lives in the meetings module, because it needs nothing from `context/` and the context module already imports meetings. It writes once, with the summary model, after the meeting is finished: `finish` starts it in the background and `GET /meetings/:id` awaits it when the text is still missing. A run already in flight is shared, so two readers never pay twice.
 - Meeting details expose `overview` only. The notes stay on the server.
 

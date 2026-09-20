@@ -29,6 +29,7 @@ export class MeetingStateStore {
   initialize(meetingId: string, state: MeetingLiveState): Promise<void> {
     return this.redis.writeHash(stateKey(meetingId), {
       language: state.language,
+      replyLanguage: state.replyLanguage ?? '',
       profile: state.profile,
       style: state.style,
       contextBrief: state.contextBrief,
@@ -45,11 +46,23 @@ export class MeetingStateStore {
 
     return {
       language: stored.language as Language,
+      replyLanguage: (stored.replyLanguage || null) as Language | null,
       profile: stored.profile as MeetingProfile,
       style: stored.style ?? '',
       contextBrief: stored.contextBrief ?? '',
       today: stored.today ?? '',
     };
+  }
+
+  writeLanguage(
+    meetingId: string,
+    language: Language,
+    replyLanguage: Language | null,
+  ): Promise<void> {
+    return this.redis.writeHash(stateKey(meetingId), {
+      language,
+      replyLanguage: replyLanguage ?? '',
+    });
   }
 
   async readSpokenUpTo(meetingId: string): Promise<string | null> {

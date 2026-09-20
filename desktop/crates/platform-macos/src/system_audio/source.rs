@@ -1,10 +1,10 @@
 use block2::RcBlock;
-use dispatch2::DispatchQueue;
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioFrame, AudioSource, MonoResampler, SAMPLE_RATE_HZ},
     domain::Speaker,
     error::{Error, Result},
 };
+use dispatch2::DispatchQueue;
 use objc2::{rc::Retained, runtime::ProtocolObject, AnyThread};
 use objc2_core_media::CMTime;
 use objc2_foundation::{NSArray, NSError};
@@ -87,7 +87,7 @@ fn explain_failure(error: Error) -> Error {
     request_screen_recording_access();
 
     Error::Permission(
-        "Allow Screen Recording for Meet Copilot in System Settings, Privacy and Security, so it can hear the other side of the call".to_owned(),
+        "Allow Screen Recording for Cueline in System Settings, Privacy and Security, so it can hear the other side of the call".to_owned(),
     )
 }
 
@@ -136,7 +136,7 @@ fn build_stream(output: &Retained<SystemAudioOutput>) -> Result<Retained<SCStrea
 }
 
 fn attach_output(stream: &Retained<SCStream>, output: &Retained<SystemAudioOutput>) -> Result<()> {
-    let queue = DispatchQueue::new("com.meetcopilot.system-audio", None);
+    let queue = DispatchQueue::new("com.cueline.system-audio", None);
     let handler = ProtocolObject::from_ref(&**output);
 
     unsafe {

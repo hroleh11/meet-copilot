@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     audio::AudioFrame,
     backend::{ChatMessage, ChatSession, SttEvent, SttMessage, Tokens},
     domain::{
@@ -40,6 +40,7 @@ fn a_meeting_matches_the_backend_response() {
             project_id: Some("22222222-2222-4222-8222-222222222222".to_owned()),
             profile: MeetingProfile::Daily,
             language: Language::Uk,
+            reply_language: Some(Language::En),
             title: Some("Дейлі".to_owned()),
             status: MeetingStatus::Live,
             started_at: "2026-09-18T00:00:00.000Z".to_owned(),
@@ -50,6 +51,7 @@ fn a_meeting_matches_the_backend_response() {
             "projectId": "22222222-2222-4222-8222-222222222222",
             "profile": "daily",
             "language": "uk",
+            "replyLanguage": "en",
             "title": "Дейлі",
             "status": "live",
             "startedAt": "2026-09-18T00:00:00.000Z",
@@ -95,6 +97,7 @@ fn meeting_details_stay_flat_like_the_backend_class() {
         "projectId": null,
         "profile": "client_call",
         "language": "en",
+        "replyLanguage": null,
         "title": null,
         "status": "finished",
         "startedAt": "2026-09-18T00:00:00.000Z",
@@ -257,12 +260,14 @@ fn starting_a_meeting_carries_the_project_and_the_materials() {
         &MeetingStart {
             profile: MeetingProfile::InterviewCandidate,
             language: Language::Uk,
+            reply_language: None,
             project_id: Some("33333333-3333-4333-8333-333333333333".to_owned()),
             resource_ids: vec!["res-1".to_owned()],
         },
         json!({
             "profile": "interview_candidate",
             "language": "uk",
+            "replyLanguage": null,
             "projectId": "33333333-3333-4333-8333-333333333333",
             "resourceIds": ["res-1"]
         }),

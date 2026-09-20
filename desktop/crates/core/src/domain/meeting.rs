@@ -25,6 +25,7 @@ pub struct Meeting {
     pub project_id: Option<ProjectId>,
     pub profile: MeetingProfile,
     pub language: Language,
+    pub reply_language: Option<Language>,
     pub title: Option<String>,
     pub status: MeetingStatus,
     pub started_at: String,
@@ -51,6 +52,7 @@ pub struct MeetingDetails {
 pub struct MeetingStart {
     pub profile: MeetingProfile,
     pub language: Language,
+    pub reply_language: Option<Language>,
     pub project_id: Option<ProjectId>,
     pub resource_ids: Vec<ResourceId>,
 }

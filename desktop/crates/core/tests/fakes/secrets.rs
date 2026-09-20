@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     error::Result,
     secret::Secret,
     settings::{SecretKey, SecretStore},

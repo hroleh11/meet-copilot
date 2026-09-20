@@ -9,7 +9,7 @@ import type {
   WindowSegment,
 } from '~/modules/meetings';
 import {
-  languageInstruction,
+  replyInstruction,
   todayNote,
   MODE_PROMPTS,
   NOTHING_SAID,
@@ -50,7 +50,7 @@ function buildSystem(state: MeetingLiveState): string {
     PROFILE_PROMPTS[state.profile],
     state.style.trim() || DEFAULT_STYLE,
     ...(brief ? [MATERIALS_RULE, brief] : []),
-    languageInstruction(state.language),
+    replyInstruction(state.replyLanguage),
   ].join('\n\n');
 }
 

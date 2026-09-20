@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use meet_copilot_core::{
+use cueline_core::{
     backend::{BackendClient, BackendEndpoint},
     error::Result,
     settings::{LocalSettings, LocalSettingsStore, SecretStore},

@@ -2,6 +2,7 @@ import type { Language, MeetingProfile, Speaker } from '~/generated/prisma/enums
 
 export interface MeetingLiveState {
   language: Language;
+  replyLanguage: Language | null;
   profile: MeetingProfile;
   style: string;
   contextBrief: string;

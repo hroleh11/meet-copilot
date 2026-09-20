@@ -1,4 +1,4 @@
-use meet_copilot_core::domain::GenerationMode;
+use cueline_core::domain::GenerationMode;
 use tauri::{AppHandle, State};
 
 use crate::{

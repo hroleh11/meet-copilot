@@ -7,8 +7,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use futures_util::{stream, StreamExt};
-use meet_copilot_core::{
+use cueline_core::{
     backend::{
         BackendApi, ChatId, ChatMessage, ChatSession, ChatStream, Delta, DeltaStream, Health,
         Tokens,
@@ -23,6 +22,7 @@ use meet_copilot_core::{
     error::{Error, Result},
     screenshot::Screenshot,
 };
+use futures_util::{stream, StreamExt};
 
 #[derive(Debug, Clone)]
 pub enum Answer {
@@ -87,6 +87,7 @@ fn meeting(status: MeetingStatus) -> Meeting {
         project_id: None,
         profile: MeetingProfile::Daily,
         language: Language::Uk,
+        reply_language: None,
         title: None,
         status,
         started_at: "2026-09-18T00:00:00.000Z".to_owned(),
@@ -153,6 +154,15 @@ impl BackendApi for FakeBackend {
     }
 
     async fn move_meeting(&self, _id: &MeetingId, _project: Option<&ProjectId>) -> Result<Meeting> {
+        unused()
+    }
+
+    async fn set_meeting_language(
+        &self,
+        _id: &MeetingId,
+        _language: Language,
+        _reply_language: Option<Language>,
+    ) -> Result<Meeting> {
         unused()
     }
 

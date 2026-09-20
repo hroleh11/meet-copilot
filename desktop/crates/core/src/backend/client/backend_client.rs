@@ -14,7 +14,7 @@ use crate::{
     },
     backend_failure::BackendFailure,
     domain::{
-        GenerationMode, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart,
+        GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart,
         NewResourceFile, Profile, Project, ProjectId, Resource, ResourceContent, ResourceId,
         ResourceLimits, ResourceScope, Speaker, UserSettings,
     },
@@ -152,6 +152,15 @@ impl BackendApi for BackendClient {
 
     async fn move_meeting(&self, id: &MeetingId, project: Option<&ProjectId>) -> Result<Meeting> {
         meetings::move_to(&self.transport, id, project).await
+    }
+
+    async fn set_meeting_language(
+        &self,
+        id: &MeetingId,
+        language: Language,
+        reply_language: Option<Language>,
+    ) -> Result<Meeting> {
+        meetings::set_language(&self.transport, id, language, reply_language).await
     }
 
     async fn delete_meeting(&self, id: &MeetingId) -> Result<()> {

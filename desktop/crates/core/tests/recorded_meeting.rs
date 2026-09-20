@@ -2,13 +2,13 @@ mod fakes;
 
 use std::{sync::Arc, time::Duration};
 
-use fakes::{recorded_clip, FakeAccess, FakeBackend, RecordedSources, TranscribingGateway};
-use meet_copilot_core::{
+use cueline_core::{
     audio::SAMPLES_PER_FRAME,
     backend::SttEvent,
     domain::{Language, MeetingProfile, MeetingStart, SessionState, Speaker},
     session::{Session, SessionDeps, StartRequest},
 };
+use fakes::{recorded_clip, FakeAccess, FakeBackend, RecordedSources, TranscribingGateway};
 use tokio::{
     sync::mpsc,
     time::{sleep, timeout, Instant},
@@ -76,6 +76,7 @@ async fn a_recorded_meeting_reaches_the_backend_whole_and_ends_cleanly() {
                 meeting: MeetingStart {
                     profile: MeetingProfile::Daily,
                     language: Language::Uk,
+                    reply_language: None,
                     project_id: None,
                     resource_ids: Vec::new(),
                 },

@@ -16,7 +16,7 @@ pub struct OutputState {
 
 define_class!(
     #[unsafe(super(NSObject))]
-    #[name = "MeetCopilotSystemAudioOutput"]
+    #[name = "CuelineSystemAudioOutput"]
     #[ivars = OutputState]
     pub struct SystemAudioOutput;
 

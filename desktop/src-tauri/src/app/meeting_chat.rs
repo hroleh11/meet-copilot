@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use futures_util::StreamExt;
-use meet_copilot_core::{
+use cueline_core::{
     backend::ChatDelta,
     backend::{BackendApi, BackendClient, ChatId},
     domain::MeetingId,
 };
+use futures_util::StreamExt;
 use tauri::AppHandle;
 
 use crate::{

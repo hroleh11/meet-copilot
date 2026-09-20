@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Meet Copilot",
+  "productName": "Cueline",
   "version": "0.1.0",
-  "identifier": "com.meetcopilot.app",
+  "identifier": "com.cueline.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Meet Copilot",
+        "title": "Cueline",
         "width": 1200,
         "height": 800,
         "minWidth": 880,
@@ -24,7 +24,7 @@
       },
       {
         "label": "overlay",
-        "title": "Meet Copilot",
+        "title": "Cueline",
         "url": "overlay.html",
         "width": 420,
         "height": 460,
@@ -56,20 +56,20 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "copyright": "© 2026 Meet Copilot",
+    "copyright": "© 2026 Cueline",
     "shortDescription": "Слухає зустріч і готує відповідь",
-    "longDescription": "Meet Copilot слухає мікрофон і звук зустрічі, показує живий транскрипт і за гарячою клавішею готує відповідь в оверлеї.",
+    "longDescription": "Cueline слухає мікрофон і звук зустрічі, показує живий транскрипт і за гарячою клавішею готує відповідь в оверлеї.",
     "macOS": {
       "entitlements": "entitlements.plist",
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "Meet Copilot Dev"
+      "signingIdentity": "Cueline Dev"
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
         "schemes": [
-          "meetcopilot"
+          "cueline"
         ]
       }
     }

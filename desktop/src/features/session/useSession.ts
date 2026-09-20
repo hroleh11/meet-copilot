@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { uk } from '~/shared/i18n/uk';
-import type { MeetingStart, SessionState } from '~/shared/ipc';
-import { sessionState, startSession, stopSession } from '~/shared/ipc/commands';
+import type { Language, MeetingStart, SessionState } from '~/shared/ipc';
+import {
+  sessionState,
+  startSession,
+  stopSession,
+  switchMeetingLanguage,
+} from '~/shared/ipc/commands';
 import { errorMessage } from '~/shared/lib/command-error';
 import { useSessionStore } from '~/shared/store/sessionStore';
 
@@ -11,6 +16,7 @@ interface UseSessionResult {
   error: string | null;
   busy: boolean;
   start: (meeting: MeetingStart, onStarted: () => void) => void;
+  switchLanguage: (language: Language, replyLanguage: Language | null) => void;
   stop: () => void;
 }
 
@@ -28,6 +34,17 @@ export function useSession(): UseSessionResult {
         setError(errorMessage(cause, uk.errors.session));
       });
   }, []);
+
+  const switchLanguage = useCallback(
+    (language: Language, replyLanguage: Language | null) => {
+      setError(null);
+
+      switchMeetingLanguage(language, replyLanguage).catch((cause: unknown) => {
+        setError(errorMessage(cause, uk.errors.session));
+      });
+    },
+    [],
+  );
 
   const stop = useCallback(() => {
     setError(null);
@@ -55,6 +72,7 @@ export function useSession(): UseSessionResult {
     error,
     busy: state === 'starting' || state === 'stopping',
     start,
+    switchLanguage,
     stop,
   };
 }

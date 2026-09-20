@@ -60,7 +60,7 @@ cd desktop
 pnpm tauri build --bundles app
 ```
 
-Виходить `desktop/target/release/bundle/macos/Meet Copilot.app` з ad-hoc підписом. Такий бандл запускається лише на машині, де зібраний, і годиться для перевірки, а не для роздачі.
+Виходить `desktop/target/release/bundle/macos/Cueline.app` з ad-hoc підписом. Такий бандл запускається лише на машині, де зібраний, і годиться для перевірки, а не для роздачі.
 
 ### Підпис і нотаризація
 
@@ -82,9 +82,9 @@ cd desktop && pnpm tauri build
 Перевірка готового бандла:
 
 ```
-codesign -dv --entitlements - "target/release/bundle/macos/Meet Copilot.app"
-spctl -a -vvv -t install "target/release/bundle/macos/Meet Copilot.app"
-xcrun stapler validate "target/release/bundle/dmg/Meet Copilot_0.1.0_aarch64.dmg"
+codesign -dv --entitlements - "target/release/bundle/macos/Cueline.app"
+spctl -a -vvv -t install "target/release/bundle/macos/Cueline.app"
+xcrun stapler validate "target/release/bundle/dmg/Cueline_0.1.0_aarch64.dmg"
 ```
 
 ## Перевірка на чистій системі
@@ -92,9 +92,9 @@ xcrun stapler validate "target/release/bundle/dmg/Meet Copilot_0.1.0_aarch64.dmg
 На машині, де застосунок ніколи не запускався, і з обліковим записом без дозволів:
 
 1. Встановити `.dmg`, перенести застосунок у «Програми», запустити. Gatekeeper не має скаржитися.
-2. Увійти: email з паролем або Google, який відкриває браузер і повертається в застосунок за схемою `meetcopilot://`. У налаштуваннях за шестернею перевірити адресу сервера й звук: обидві смужки мають ворушитися після дозволів на мікрофон і запис екрана.
+2. Увійти: email з паролем або Google, який відкриває браузер і повертається в застосунок за схемою `cueline://`. У налаштуваннях за шестернею перевірити адресу сервера й звук: обидві смужки мають ворушитися після дозволів на мікрофон і запис екрана.
 3. Почати зустріч, поговорити в мікрофон і дати звук із зустрічі: у транскрипті мають з'явитися обидві сторони.
 4. Натиснути гарячу клавішу відповіді: оверлей показує відповідь і не видно її в демонстрації екрана.
 5. Зупинити зустріч, відкрити «Історію»: зустріч на місці разом із транскриптом, відповідями й витратами.
 6. Закрити застосунок під час зустрічі: у бекенді вона має стати `finished`.
-7. Перевірити логи: `~/Library/Logs/com.meetcopilot.app/meet-copilot.<дата>.log`.
+7. Перевірити логи: `~/Library/Logs/com.cueline.app/cueline.<дата>.log`.

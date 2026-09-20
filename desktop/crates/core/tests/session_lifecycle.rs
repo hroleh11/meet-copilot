@@ -2,14 +2,14 @@ mod fakes;
 
 use std::{sync::Arc, time::Duration};
 
-use fakes::{FakeAccess, FakeBackend, FakeGateway, FakeSources};
-use meet_copilot_core::{
+use cueline_core::{
     access::{AccessPolicy, DenialReason, Entitlement},
     backend::SttEvent,
     domain::{Language, MeetingProfile, MeetingStart, MeetingStatus, SessionState, Speaker},
     error::Result,
     session::{Session, SessionDeps, StartRequest},
 };
+use fakes::{FakeAccess, FakeBackend, FakeGateway, FakeSources};
 use tokio::{sync::mpsc, time::timeout};
 
 fn request() -> StartRequest {
@@ -17,6 +17,7 @@ fn request() -> StartRequest {
         meeting: MeetingStart {
             profile: MeetingProfile::Daily,
             language: Language::Uk,
+            reply_language: None,
             project_id: None,
             resource_ids: Vec::new(),
         },

@@ -14,6 +14,7 @@ const liveMeeting = (id: string): Meeting => ({
   projectId: null,
   profile: MeetingProfile.daily,
   language: Language.uk,
+  replyLanguage: null,
   title: null,
   status: 'live',
   summary: null,

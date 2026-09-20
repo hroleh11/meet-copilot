@@ -112,4 +112,35 @@ describe('Meetings (e2e)', () => {
       defaultLanguage: 'uk',
     });
   });
+
+  /// An interview can open in Ukrainian and carry on in English, and the lanes
+  /// read the language off the meeting row as they reconnect.
+  it('switches the language of a meeting that is still running', async () => {
+    const started = await request(harness.server)
+      .post('/api/v1/meetings')
+      .set(...bearer(owner.accessToken))
+      .send({ profile: 'interview_candidate', language: 'uk' })
+      .expect(201);
+
+    const { id } = started.body as { id: string };
+
+    const switched = await request(harness.server)
+      .patch(`/api/v1/meetings/${id}`)
+      .set(...bearer(owner.accessToken))
+      .send({ language: 'en', replyLanguage: null })
+      .expect(200);
+
+    expect(switched.body).toMatchObject({ language: 'en', replyLanguage: null });
+
+    await request(harness.server)
+      .post(`/api/v1/meetings/${id}/finish`)
+      .set(...bearer(owner.accessToken))
+      .expect(201);
+
+    await request(harness.server)
+      .patch(`/api/v1/meetings/${id}`)
+      .set(...bearer(owner.accessToken))
+      .send({ language: 'ru' })
+      .expect(409);
+  });
 });

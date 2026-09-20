@@ -12,6 +12,7 @@ const details: MeetingDetailsResponse = {
   projectId: null,
   profile: 'interview_candidate',
   language: 'uk',
+  replyLanguage: null,
   title: 'Співбесіда',
   status: 'finished',
   startedAt: new Date('2026-09-19T13:00:00.000Z'),

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::{
     domain::{
-        GenerationMode, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart,
+        GenerationMode, Language, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart,
         NewResourceFile, Profile, Project, ProjectId, Resource, ResourceContent, ResourceId,
         ResourceLimits, ResourceScope, UserSettings,
     },
@@ -46,6 +46,13 @@ pub trait BackendApi: Send + Sync {
     async fn rename_meeting(&self, id: &MeetingId, title: &str) -> Result<Meeting>;
 
     async fn move_meeting(&self, id: &MeetingId, project: Option<&ProjectId>) -> Result<Meeting>;
+
+    async fn set_meeting_language(
+        &self,
+        id: &MeetingId,
+        language: Language,
+        reply_language: Option<Language>,
+    ) -> Result<Meeting>;
 
     async fn delete_meeting(&self, id: &MeetingId) -> Result<()>;
 

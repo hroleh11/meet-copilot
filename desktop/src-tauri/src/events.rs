@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     domain::{GenerationMode, Profile, SessionState, Speaker, TokenUsage},
     BackendFailure,
 };

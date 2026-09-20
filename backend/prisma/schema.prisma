@@ -138,18 +138,19 @@ model Project {
 }
 
 model Meeting {
-  id           String         @id @default(uuid())
-  userId       String         @map("user_id")
-  projectId    String?        @map("project_id")
-  profile      MeetingProfile
-  language     Language
-  title        String?
-  status       MeetingStatus  @default(live)
-  summary      String?
-  overview     String?
-  contextBrief String?        @map("context_brief")
-  startedAt    DateTime       @default(now()) @map("started_at")
-  endedAt      DateTime?      @map("ended_at")
+  id            String         @id @default(uuid())
+  userId        String         @map("user_id")
+  projectId     String?        @map("project_id")
+  profile       MeetingProfile
+  language      Language
+  replyLanguage Language?      @map("reply_language")
+  title         String?
+  status        MeetingStatus  @default(live)
+  summary       String?
+  overview      String?
+  contextBrief  String?        @map("context_brief")
+  startedAt     DateTime       @default(now()) @map("started_at")
+  endedAt       DateTime?      @map("ended_at")
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)

@@ -1,6 +1,6 @@
 use std::{ptr, ptr::NonNull, slice};
 
-use meet_copilot_core::audio::downmix_to_mono;
+use cueline_core::audio::downmix_to_mono;
 use objc2_core_audio_types::{AudioBuffer, AudioBufferList};
 use objc2_core_foundation::CFRetained;
 use objc2_core_media::{CMBlockBuffer, CMSampleBuffer};

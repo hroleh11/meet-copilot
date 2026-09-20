@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use meet_copilot_core::{
+use cueline_core::{
     backend::BackendApi,
     domain::{
         resource_mime_type, NewResourceFile, Resource, ResourceContent, ResourceId, ResourceLimits,

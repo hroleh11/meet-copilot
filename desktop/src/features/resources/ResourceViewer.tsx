@@ -11,7 +11,7 @@ export interface ResourceViewerProps {
   onClose: () => void;
 }
 
-/// What the copilot reads is the text, not the file, so this shows the text. When
+/// What the assistant reads is the text, not the file, so this shows the text. When
 /// a document was too long for its level, the compressed version is what actually
 /// travels, and both are here so it is clear which one the model sees.
 export function ResourceViewer({ resourceId, name, onClose }: ResourceViewerProps) {

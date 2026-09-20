@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs, path::Path, path::PathBuf};
 
-use meet_copilot_core::{
+use cueline_core::{
     error::{Error, Result},
     settings::{SecretKey, SecretStore},
     Secret,

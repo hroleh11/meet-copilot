@@ -21,6 +21,9 @@ export class MeetingResponse {
   @ApiProperty({ enum: Language })
   language: Language;
 
+  @ApiProperty({ enum: Language, nullable: true })
+  replyLanguage: Language | null;
+
   @ApiProperty({ nullable: true, type: String })
   title: string | null;
 

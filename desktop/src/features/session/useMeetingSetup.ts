@@ -5,9 +5,11 @@ import { useResettableDraft } from '~/shared/lib/useResettableDraft';
 interface UseMeetingSetupResult {
   profile: MeetingProfile;
   language: Language;
+  replyLanguage: Language | null;
   projectId: string | null;
   setProfile: (profile: MeetingProfile) => void;
   setLanguage: (language: Language) => void;
+  setReplyLanguage: (replyLanguage: Language | null) => void;
   setProjectId: (projectId: string | null) => void;
 }
 
@@ -15,7 +17,7 @@ interface UseMeetingSetupResult {
 /// choice goes into the user settings rather than living until the window is
 /// rebuilt. The project is the exception: it belongs to this call, and it has to
 /// be chosen before the start, because it decides which project materials the
-/// copilot is given.
+/// assistant is given.
 export function useMeetingSetup(
   defaults: UserSettings | null,
   onRemember: (settings: UserSettings) => void,
@@ -27,6 +29,7 @@ export function useMeetingSetup(
     defaults?.defaultLanguage ?? 'uk',
   );
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [replyLanguage, setReplyLanguage] = useState<Language | null>(null);
 
   const rememberProfile = useCallback(
     (chosen: MeetingProfile) => {
@@ -53,9 +56,11 @@ export function useMeetingSetup(
   return {
     profile,
     language,
+    replyLanguage,
     projectId,
     setProfile: rememberProfile,
     setLanguage: rememberLanguage,
+    setReplyLanguage,
     setProjectId,
   };
 }

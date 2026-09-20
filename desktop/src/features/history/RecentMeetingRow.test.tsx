@@ -10,6 +10,7 @@ const meeting = (over: Partial<Meeting> = {}): Meeting => ({
   projectId: null,
   profile: 'interview_candidate',
   language: 'uk',
+  replyLanguage: null,
   title: 'Frontend Developer — 2 етап',
   status: 'finished',
   startedAt: new Date('2026-02-03T09:00:00.000Z').toISOString(),

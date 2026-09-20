@@ -9,7 +9,7 @@ export const MEETING_TOOLS: LlmTool[] = [
   {
     name: MEETING_FACTS,
     description:
-      'Facts recorded about this meeting: when it started and ended, how long it lasted, how long each side spoke, how many lines the transcript has and how many answers the copilot gave. Call it for any question about time, length or who talked more.',
+      'Facts recorded about this meeting: when it started and ended, how long it lasted, how long each side spoke, how many lines the transcript has and how many answers the assistant gave. Call it for any question about time, length or who talked more.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
   {
@@ -41,7 +41,7 @@ export const MEETING_TOOLS: LlmTool[] = [
   {
     name: LIST_ANSWERS,
     description:
-      'The answers the copilot generated during the meeting, oldest first, with the time each was made.',
+      'The answers the assistant generated during the meeting, oldest first, with the time each was made.',
     parameters: { type: 'object', properties: {}, required: [] },
   },
 ];

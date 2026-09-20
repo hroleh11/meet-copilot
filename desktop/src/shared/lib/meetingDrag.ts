@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from 'react';
 
-export const MEETING_DRAG_TYPE = 'application/x-meet-copilot-meeting';
+export const MEETING_DRAG_TYPE = 'application/x-cueline-meeting';
 
 export interface DragSource {
   draggable: true;

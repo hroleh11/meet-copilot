@@ -39,7 +39,7 @@ mod tests {
 
     fn temp_path(name: &str) -> PathBuf {
         std::env::temp_dir()
-            .join("meet-copilot-tests")
+            .join("cueline-tests")
             .join(format!("{name}.json"))
     }
 

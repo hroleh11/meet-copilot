@@ -7,6 +7,7 @@ const meeting = (startedAt: Date, endedAt: Date | null): Meeting => ({
   projectId: null,
   profile: 'daily',
   language: 'uk',
+  replyLanguage: null,
   title: null,
   status: endedAt ? 'finished' : 'live',
   startedAt: startedAt.toISOString(),

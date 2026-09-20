@@ -1,4 +1,4 @@
-use meet_copilot_core::domain::{MeetingStart, SessionState};
+use cueline_core::domain::{Language, Meeting, MeetingStart, SessionState};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -37,6 +37,18 @@ pub async fn start_session(
         meeting_id: started.meeting.id,
         system_audio_problem: started.system_audio_problem,
     })
+}
+
+#[tauri::command]
+pub async fn switch_meeting_language(
+    language: Language,
+    reply_language: Option<Language>,
+    state: State<'_, AppState>,
+) -> Result<Meeting, CommandError> {
+    let session = state.session().await;
+    let mut session = session.lock().await;
+
+    Ok(session.switch_language(language, reply_language).await?)
 }
 
 #[tauri::command]

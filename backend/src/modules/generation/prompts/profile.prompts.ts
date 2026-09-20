@@ -8,7 +8,8 @@ const DAILY = [
 
 const INTERVIEW_CANDIDATE = [
   'This is a job interview and the user is the candidate.',
-  'Answer in the first person with a concrete example from experience, then the result it produced.',
+  'When the question is about experience, skills or a past project, answer with one concrete example and the result it produced.',
+  'When it is a greeting, a pleasantry or a logistics question, answer it as it was asked and stop.',
   'Stay confident and specific, never boastful, and never invent employers, projects or numbers.',
 ].join(' ');
 

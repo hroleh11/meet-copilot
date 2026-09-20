@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{
+    sync::{mpsc, watch},
+    task::JoinHandle,
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
     access::AccessPolicy,
     audio::{AudioFrame, AudioSource},
     backend::{BackendApi, SttEvent, SttGateway},
-    domain::{Meeting, MeetingId, MeetingStart, SessionState, Speaker},
+    domain::{Language, Meeting, MeetingId, MeetingStart, SessionState, Speaker},
     error::{Error, Result},
     session::{
         lane::{self, Lane},
@@ -39,6 +42,7 @@ struct Running {
     meeting: Meeting,
     sources: StartedSources,
     cancel: CancellationToken,
+    reopen: watch::Sender<u64>,
     lanes: Vec<JoinHandle<()>>,
 }
 
@@ -143,6 +147,30 @@ impl Session {
         }
     }
 
+    /// An interview can open in one language and carry on in another. Changing it
+    /// tells the lanes to take a new socket, and the backend reads the language
+    /// from the meeting row as they connect, so nothing else has to know.
+    pub async fn switch_language(
+        &mut self,
+        language: Language,
+        reply_language: Option<Language>,
+    ) -> Result<Meeting> {
+        let Some(running) = self.running.as_mut() else {
+            return Err(Error::Session("No meeting is running".to_owned()));
+        };
+
+        let meeting = self
+            .deps
+            .backend
+            .set_meeting_language(&running.meeting.id, language, reply_language)
+            .await?;
+
+        running.meeting = meeting.clone();
+        running.reopen.send_modify(|generation| *generation += 1);
+
+        Ok(meeting)
+    }
+
     fn attach(
         &self,
         meeting: &Meeting,
@@ -150,6 +178,7 @@ impl Session {
         transcript: mpsc::Sender<SttEvent>,
     ) -> Result<(Running, Option<String>)> {
         let cancel = CancellationToken::new();
+        let (reopen, listener) = watch::channel(0);
         let mut started = Vec::new();
         let mut lanes = Vec::new();
 
@@ -160,6 +189,7 @@ impl Session {
             &mut *microphone,
             transcript.clone(),
             &cancel,
+            &listener,
         )?);
         started.push(microphone);
 
@@ -172,6 +202,7 @@ impl Session {
                     &mut *system_audio,
                     transcript,
                     &cancel,
+                    &listener,
                 ) {
                     Ok(lane) => {
                         lanes.push(lane);
@@ -188,6 +219,7 @@ impl Session {
                 meeting: meeting.clone(),
                 sources: StartedSources::new(started),
                 cancel,
+                reopen,
                 lanes,
             },
             problem,
@@ -201,6 +233,7 @@ impl Session {
         source: &mut dyn AudioSource,
         transcript: mpsc::Sender<SttEvent>,
         cancel: &CancellationToken,
+        reopen: &watch::Receiver<u64>,
     ) -> Result<JoinHandle<()>> {
         let (frames_tx, frames_rx) = mpsc::channel::<AudioFrame>(FRAME_CHANNEL_CAPACITY);
 
@@ -213,6 +246,7 @@ impl Session {
             frames: frames_rx,
             events: transcript,
             cancel: cancel.clone(),
+            reopen: reopen.clone(),
         })))
     }
 }

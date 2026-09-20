@@ -15,6 +15,7 @@ export function toMeetingResponse(meeting: Meeting): MeetingResponse {
     projectId: meeting.projectId,
     profile: meeting.profile,
     language: meeting.language,
+    replyLanguage: meeting.replyLanguage,
     title: meeting.title,
     status: meeting.status,
     startedAt: meeting.startedAt,

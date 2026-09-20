@@ -6,7 +6,7 @@ pub mod events;
 pub mod logging;
 pub mod secrets;
 
-use meet_copilot_core::settings::LocalSettingsStore;
+use cueline_core::settings::LocalSettingsStore;
 use tauri::Manager;
 
 use crate::app::AppState;
@@ -75,6 +75,7 @@ pub fn run() {
             commands::ask_in_chat,
             commands::session_state,
             commands::start_session,
+            commands::switch_meeting_language,
             commands::stop_session,
             commands::generate,
             commands::finish_selection,

@@ -1,4 +1,4 @@
-use meet_copilot_core::audio::list_input_devices;
+use cueline_core::audio::list_input_devices;
 
 /// Opening a Bluetooth headset's microphone forces the headset into the call
 /// profile, and the meeting the user is listening to drops to phone quality. When
@@ -6,7 +6,7 @@ use meet_copilot_core::audio::list_input_devices;
 /// in stereo playback.
 #[cfg(target_os = "macos")]
 pub fn resolve(device_id: Option<String>) -> Option<String> {
-    use meet_copilot_platform_macos::audio_devices;
+    use cueline_platform_macos::audio_devices;
 
     if device_id.is_some() {
         return device_id;
@@ -47,7 +47,7 @@ pub fn bluetooth_names() -> Vec<String> {
             .unwrap_or_default()
             .into_iter()
             .filter(|device| {
-                meet_copilot_platform_macos::audio_devices::is_bluetooth_input(&device.name)
+                cueline_platform_macos::audio_devices::is_bluetooth_input(&device.name)
             })
             .map(|device| device.name)
             .collect()

@@ -30,7 +30,7 @@ async function bootstrap(): Promise<void> {
   const document = SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
-      .setTitle('Meet Copilot API')
+      .setTitle('Cueline API')
       .setDescription('Meetings, transcripts and reply generation')
       .setVersion('0.1.0')
       .addBearerAuth()

@@ -14,12 +14,14 @@ import { HotkeyHints } from './HotkeyHints';
 import { LanguageSelect } from './LanguageSelect';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import { ProjectSelect } from './ProjectSelect';
+import { ReplyLanguageSelect } from './ReplyLanguageSelect';
 import { StartMeetingButton } from './StartMeetingButton';
 import { useAudioSources } from './useAudioSources';
 
 export interface SessionSidebarProps {
   profile: MeetingProfile;
   language: Language;
+  replyLanguage: Language | null;
   projectId: string | null;
   projects: Project[];
   materials: UseResourcesResult;
@@ -30,6 +32,7 @@ export interface SessionSidebarProps {
   error: string | null;
   onProfileChange: (profile: MeetingProfile) => void;
   onLanguageChange: (language: Language) => void;
+  onReplyLanguageChange: (replyLanguage: Language | null) => void;
   onProjectChange: (projectId: string | null) => void;
   onStart: () => void;
   onStop: () => void;
@@ -38,6 +41,7 @@ export interface SessionSidebarProps {
 export function SessionSidebar({
   profile,
   language,
+  replyLanguage,
   projectId,
   projects,
   materials,
@@ -48,6 +52,7 @@ export function SessionSidebar({
   error,
   onProfileChange,
   onLanguageChange,
+  onReplyLanguageChange,
   onProjectChange,
   onStart,
   onStop,
@@ -66,8 +71,17 @@ export function SessionSidebar({
         <SectionLabel>{uk.meeting.language}</SectionLabel>
         <LanguageSelect
           language={language}
-          disabled={locked}
+          disabled={false}
           onChange={onLanguageChange}
+        />
+        <p className="text-caption text-ink-tertiary">{uk.meeting.languageHint}</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <SectionLabel>{uk.meeting.replyLanguage}</SectionLabel>
+        <ReplyLanguageSelect
+          replyLanguage={replyLanguage}
+          onChange={onReplyLanguageChange}
         />
       </div>
 

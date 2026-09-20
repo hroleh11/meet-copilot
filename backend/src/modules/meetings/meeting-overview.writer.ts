@@ -10,7 +10,7 @@ import { buildOverviewBlocks, OVERVIEW_SYSTEM_PROMPT } from './prompts/overview.
 const OVERVIEW_MAX_TOKENS = 2_048;
 const TRANSCRIPT_MAX_CHARS = 24_000;
 
-/// The notes behind `summary` are dense on purpose, because the copilot answers
+/// The notes behind `summary` are dense on purpose, because the assistant answers
 /// from them. What a person opening a finished meeting wants is three sentences,
 /// so it is written once and kept. Two readers can arrive together, so a run in
 /// flight is shared rather than started twice.

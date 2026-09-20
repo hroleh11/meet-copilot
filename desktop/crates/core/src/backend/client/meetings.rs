@@ -2,7 +2,7 @@ use reqwest::Method;
 use serde::Serialize;
 
 use crate::{
-    domain::{Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart, ProjectId},
+    domain::{Language, Meeting, MeetingDetails, MeetingId, MeetingScope, MeetingStart, ProjectId},
     error::Result,
 };
 
@@ -14,6 +14,13 @@ const MEETINGS_OUTSIDE_PROJECTS: &str = "none";
 #[serde(rename_all = "camelCase")]
 struct RenameBody<'a> {
     title: &'a str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LanguageBody {
+    language: Language,
+    reply_language: Option<Language>,
 }
 
 #[derive(Serialize)]
@@ -84,6 +91,24 @@ pub async fn move_to(
             &format!("meetings/{id}"),
             Some(&MoveBody {
                 project_id: project,
+            }),
+        )
+        .await
+}
+
+pub async fn set_language(
+    transport: &Transport,
+    id: &MeetingId,
+    language: Language,
+    reply_language: Option<Language>,
+) -> Result<Meeting> {
+    transport
+        .authorized(
+            Method::PATCH,
+            &format!("meetings/{id}"),
+            Some(&LanguageBody {
+                language,
+                reply_language,
             }),
         )
         .await

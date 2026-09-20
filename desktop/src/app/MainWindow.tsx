@@ -53,6 +53,7 @@ export function MainWindow({
       <SessionSidebar
         profile={setup.profile}
         language={setup.language}
+        replyLanguage={setup.replyLanguage}
         projectId={setup.projectId}
         projects={projects.projects}
         materials={materials}
@@ -62,13 +63,27 @@ export function MainWindow({
         notice={session.notice}
         error={session.error}
         onProfileChange={setup.setProfile}
-        onLanguageChange={setup.setLanguage}
+        onLanguageChange={(language) => {
+          setup.setLanguage(language);
+
+          if (session.state !== 'idle') {
+            session.switchLanguage(language, setup.replyLanguage);
+          }
+        }}
+        onReplyLanguageChange={(replyLanguage) => {
+          setup.setReplyLanguage(replyLanguage);
+
+          if (session.state !== 'idle') {
+            session.switchLanguage(setup.language, replyLanguage);
+          }
+        }}
         onProjectChange={setup.setProjectId}
         onStart={() => {
           session.start(
             {
               profile: setup.profile,
               language: setup.language,
+              replyLanguage: setup.replyLanguage,
               projectId: setup.projectId,
               resourceIds: materials.resources
                 .filter((resource) => resource.status === 'ready')

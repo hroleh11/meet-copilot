@@ -8,6 +8,7 @@ const details = (over: Partial<Details> = {}): Details => ({
   projectId: null,
   profile: 'client_call',
   language: 'uk',
+  replyLanguage: null,
   title: 'Дзвінок з Acme',
   status: 'finished',
   startedAt: '2026-02-03T09:15:00.000Z',

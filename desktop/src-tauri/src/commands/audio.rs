@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     audio::{list_input_devices, AudioDevice},
     error::Error,
 };
@@ -31,7 +31,7 @@ pub enum AudioPermission {
 pub async fn system_audio_allowed() -> bool {
     #[cfg(target_os = "macos")]
     {
-        tokio::task::spawn_blocking(meet_copilot_platform_macos::capture_kit::capture_allowed)
+        tokio::task::spawn_blocking(cueline_platform_macos::capture_kit::capture_allowed)
             .await
             .unwrap_or(false)
     }
@@ -48,7 +48,7 @@ pub async fn system_audio_allowed() -> bool {
 pub fn open_audio_permission(permission: AudioPermission) -> Result<(), CommandError> {
     #[cfg(target_os = "macos")]
     {
-        use meet_copilot_platform_macos::permissions::{open_privacy_settings, PrivacyPane};
+        use cueline_platform_macos::permissions::{open_privacy_settings, PrivacyPane};
 
         let pane = match permission {
             AudioPermission::Microphone => PrivacyPane::Microphone,

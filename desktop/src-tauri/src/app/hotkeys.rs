@@ -1,4 +1,4 @@
-use meet_copilot_core::{domain::GenerationMode, error::Result, settings::Hotkeys};
+use cueline_core::{domain::GenerationMode, error::Result, settings::Hotkeys};
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 

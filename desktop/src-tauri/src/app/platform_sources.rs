@@ -1,4 +1,4 @@
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioSource, MicrophoneSource},
     session::AudioSources,
 };
@@ -14,9 +14,7 @@ impl AudioSources for PlatformSources {
 
     #[cfg(target_os = "macos")]
     fn system_audio(&self) -> Option<Box<dyn AudioSource>> {
-        Some(Box::new(
-            meet_copilot_platform_macos::SystemAudioSource::new(),
-        ))
+        Some(Box::new(cueline_platform_macos::SystemAudioSource::new()))
     }
 
     #[cfg(not(target_os = "macos"))]

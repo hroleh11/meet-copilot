@@ -1,4 +1,4 @@
-use meet_copilot_core::{backend::BackendApi, domain::UserSettings, settings::LocalSettings};
+use cueline_core::{backend::BackendApi, domain::UserSettings, settings::LocalSettings};
 use tauri::{AppHandle, State};
 
 use crate::{

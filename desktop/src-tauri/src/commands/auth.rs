@@ -1,4 +1,4 @@
-use meet_copilot_core::{backend::BackendApi, domain::Profile};
+use cueline_core::{backend::BackendApi, domain::Profile};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;

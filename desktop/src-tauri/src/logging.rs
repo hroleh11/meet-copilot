@@ -7,7 +7,7 @@ use tracing_appender::{
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 const DEFAULT_FILTER: &str = "info";
-const FILE_PREFIX: &str = "meet-copilot";
+const FILE_PREFIX: &str = "cueline";
 const FILE_SUFFIX: &str = "log";
 const KEPT_FILES: usize = 7;
 

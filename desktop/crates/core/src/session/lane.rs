@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::{
     sync::{
         mpsc::{Receiver, Sender},
-        oneshot,
+        oneshot, watch,
     },
     time::{sleep, timeout},
 };
@@ -28,12 +28,18 @@ pub struct Lane {
     pub frames: Receiver<AudioFrame>,
     pub events: Sender<SttEvent>,
     pub cancel: CancellationToken,
+    pub reopen: watch::Receiver<u64>,
 }
 
 /// Keeps one speaker's audio flowing to the backend, reopening the socket when
 /// it drops. A reconnect keeps the meeting, so only the audio recorded while
 /// the socket was down is lost. Closing waits for the backend to flush the
 /// last utterance, which it only sends after the close request.
+///
+/// `reopen` is how the language changes mid-meeting: the backend reads it from
+/// the meeting row when a lane connects, so a new socket is all it takes. The
+/// audio sources never stop, and the close still flushes, so the sentence that
+/// was being spoken when the switch happened is not lost.
 pub async fn run(mut lane: Lane) {
     let mut attempt = 0;
 
@@ -102,6 +108,7 @@ async fn pump(
     let outcome = loop {
         let frame = tokio::select! {
             _ = lane.cancel.cancelled() => break Outcome::Finished,
+            _ = lane.reopen.changed() => break Outcome::Dropped,
             _ = &mut reader_ended => break Outcome::Dropped,
             frame = lane.frames.recv() => frame,
         };

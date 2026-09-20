@@ -31,6 +31,16 @@ export class CreateMeetingDto {
   @IsEnum(Language)
   language: Language;
 
+  @ApiPropertyOptional({
+    enum: Language,
+    nullable: true,
+    description: 'Language of the drafts; absent means following whoever is speaking',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsOptional()
+  @IsEnum(Language)
+  replyLanguage?: Language | null;
+
   @ApiPropertyOptional({ example: 'Дейлі з командою' })
   @IsOptional()
   @IsString()
@@ -56,6 +66,24 @@ export class CreateMeetingDto {
 }
 
 export class UpdateMeetingDto {
+  @ApiPropertyOptional({
+    enum: Language,
+    description: 'Switches recognition mid-meeting; the lanes reopen with it',
+  })
+  @IsOptional()
+  @IsEnum(Language)
+  language?: Language;
+
+  @ApiPropertyOptional({
+    enum: Language,
+    nullable: true,
+    description: 'null makes the drafts follow whoever is speaking',
+  })
+  @ValidateIf((_, value) => value !== null)
+  @IsOptional()
+  @IsEnum(Language)
+  replyLanguage?: Language | null;
+
   @ApiPropertyOptional({ example: 'Другий етап співбесіди' })
   @IsOptional()
   @IsString()

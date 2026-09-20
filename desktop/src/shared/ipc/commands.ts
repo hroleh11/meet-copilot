@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   ChatSession,
   GenerationMode,
+  Language,
   LocalSettings,
   Meeting,
   MeetingDetails,
@@ -142,6 +143,11 @@ export const sessionState = (): Promise<SessionState> => invoke('session_state')
 
 export const startSession = (meeting: MeetingStart): Promise<StartedMeeting> =>
   invoke('start_session', { meeting });
+
+export const switchMeetingLanguage = (
+  language: Language,
+  replyLanguage: Language | null,
+): Promise<Meeting> => invoke('switch_meeting_language', { language, replyLanguage });
 
 export const stopSession = (): Promise<void> => invoke('stop_session');
 

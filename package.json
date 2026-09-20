@@ -1,5 +1,5 @@
 {
-  "name": "meet-copilot",
+  "name": "cueline",
   "private": true,
   "scripts": {
     "lint": "pnpm -r lint",

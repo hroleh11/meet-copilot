@@ -1,11 +1,11 @@
-use keyring::Entry;
-use meet_copilot_core::{
+use cueline_core::{
     error::{Error, Result},
     settings::{SecretKey, SecretStore},
     Secret,
 };
+use keyring::Entry;
 
-const SERVICE: &str = "meet-copilot";
+const SERVICE: &str = "cueline";
 
 pub struct KeyringSecretStore;
 

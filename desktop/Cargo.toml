@@ -8,8 +8,8 @@ edition = "2021"
 rust-version = "1.82"
 
 [workspace.dependencies]
-meet-copilot-core = { path = "crates/core" }
-meet-copilot-platform-macos = { path = "crates/platform-macos" }
+cueline-core = { path = "crates/core" }
+cueline-platform-macos = { path = "crates/platform-macos" }
 async-trait = "0.1.89"
 base64 = "0.22.1"
 futures-core = "0.3.31"

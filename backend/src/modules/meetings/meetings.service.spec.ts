@@ -18,6 +18,7 @@ const meeting: Meeting = {
   projectId: null,
   profile: MeetingProfile.daily,
   language: Language.uk,
+  replyLanguage: null,
   title: null,
   status: 'live',
   summary: null,
@@ -155,6 +156,7 @@ describe('MeetingsService', () => {
       profile: MeetingProfile.daily,
       style: 'Коротко',
       contextBrief: '',
+      replyLanguage: null,
       today: meeting.startedAt.toISOString().slice(0, 10),
     });
   });

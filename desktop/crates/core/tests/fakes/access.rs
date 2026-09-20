@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use meet_copilot_core::{
+use cueline_core::{
     access::{AccessPolicy, DenialReason, Entitlement},
     error::Result,
 };

@@ -1,17 +1,17 @@
-name: meet-copilot-prod
+name: cueline-prod
 
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-meet_copilot}
+      POSTGRES_USER: ${POSTGRES_USER:-cueline}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-meet_copilot}
+      POSTGRES_DB: ${POSTGRES_DB:-cueline}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-meet_copilot}']
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-cueline}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -34,7 +34,7 @@ services:
       target: build
     restart: 'no'
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meet_copilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-meet_copilot}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cueline}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cueline}?schema=public
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +50,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5070
-      DATABASE_URL: postgresql://${POSTGRES_USER:-meet_copilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-meet_copilot}?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cueline}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cueline}?schema=public
       REDIS_URL: redis://redis:6379
     ports:
       - '${BACKEND_PORT:-5070}:5070'

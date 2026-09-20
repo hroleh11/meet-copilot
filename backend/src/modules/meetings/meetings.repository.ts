@@ -17,6 +17,7 @@ export class MeetingsRepository {
     userId: string;
     profile: MeetingProfile;
     language: Language;
+    replyLanguage?: Language | null;
     title?: string;
     projectId?: string;
   }): Promise<Meeting> {
@@ -25,6 +26,7 @@ export class MeetingsRepository {
         userId: data.userId,
         profile: data.profile,
         language: data.language,
+        replyLanguage: data.replyLanguage ?? null,
         title: data.title ?? null,
         projectId: data.projectId ?? null,
       },
@@ -98,7 +100,12 @@ export class MeetingsRepository {
 
   update(
     meetingId: string,
-    data: { title?: string; projectId?: string | null },
+    data: {
+      title?: string;
+      projectId?: string | null;
+      language?: Language;
+      replyLanguage?: Language | null;
+    },
   ): Promise<Meeting> {
     return this.prisma.meeting.update({ where: { id: meetingId }, data });
   }

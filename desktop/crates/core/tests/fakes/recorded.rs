@@ -3,7 +3,7 @@ use std::sync::{
     Arc,
 };
 
-use meet_copilot_core::{
+use cueline_core::{
     audio::{AudioFrame, AudioSource, SAMPLES_PER_FRAME},
     domain::Speaker,
     error::Result,

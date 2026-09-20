@@ -1,6 +1,6 @@
 ---
 name: rust-core
-description: Conventions for the Rust workspace of Meet Copilot (desktop/crates/core, desktop/crates/platform-macos, desktop/src-tauri). Load before writing or changing any Rust code, Cargo.toml, audio, backend client, session, settings or Tauri command code.
+description: Conventions for the Rust workspace of Cueline (desktop/crates/core, desktop/crates/platform-macos, desktop/src-tauri). Load before writing or changing any Rust code, Cargo.toml, audio, backend client, session, settings or Tauri command code.
 ---
 
 # Rust core conventions
@@ -68,6 +68,11 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 - `Generator` owns the current answer: start cancels the previous token, checks `AccessPolicy`, then streams `GenerationEvent::{Started, Delta, Finished, Failed}` into an `mpsc`. Cancelling drops the stream, which is what tells the backend to stop and store the partial answer. A body that ends without `done` is a `Failed`, and the text written so far stays on screen.
 - Hotkeys register through `tauri-plugin-global-shortcut` from `LocalSettings`, once at setup and again whenever settings are saved. A handler only acts on `ShortcutState::Pressed`.
 
+## Language, mid-meeting
+
+- `Session::switch_language` sets the language on the backend and then bumps a `watch` channel the lanes hold. Each lane's `pump` selects on it, breaks with `Outcome::Dropped`, and the loop it already had for reconnects opens a fresh socket — the backend reads the language from the meeting row as it connects. The audio sources are never stopped and the close still flushes, so the sentence in flight survives the switch.
+- A `CancellationToken` cannot serve here: it does not reset, and the language can change more than once in a meeting. The channel carries a generation counter instead.
+
 ## Materials
 
 - `ResourceScope` is adjacently tagged like `MeetingScope`, so a project level carries its id and a meeting level carries `None` until the meeting claims it. The client turns it into the query string; it is never sent as a body.
@@ -91,7 +96,7 @@ Module = directory with `mod.rs` that re-exports the public surface. Private fil
 
 - `LocalSettings` serialize to JSON with `serde` in the app data dir, unknown fields ignored, missing fields defaulted. They hold only what is local to the machine: backend URL, hotkeys, input device.
 - `UserSettings` (style, default language, default profile) are never stored locally; they are read from and written to the backend.
-- Tokens are the only secrets, behind `SecretStore`. Release builds use the OS keychain (`keyring`, service `meet-copilot`, accounts from `SecretKey`). Debug builds use a `0600` JSON file in the app config directory, because an ad-hoc signature changes on every build and the keychain then asks for the login password on every launch. `secrets::secret_store` is the single place that chooses.
+- Tokens are the only secrets, behind `SecretStore`. Release builds use the OS keychain (`keyring`, service `cueline`, accounts from `SecretKey`). Debug builds use a `0600` JSON file in the app config directory, because an ad-hoc signature changes on every build and the keychain then asks for the login password on every launch. `secrets::secret_store` is the single place that chooses.
 - Secrets are carried in `Secret`, whose `Debug` prints `Secret(***)`, so a token cannot reach a log through a struct dump.
 
 ## Tauri boundary

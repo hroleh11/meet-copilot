@@ -2,12 +2,12 @@ mod fakes;
 
 use std::{sync::Arc, time::Duration};
 
-use fakes::EmptySecrets;
-use meet_copilot_core::{
+use cueline_core::{
     backend::{BackendApi, BackendClient, BackendEndpoint},
     backend_failure::BackendFailure,
     error::Error,
 };
+use fakes::EmptySecrets;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
