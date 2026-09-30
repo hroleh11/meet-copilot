@@ -1,18 +1,18 @@
 # Cueline
 
-Слухає онлайн-зустріч, веде живий транскрипт і за гарячою клавішею готує коротку відповідь, яку можна прочитати вголос.
+Listens to online meetings, creates a live transcript, and prepares a concise reply you can read aloud when you press a hotkey.
 
-- `backend/` — NestJS, володіє станом продукту та ключами провайдерів
-- `desktop/` — Tauri, захоплює звук і показує відповідь в оверлеї
-- `docs/PLAN.md` — обсяг і задачі по порядку
-- `docs/ARCHITECTURE.md` — модулі, контракт API, модель даних
+- `backend/` — NestJS server that owns product state and provider keys
+- `desktop/` — Tauri app that captures audio and displays replies in an overlay
+- `docs/PLAN.md` — project scope and tasks in order
+- `docs/ARCHITECTURE.md` — modules, API contract, and data model
 
-## Вимоги
+## Requirements
 
-- Node постачається автоматично: pnpm тримає версію з `devEngines` у `package.json`, системний Node не потрібен
-- pnpm 12, Rust 1.82+, Xcode Command Line Tools, Docker
+- Node is managed automatically: pnpm uses the version specified in `devEngines` in `package.json`, so a system-wide Node installation is not required
+- pnpm 12, Rust 1.82+, Xcode Command Line Tools, and Docker
 
-## Запуск
+## Getting Started
 
 ```bash
 pnpm install
@@ -23,9 +23,9 @@ pnpm --filter backend start:dev
 pnpm --filter desktop tauri dev
 ```
 
-Бекенд слухає `http://localhost:5070/api/v1`, Swagger на `/api/v1/docs`. Postgres на порту 5440, Redis на 6390: нестандартні порти навмисне, щоб не конфліктувати з іншими проєктами.
+The backend is available at `http://localhost:5070/api/v1`, with Swagger at `/api/v1/docs`. Postgres uses port 5440 and Redis uses port 6390. These non-standard ports are intentional to avoid conflicts with other projects.
 
-## Перевірки
+## Checks
 
 ```bash
 pnpm lint
