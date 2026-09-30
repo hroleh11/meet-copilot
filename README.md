@@ -4,8 +4,19 @@ Listens to online meetings, creates a live transcript, and prepares a concise re
 
 - `backend/` — NestJS server that owns product state and provider keys
 - `desktop/` — Tauri app that captures audio and displays replies in an overlay
-- `docs/PLAN.md` — project scope and tasks in order
-- `docs/ARCHITECTURE.md` — modules, API contract, and data model
+- `docs/` — documentation: product, guides, architecture, API, decisions
+
+## Documentation
+
+Start at [`docs/README.md`](docs/README.md).
+
+- [Product overview](docs/product/overview.md) and [features](docs/product/features.md)
+- [Getting started](docs/guides/getting-started.md) and [configuration](docs/guides/configuration.md)
+- [Architecture overview](docs/architecture/overview.md) and [a live meeting end to end](docs/architecture/live-meeting.md)
+- [Backend](docs/backend/README.md), [API reference](docs/backend/api.md), [data model](docs/backend/data-model.md), [AI pipeline](docs/backend/ai-pipeline.md)
+- [Desktop app](docs/desktop/README.md), [IPC](docs/desktop/ipc.md), [windows and UI](docs/desktop/windows-and-ui.md)
+- [Technical decisions (ADR)](docs/decisions/README.md)
+- Working specs: [`docs/PLAN.md`](docs/PLAN.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/RELEASE.md`](docs/RELEASE.md)
 
 ## Requirements
 

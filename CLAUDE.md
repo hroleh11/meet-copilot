@@ -57,4 +57,4 @@ Everything relevant to the part you touched must pass before a task is considere
 - Do one task from `docs/PLAN.md` at a time, in order. Finish it fully, run the checks, then stop.
 - Before adding a module, check the layout in `docs/ARCHITECTURE.md` and put it where it belongs.
 - Skills in `.claude/skills` hold the conventions for the backend, the Rust core and the frontend. Read the relevant one before touching that area.
-- The user reads Ukrainian; write user-facing UI text and docs in Ukrainian, code and identifiers in English.
+- The user reads Ukrainian; write user-facing UI text in Ukrainian. Docs, code and identifiers are in English.

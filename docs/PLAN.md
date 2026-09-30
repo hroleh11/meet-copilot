@@ -1,242 +1,271 @@
-# Cueline — план реалізації
+# Cueline — implementation plan
 
-Продукт із двох частин в одному репозиторії:
+A product of two parts in one repository:
 
-- `backend/` — сервер на NestJS, який володіє всім станом продукту: користувачами, зустрічами, транскриптами, резюме, налаштуваннями, промптами. Він тримає ключі провайдерів, розпізнає мову через Deepgram і генерує відповіді через OpenAI.
-- `desktop/` — тонкий застосунок на Tauri: захоплює звук, шле його на бекенд, показує живий транскрипт, за гарячою клавішею просить відповідь і показує її в оверлеї.
+- `backend/` — a NestJS server that owns all product state: users, meetings, transcripts, summaries, settings, prompts. It holds the provider keys, recognises speech through Deepgram and generates replies through OpenAI.
+- `desktop/` — a thin Tauri app: it captures audio, sends it to the backend, shows the live transcript, asks for a reply on a hotkey and shows it in an overlay.
 
-Перша версія робиться для macOS. Код структурований так, щоб Linux і Windows додавалися заміною одного модуля захоплення звуку, а підписка додавалася без правок по всьому коду.
+The first version is built for macOS. The code is structured so that Linux and Windows are added by replacing one audio-capture module, and a subscription is added without edits all over the code.
 
-## Ключові рішення
+## Key decisions
 
-| Питання | Рішення |
-|---|---|
-| Репозиторій | pnpm workspace: `desktop`, `backend`. Спільні документи в `docs` |
-| Стиль бекенду | Конвенції перенесені з референсного проєкту: `common` / `infrastructure` / `modules`, репозиторій на всі запити Prisma, `index.ts` як публічний інтерфейс модуля, аліас `~`, zod для env, Swagger |
-| Бекенд | NestJS 11, TypeScript strict, Prisma 7 з `@prisma/adapter-pg`, PostgreSQL, ioredis, `openai`, Deepgram через `ws` |
-| Інфраструктура для розробки | `docker compose` у корені піднімає Postgres і Redis. Бекенд запускається локально через pnpm |
-| Postgres | Користувачі, облікові дані, налаштування, зустрічі, фінальні сегменти, генерації, облік витрат |
-| Redis | Живий стан зустрічі: вікно свіжих сегментів, резюме, остання відповідь, блокування резюмування. Плюс одноразові коди входу для застосунку. TTL на все |
-| Авторизація | Email з паролем і Google OAuth, JWT access і refresh, токени в тілі відповіді. Вебверсії немає, тому немає кук і CORS. Вхід через Google йде системним браузером і одноразовим кодом |
-| Підписка | `SubscriptionGuard` поруч з `AtGuard` і `UsageRecorder` як єдині точки на бекенді. У застосунку `AccessPolicy` при старті сесії та генерації. Перша версія: усе дозволено |
-| Застосунок | Tauri 2, Rust-ядро, React + TypeScript UI. Без локальної бази: історія й налаштування приходять із бекенду |
-| Ключі провайдерів | Тільки в `.env` бекенду |
-| Мікрофон | `cpal`, кросплатформно |
-| Системний звук macOS | ScreenCaptureKit через Rust-біндинги, за інтерфейсом `AudioSource` |
-| Розпізнавання мови | Deepgram nova-3 стрімінгом, два окремі потоки на зустріч: мікрофон і системний звук |
-| Мова | Обирається перед стартом: uk, en, ru. Відповідь тією ж мовою |
-| Генерація | OpenAI Responses API: `gpt-5.6-terra` для відповідей, `gpt-5.4-mini` для фонового резюме, обидва в конфігу бекенду. Вибрані заміром затримки й довжини відповіді на реальних промптах |
-| Контекст | Бекенд тримає вікно свіжих сегментів у Redis, старіше стискає в резюме фоново. Промпт із кешованим стабільним префіксом |
-| Гарячі клавіші | `tauri-plugin-global-shortcut`. Клавіша «відповісти», «інший варіант», «знімок екрана», показати оверлей і перехопити мишу |
-| Знімок екрана | Своє вікно вибору області плюс ScreenCaptureKit у нашому ж процесі: дочірній `screencapture` без дозволу тихо віддає шпалери. Картинка стискається в ядрі й їде в тілі `generate`. У Postgres лишається тільки позначка, сама картинка живе в Redis із TTL |
-| Оверлей | Окреме вікно поверх усіх, невидиме при демонстрації екрана |
-| Старт | Вручну кнопкою. Автодетект зустрічі не робимо |
-| Матеріали для ШІ | Три рівні: зустріч, проєкт, користувач. Ресурс — самостійний обʼєкт користувача, а не частина зустрічі, тому вантажиться до її створення й привласнюється нею на старті. Конфлікти вирішує порядок рівнів, не модель |
-| Сховище файлів | Cloudflare R2 через S3-сумісний API за інтерфейсом `ObjectStorage`. Оригінали в R2, витягнутий текст і дайджест у Postgres. Векторного пошуку немає: матеріали влазять у промпт цілком |
+| Question                   | Decision                                                                                                                                                                                                                                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository                 | pnpm workspace: `desktop`, `backend`. Shared documents in `docs`                                                                                                                                                                                                                                         |
+| Backend style              | Conventions carried over from a reference project: `common` / `infrastructure` / `modules`, a repository for every Prisma query, `index.ts` as the module's public interface, the `~` alias, zod for env, Swagger                                                                                        |
+| Backend                    | NestJS 11, TypeScript strict, Prisma 7 with `@prisma/adapter-pg`, PostgreSQL, ioredis, `openai`, Deepgram through `ws`                                                                                                                                                                                   |
+| Development infrastructure | `docker compose` at the root brings up Postgres and Redis. The backend runs locally through pnpm                                                                                                                                                                                                         |
+| Postgres                   | Users, credentials, settings, projects, meetings, final segments, generations, chats, materials, usage accounting                                                                                                                                                                                        |
+| Redis                      | Live meeting state: window of fresh segments, summary, the last six conversation turns, summarization lock, liveness heartbeat. Plus settings cache and one-time sign-in codes for the app. TTL on everything                                                                                            |
+| Authentication             | Email with password and Google OAuth, JWT access and refresh, tokens in the response body. There is no web version, so no cookies and no CORS. Google sign-in goes through the system browser and a one-time code                                                                                        |
+| Rate limiting              | `ThrottlerGuard` globally: 100 requests per minute, stricter on registration and login                                                                                                                                                                                                                   |
+| Subscription               | `SubscriptionGuard` next to `AtGuard` and `UsageRecorder` as the only points on the backend. In the app, `AccessPolicy` at session start and generation. First version: everything is allowed                                                                                                            |
+| App                        | Tauri 2, Rust core, React + TypeScript UI. No local database: history and settings come from the backend                                                                                                                                                                                                 |
+| Provider keys              | Only in the backend `.env`                                                                                                                                                                                                                                                                               |
+| Microphone                 | `cpal`, cross-platform                                                                                                                                                                                                                                                                                   |
+| macOS system audio         | ScreenCaptureKit through Rust bindings, behind the `AudioSource` interface                                                                                                                                                                                                                               |
+| Speech recognition         | Deepgram nova-3 streaming, two separate streams per meeting: microphone and system audio                                                                                                                                                                                                                 |
+| Language                   | Chosen before start: uk, en, ru, and switchable during the meeting. Reply language is separate and by default follows the conversation                                                                                                                                                                   |
+| Generation                 | OpenAI Responses API: `gpt-5.6-terra` for replies and the meeting chat, `gpt-5.4-mini` for the background summary, overview and material digests, both in the backend config. Chosen by measuring latency and reply length on real prompts                                                               |
+| Context                    | The backend keeps a window of fresh segments in Redis and compresses older ones into a summary in the background. The prompt is a conversation with a stable system prefix that OpenAI caches automatically                                                                                              |
+| Hotkeys                    | `tauri-plugin-global-shortcut`. Keys for "reply", "alternative", "screenshot", show the overlay and give it the mouse                                                                                                                                                                                    |
+| Screenshot                 | Our own region-selection window plus ScreenCaptureKit in our own process: a child `screencapture` without permission silently returns the wallpaper. The picture is compressed in core and travels in the body of `generate`. It lives in the conversation turn log in Redis; Postgres keeps only a flag |
+| Overlay                    | A separate always-on-top window, invisible during screen sharing, transparent to the mouse by default                                                                                                                                                                                                    |
+| Start                      | Manually with a button. No automatic meeting detection                                                                                                                                                                                                                                                   |
+| Materials for the AI       | Three levels: meeting, project, user. A resource is a standalone user object, not part of a meeting, so it uploads before the meeting exists and is claimed by it at start. Conflicts are resolved by the order of levels, not by the model                                                              |
+| File storage               | Cloudflare R2 through the S3-compatible API behind the `ObjectStorage` interface. Originals in R2, extracted text and digest in Postgres. No vector search: the materials fit into the prompt whole                                                                                                      |
 
-## Фічі першої версії
+## First-version features
 
-- **Вхід.** Реєстрація й вхід за email і паролем прямо в застосунку, вхід через Google відкриває браузер і повертається через одноразовий код.
-- **Сесія зустрічі.** Кнопка старт/стоп, вибір профілю (дейлі, співбесіда як кандидат, дзвінок з клієнтом) і мови. Зустріч створюється на бекенді.
-- **Живий транскрипт.** Два потоки звуку, репліки позначені «я» або «інші», проміжні результати замінюються фінальними.
-- **Відповідь за клавішею.** Бекенд сам збирає контекст із резюме, свіжого транскрипту, профілю та стилю. Відповідь стрімиться в оверлей, є кнопка копіювання.
-- **Інший варіант.** Друга клавіша просить інший кут або формулювання; бекенд пам'ятає попередню відповідь.
-- **Питання зі знімком екрана.** Клавіша відкриває системний вибір області, знімок їде разом із питанням, яке щойно прозвучало в розмові, і модель відповідає по тому, що на екрані.
-- **Стиль і дефолти.** Стиль, мова й профіль за замовчуванням зберігаються на бекенді. Порожній стиль означає дефолт: коротко, розмовно, без канцеляриту, до 15 секунд вголос.
-- **Історія.** Список минулих зустрічей, транскрипт і згенеровані відповіді кожної.
-- **Проєкти.** Зустрічі групуються в проєкти (наприклад, усі етапи однієї співбесіди). Список проєктів стоїть над списком зустрічей на головному екрані, зустріч додається перетягуванням, проєкти й зустрічі перейменовуються й видаляються.
-- **Мова посеред зустрічі.** Мова розмови перемикається під час дзвінка: співбесіда, що почалась українською і пішла англійською, не втрачає транскрипт. Мова відповіді окремо, і за замовчуванням вона йде за розмовою.
-- **Матеріали для ШІ.** Перед дзвінком можна дати асистенту документи: PDF, Markdown або просто вставлений текст. Три рівні — резюме й загальний контекст у налаштуваннях користувача, опис проєкту на проєкті, матеріали конкретної зустрічі на панелі старту. Суперечності між рівнями вирішуються на користь зустрічі, потім проєкту, потім користувача.
-- **Витрати.** Бекенд рахує токени й секунди аудіо за зустріч, застосунок показує приблизну вартість.
+- **Sign-in.** Email and password right in the app; Google sign-in opens the browser and returns through a one-time code.
+- **Meeting session.** A start/stop button, choice of profile (stand-up, interview as candidate, client call) and language. The meeting is created on the backend.
+- **Live transcript.** Two audio streams, lines labelled "me" or "others", interim results replaced by final ones.
+- **Reply on a key.** The backend builds the context itself from the summary, fresh transcript, profile, style and materials. The reply streams into the overlay; copying is text selection.
+- **Alternative.** A second key asks for another angle or wording; the backend remembers the previous reply and replaces it.
+- **Question with a screenshot.** A key opens our region selection over all displays, the capture goes together with the question that just sounded in the conversation, and the model answers based on what is on the screen.
+- **Style and defaults.** Style, default language and profile are stored on the backend. An empty style means the default: brief, conversational, no corporate filler, up to 15 seconds aloud.
+- **History.** A list of past meetings with overview, transcript, generated replies, materials and cost of each.
+- **Meeting chat.** Any number of chats per finished meeting; the model answers with tools over the transcript.
+- **Projects.** Meetings are grouped into projects (for example, all rounds of one interview). The projects bar sits above the meeting list on the main screen, a meeting is added by dragging, projects and meetings are renamed and deleted.
+- **Language mid-meeting.** The conversation language switches during the call: an interview that started in Ukrainian and moved to English does not lose the transcript. The reply language is separate and by default follows the conversation.
+- **Materials for the AI.** Before a call you can give the assistant documents: PDF, Markdown or just pasted text. Three levels — résumé and general context in the user's settings, project description on the project, materials of a specific meeting on the start panel. Conflicts between levels are resolved in favour of the meeting, then the project, then the user.
+- **Cost.** The backend counts tokens and audio seconds per meeting, the app shows an approximate cost.
 
-## Заділи на майбутнє (в коді є точки розширення, реалізації немає)
+## Groundwork for the future (the code has extension points, no implementation)
 
-- Підписка через merchant of record, ліміти на користувача в Redis, `SubscriptionGuard`.
-- Знімки екрана в історії зустрічі: зараз картинка не зберігається, у відповіді лишається тільки позначка.
-- Пам'ять між зустрічами.
-- Векторний пошук по матеріалах: `resource_chunks` з pgvector як інструмент чату по зустрічі. Поки матеріалів одиниці, вони їдуть у промпт цілком, і ретрівал лише ламав би кешований префікс.
-- Діаризація інших учасників і підстановка імен.
-- Локальний Whisper як безкоштовний STT.
-- Linux (PipeWire) і Windows (WASAPI loopback) джерела звуку.
+- Subscription through a merchant of record, per-user limits in Redis, `SubscriptionGuard`.
+- Screenshots in meeting history: now the picture is not stored, only a flag remains on the reply.
+- Memory across meetings.
+- Vector search over materials: `resource_chunks` with pgvector as a tool of the meeting chat. While materials are few, they go into the prompt whole, and retrieval would only break the cached prefix.
+- Diarization of other participants and name substitution.
+- Local Whisper as free STT.
+- Linux (PipeWire) and Windows (WASAPI loopback) audio sources.
 
-## Архітектура
+## Architecture
 
-Детально в `docs/ARCHITECTURE.md`, кроки збірки й випуску в `docs/RELEASE.md`. Коротко:
+Details in `docs/ARCHITECTURE.md`, build and release steps in `docs/RELEASE.md`. In short:
 
 ```
-backend/src/common          config, decorators, dto, guards, middleware, types
+backend/src/common          config, decorators, dto, filters, guards, middleware, sse, untrusted, types
 backend/src/infrastructure   prisma, redis, hashing, llm, stt, storage
 backend/src/modules          auth, user, settings, projects, meetings, resources, stt, context, generation, chat, usage, health
-desktop/crates/core          платформно-незалежне ядро без Tauri
-desktop/crates/platform-macos захоплення системного звуку для macOS
-desktop/src-tauri            команди, події, вікна, гарячі клавіші, композиція
-desktop/src                  React UI: головне вікно, оверлей, налаштування, історія, проєкти, матеріали
+desktop/crates/core          platform-independent core without Tauri
+desktop/crates/platform-macos system audio, screen capture, audio devices, permissions for macOS
+desktop/src-tauri            commands, events, windows, hotkeys, composition
+desktop/src                  React UI: main window, overlay, settings, history, projects, materials, chat
 ```
 
-Потік даних: `AudioSource` → PCM 16 kHz mono → WebSocket на бекенд → Deepgram → сегмент у Redis і Postgres → подія в застосунок → за клавішею `POST generate` → бекенд збирає контекст із Redis → OpenAI → SSE в оверлей.
+Data flow: `AudioSource` → PCM 16 kHz mono → WebSocket to the backend → Deepgram → segment into Redis and Postgres → event to the app → on a key `POST generate` → the backend builds context from Redis → OpenAI → SSE into the overlay.
 
-## Задачі по порядку
+## Tasks in order
 
-Кожна задача завершується робочим станом, який можна запустити й перевірити. Наступна задача не починається, поки попередня не проходить усі перевірки з `CLAUDE.md`.
+Each task ends in a working state that can be run and checked. The next task does not start until the previous one passes every check from `CLAUDE.md`.
 
-Зроблено: задачі 1–16, 18 (інтерфейс за макетом), 23 (питання зі знімком екрана), 24 (проєкти) і 25 (матеріали для ШІ). Наступна: 17. Рядок оновлюється тим самим комітом, що й код задачі.
+Done: tasks 1–16 and 18–25. Next: 17. This line is updated in the same commit as the task's code.
 
-### 1. Скелет монорепо та інфраструктура
-- Корінь: `pnpm-workspace.yaml`, `docker-compose.yml` з Postgres і Redis, спільні `.editorconfig`, `.prettierrc`, `.gitignore`, скрипти, ініціалізація git.
-- `backend/`: NestJS 11 через `nest new`, аліас `~`, строгий TypeScript, ESLint, Prettier, Jest, Swagger, `ConfigModule` з валідацією env через zod, Prisma з генерацією клієнта в `src/generated/prisma`, `.env.example`.
-- `desktop/`: Tauri 2 + React + TypeScript + Vite через `create-tauri-app`, Tailwind, ESLint, Prettier, Vitest. Cargo workspace: `crates/core`, `crates/platform-macos`, `src-tauri`.
-- Результат: `docker compose up -d`, бекенд відповідає на health, застосунок відкриває порожнє вікно.
+Tasks are kept as they were planned. Where a later task changed the result of an earlier one, the earlier one says so.
 
-### 2. Бекенд: інфраструктура та спільний шар
-- `infrastructure/prisma`: `PrismaService` на `@prisma/adapter-pg`, глобальний модуль.
-- `infrastructure/redis`: `RedisService` на ioredis з типізованими хелперами, глобальний модуль, коректне закриття.
-- `infrastructure/hashing`: `HashingService` на argon2.
-- `common`: декоратори `@Public`, `@GetCurrentUserId`, `@GetCurrentUser`, спільні response DTO, глобальний фільтр помилок і логер із `requestId`.
-- `modules/health`: перевіряє Postgres і Redis.
-- Результат: health показує стан обох сховищ, невідомий маршрут повертає однакову форму помилки.
+### 1. Monorepo skeleton and infrastructure
 
-### 3. Бекенд: авторизація та користувач
-- Prisma: `User`, `UserCredentials`, `AuthSession`, `UserSettings`. Перша міграція.
-- `modules/auth`: реєстрація, вхід, вихід, оновлення токенів, стратегії access і refresh. Сесія на пристрій, refresh-токен лише як хеш, повторне використання старого токена вбиває сесію.
-- Google OAuth: стратегія, контролер, зв'язування за email, створення користувача.
-- Вхід через Google: `GET /auth/google` відкривається в браузері, після успіху бекенд редіректить на `cueline://auth?code=...`, застосунок міняє одноразовий код із Redis на пару токенів у `POST /auth/exchange`.
+- Root: `pnpm-workspace.yaml`, `docker-compose.yml` with Postgres and Redis, shared `.editorconfig`, `.prettierrc`, `.gitignore`, scripts, git init.
+- `backend/`: NestJS 11 via `nest new`, the `~` alias, strict TypeScript, ESLint, Prettier, Jest, Swagger, `ConfigModule` with env validation through zod, Prisma generating the client into `src/generated/prisma`, `.env.example`.
+- `desktop/`: Tauri 2 + React + TypeScript + Vite via `create-tauri-app`, Tailwind, ESLint, Prettier, Vitest. Cargo workspace: `crates/core`, `crates/platform-macos`, `src-tauri`.
+- Result: `docker compose up -d`, the backend answers health, the app opens an empty window.
+
+### 2. Backend: infrastructure and shared layer
+
+- `infrastructure/prisma`: `PrismaService` on `@prisma/adapter-pg`, a global module.
+- `infrastructure/redis`: `RedisService` on ioredis with typed helpers, a global module, clean shutdown.
+- `infrastructure/hashing`: `HashingService` on argon2.
+- `common`: decorators `@Public`, `@GetCurrentUserId`, `@GetCurrentUser`, shared response DTOs, a global exception filter and a logger with `requestId`.
+- `modules/health`: checks Postgres and Redis.
+- Result: health shows the state of both stores, an unknown route returns the same error shape.
+
+### 3. Backend: authentication and user
+
+- Prisma: `User`, `UserCredentials`, `AuthSession`, `UserSettings`. First migration.
+- `modules/auth`: registration, login, logout, token refresh, access and refresh strategies. A session per device, the refresh token only as a hash, reuse of an old token kills the session.
+- Google OAuth: strategy, controller, linking by email, user creation.
+- Google sign-in: `GET /auth/google` opens in the browser, after success the backend redirects to `cueline://auth?code=...`, the app exchanges the one-time code from Redis for a token pair at `POST /auth/exchange`.
 - `modules/user`: `GET /users/me`.
-- `AtGuard` глобальний, `@Public()` на відкритих маршрутах. `SubscriptionGuard` як заготовка, що поки завжди пропускає.
-- Результат: можна зареєструватися, увійти обома способами й отримати свій профіль.
+- `AtGuard` global, `@Public()` on open routes. `SubscriptionGuard` as a stub that always passes for now.
+- Result: you can register, sign in both ways and get your profile.
 
-### 4. Бекенд: налаштування та зустрічі
+### 4. Backend: settings and meetings
+
 - Prisma: `Meeting`, `Segment`, `Generation`, `UsageEvent`.
-- `modules/settings`: читання й запис стилю, мови та профілю за замовчуванням, кеш у Redis.
-- `modules/meetings`: створити, завершити, список, деталі з транскриптом і генераціями. Усі запити перевіряють власника.
-- `MeetingStateStore` над Redis: сегменти вікна, резюме, остання відповідь, статус, блокування. Єдиний модуль, який знає ключі Redis.
-- `modules/usage`: `UsageRecorder` пише `UsageEvent`.
-- Результат: через Swagger можна створити зустріч, побачити її в списку й завершити.
+- `modules/settings`: reading and writing style, default language and profile, cache in Redis.
+- `modules/meetings`: create, finish, list, details with transcript and generations. Every query checks the owner.
+- `MeetingStateStore` over Redis: window segments, summary, the last reply, locking. The only module that knows the Redis keys. Status later stayed in Postgres only, and the last reply grew into the turn log (task 23).
+- `modules/usage`: `UsageRecorder` writes `UsageEvent`.
+- Result: through Swagger you can create a meeting, see it in the list and finish it.
 
-### 5. Бекенд: розпізнавання мови
-- `infrastructure/stt`: `SttProvider` із реалізацією на Deepgram live API через прямий WebSocket.
-- `modules/stt`: WebSocket `/v1/meetings/:id/stt?speaker=me`, авторизація тим самим access-токеном, одне з'єднання провайдера на одне клієнтське.
-- Фінальні сегменти пишуться в Postgres і у вікно в Redis, проміжні лише повертаються клієнту.
-- Тест з фейковим провайдером.
-- Результат: тестовий скрипт із WAV-файлом отримує транскрипт, він же в деталях зустрічі.
+### 5. Backend: speech recognition
 
-### 6. Бекенд: контекст і резюме
-- `infrastructure/llm`: `LlmProvider` на `openai` зі стрімом і токенами.
-- `modules/context`: `ContextWindow` ділить вікно за бюджетом, `Summarizer` під блокуванням у Redis стискає старішу частину і зливає з попереднім резюме.
-- Юніт-тести на бюджети, порядок сегментів і відсутність паралельного резюмування.
-- Результат: зустріч на дві години тримає контекст у фіксованому розмірі.
+- `infrastructure/stt`: `SttProvider` with an implementation on the Deepgram live API through a direct WebSocket.
+- `modules/stt`: WebSocket `/api/v1/meetings/:id/stt?speaker=me`, authorised with the same access token, one provider connection per client connection.
+- Final segments are written to Postgres and to the window in Redis, interim ones are only returned to the client.
+- A test with a fake provider.
+- Result: a test script with a WAV file gets a transcript, and it is in the meeting details too.
 
-### 7. Бекенд: генерація відповіді
-- `modules/generation`: `POST /v1/meetings/:id/generate` зі стрімом SSE, тіло `{ mode }`.
-- `PromptBuilder`: стабільний системний блок із `cache_control`, далі резюме, вікно сегментів, попередня відповідь, інструкція режиму й мови. Промпти профілів і дефолтний стиль як файли даних.
-- Генерація зберігається в Postgres, остання відповідь у Redis, витрати в `UsageRecorder`.
-- Тести `PromptBuilder` і контролера з фейковим провайдером.
-- Результат: після транскрипту запит повертає стрім відповіді потрібною мовою.
+### 6. Backend: context and summary
 
-### 8. Застосунок: домен та інтерфейси ядра
-- Типи домену, дзеркальні до DTO бекенду. Трейти: `AudioSource`, `BackendApi`, `SttStream`, `SecretStore`, `AccessPolicy`.
-- Єдиний тип помилки через `thiserror`. Контракти IPC у Rust і дзеркальні TS-типи.
-- Результат: ядро компілюється, є юніт-тести на серіалізацію.
+- `infrastructure/llm`: `LlmProvider` on `openai` with streaming and tokens.
+- `modules/context`: `ContextWindow` splits the window by budget, `Summarizer` under a Redis lock compresses the older part and merges it with the previous summary.
+- Unit tests on budgets, segment order and the absence of parallel summarization.
+- Result: a two-hour meeting keeps its context at a fixed size.
 
-### 9. Застосунок: вхід, налаштування, клієнт бекенду
-- `BackendApi` на `reqwest`: єдиний клієнт, автоматичне оновлення access-токена по refresh, один мапінг помилок.
-- Вхід: кнопка відкриває браузер, застосунок слухає deep link `cueline://auth`, міняє код на токени, кладе їх у Keychain.
-- Локальні налаштування: адреса бекенду, аудіопристрої, гарячі клавіші. Налаштування користувача читаються з бекенду.
-- `AccessPolicy` з реалізацією `AlwaysAllowed`, хук `useAccess` і екран-заглушка.
-- Результат: вхід працює, профіль видно, налаштування переживають перезапуск.
+### 7. Backend: reply generation
 
-### 10. Застосунок: захоплення мікрофона
-- `AudioSource` на `cpal`, вибір пристрою, конвертація в 16 kHz mono i16 через `rubato`, фрейми по 100 мс.
-- Рівень гучності в UI, обробка дозволу на мікрофон.
-- Результат: індикатор реагує на голос.
+- `modules/generation`: `POST /api/v1/meetings/:id/generate` with an SSE stream, body `{ mode }`.
+- `PromptBuilder`: a stable system block that OpenAI caches as a prefix automatically, then the summary, the segment window, the previous reply, the mode and language instruction. Profile prompts and the default style as data files. The single block later became a conversation with turns (task 23).
+- The generation is stored in Postgres, the last reply in Redis, the cost in `UsageRecorder`.
+- Tests for `PromptBuilder` and the controller with a fake provider.
+- Result: after a transcript, the request returns a reply stream in the right language.
 
-### 11. Застосунок: системний звук на macOS
-- `AudioSource` у `crates/platform-macos` на ScreenCaptureKit, той самий формат фреймів.
-- Дозвіл «Запис екрана» з інструкцією в UI. Обидва джерела працюють паралельно.
-- Резервний варіант: Swift sidecar, який пише PCM у stdout, без зміни інтерфейсу.
-- Результат: два індикатори гучності, мікрофон і зустріч.
+### 8. App: domain and core interfaces
 
-### 12. Застосунок: сесія та живий транскрипт
-- Стан сесії: `Idle`, `Starting`, `Listening`, `Stopping`. Старт створює зустріч, відкриває два потоки, стоп завершує зустріч.
-- Перепідключення при розриві без втрати зустрічі.
-- Транскрипт у пам'яті лише для показу: проміжний сірим, фінальний звичайним.
-- Результат: під час зустрічі видно, хто що говорить, після стопу зустріч є на бекенді.
+- Domain types mirroring the backend DTOs. Traits: `AudioSource`, `BackendApi`, `SttGateway`, `SecretStore`, `AccessPolicy`.
+- A single error type through `thiserror`. IPC contracts in Rust and mirror TS types.
+- Result: the core compiles, there are unit tests on serialization.
 
-### 13. Застосунок: генерація, гарячі клавіші, оверлей
-- Виклик генерації, розбір SSE, скасування попереднього запиту, режими «відповісти» й «інший варіант».
-- Глобальні комбінації з локальних налаштувань.
-- Оверлей: поверх усіх, без рамки, не забирає фокус, прихований від демонстрації екрана, стрімінговий рендер і копіювання.
-- Результат: клавіша натиснута в Meet, відповідь з'явилась в оверлеї.
+### 9. App: sign-in, settings, backend client
 
-### 14. Застосунок: головний потік та історія
-- Головне вікно: старт/стоп, вибір профілю й мови з дефолтами з бекенду, статуси джерел і з'єднання, живий транскрипт.
-- Історія: список зустрічей, транскрипт і відповіді вибраної, витрати.
-- Помилки людською мовою: не увійшов, немає дозволу, бекенд недоступний.
-- Результат: повний сценарій від входу до відповіді без консолі.
+- `BackendApi` on `reqwest`: a single client, automatic access-token refresh with the refresh token, one error mapping.
+- Sign-in: the button opens the browser, the app listens for the deep link `cueline://auth`, exchanges the code for tokens, puts them in Keychain.
+- Local settings: backend address, audio devices, hotkeys. User settings are read from the backend.
+- `AccessPolicy` with the `AlwaysAllowed` implementation, the `useAccess` hook and a placeholder screen.
+- Result: sign-in works, the profile is visible, settings survive a restart.
 
-### 15. Надійність обох частин
-- Бекенд: прибирання прострочених сесій за розкладом, таймаути до провайдерів, обмеження розміру запитів, завершення «завислих» зустрічей, e2e тести з фейковими провайдерами.
-- Застосунок: `tracing` у файл з ротацією, коректна зупинка, повторні спроби для мережі, інтеграційний тест ядра на записаному аудіо з фейковим бекендом.
+### 10. App: microphone capture
 
-### 16. Збірка й запуск
-- Бекенд: Dockerfile, compose для продакшену, міграції при деплої.
-- Застосунок: іконка, entitlements, реєстрація схеми `cueline://`, підпис і нотаризація.
-- Перевірка на чистій системі.
+- `AudioSource` on `cpal`, device choice, conversion to 16 kHz mono i16 through `rubato`, 100 ms frames.
+- Volume level in the UI, handling of microphone permission.
+- Result: the indicator reacts to the voice.
 
-### 18. Інтерфейс за макетом
-- Тема з `tokens.json` дизайн-системи в `desktop/src/shared/theme/tokens.css`, світла й темна.
-- Три екрани макета живими компонентами: вхід (email і пароль плюс Google), головне вікно (профіль, мова, джерела, старт, останні зустрічі), оверлей відповіді.
-- Оверлей прозорий з розмиттям, рівень вікна вище повноекранних застосунків, глобальна клавіша ⌥R.
-- Тема йде за системною: у макеті світлі значення токенів, у Dark mode macOS — темні пари з того ж `tokens.json`.
-- Окремого екрана знайомства немає: макет його не містить, перший екран це вхід.
-- Результат: застосунок виглядає як у макеті, стан у компонентах справжній.
+### 11. App: system audio on macOS
 
-### 19. Оверлей: прозорий для миші, з повним транскриптом
-- Оверлей за замовчуванням не ловить мишу взагалі: кліки проходять у застосунок під ним. Окрема гаряча клавіша вмикає режим взаємодії, і лише в ньому вікно можна тягнути, міняти йому розмір і гортати транскрипт.
-- Кнопок в оверлеї немає: копіювання й перегенерація лишаються гарячими клавішами.
-- Транскрипт показує всю зустріч, а не останні репліки: тримається низу, вгору гортається порціями.
+- `AudioSource` in `crates/platform-macos` on ScreenCaptureKit, the same frame format.
+- "Screen Recording" permission with instructions in the UI. Both sources work in parallel.
+- Fallback plan: a Swift sidecar writing PCM to stdout, without changing the interface. It was not needed.
+- Result: two volume indicators, microphone and meeting.
 
-### 20. Екран зустрічі й нескінченний список
-- Клік по зустрічі відкриває саме її: ліворуч поле питання до ШІ по цій зустрічі, у центрі транскрипт і відповіді, праворуч інші недавні зустрічі.
-- Кнопка «Усі» з головного екрана зникає, список зустрічей вантажиться порціями при гортанні.
-- Бекенд: `GET /meetings` приймає курсор і ліміт.
+### 12. App: session and live transcript
 
-### 21. Чат по зустрічі
-- Новий ендпоінт питання до зустрічі зі стрімом відповіді, промпт будується з транскрипту й резюме.
-- Питання й відповіді зберігаються поряд із зустріччю, тож історія чату доступна при наступному відкритті.
-- Токени йдуть через `UsageRecorder`, як і генерація реплік.
+- Session state: `Idle`, `Starting`, `Listening`, `Stopping`. Start creates the meeting and opens two streams, stop finishes the meeting.
+- Reconnection on a drop without losing the meeting.
+- The transcript in memory only for display: interim in grey, final in normal text.
+- Result: during a meeting you see who says what; after stop the meeting is on the backend.
 
-### 22. Екран зустрічі: чати, окремі картки, коротке резюме
-- Правого списку інших зустрічей на екрані зустрічі немає. Ліворуч список чатів саме по цій зустрічі з пошуком і кнопкою «Новий чат», у центрі окремі картки резюме, транскрипту, відповідей і витрат.
-- Клік по чату відкриває його окремим екраном того самого вікна, у вигляді месенджера: питання праворуч, відповідь ліворуч, стрілка назад веде на зустріч. Список чатів стоїть ліворуч і там, звідки чат відкрили, і в самому чаті; зайвий чат видаляється з рядка списку з підтвердженням у діалозі.
-- Резюме на екрані це щонайбільше три речення про суть зустрічі, а не переказ питань і відповідей. Щільні нотатки лишаються на сервері для асистента.
-- Чат працює зустріч інструментами (факти, пошук і читання транскрипту, список відповідей), тому знає тривалість і хто скільки говорив. Текст зустрічі приходить до моделі як матеріал у тегах, а не як інструкції.
+### 13. App: generation, hotkeys, overlay
 
-### 23. Питання зі знімком екрана
-- Окрема гаряча клавіша (`Alt+S` за замовчуванням) відкриває прозоре вікно вибору області на моніторі під курсором. Esc або права кнопка скасовують, і тоді не відбувається нічого.
-- Знімає ScreenCaptureKit усередині застосунку, тим самим дозволом, що й звук зустрічі. Дочірній `/usr/sbin/screencapture` не годиться: macOS перевіряє дозвіл по «відповідальному» процесі (у розробці це WebStorm) і без нього мовчки віддає робочий стіл без вікон.
-- Знімок стискається в ядрі до довгої сторони 1400 px і JPEG у межах 400 КБ, їде в base64 у тілі `POST /meetings/:id/generate` і доходить до моделі картинкою поряд із транскриптом.
-- Питання береться з розмови, як і для звичайної відповіді: окремого поля для тексту немає.
-- Картинка лежить у Redis із TTL, тому «інший варіант» бачить її теж; наступне питання без знімка її забуває. У Postgres лишається лише `hasScreenshot`.
+- Calling generation, parsing SSE, cancelling the previous request, "reply" and "alternative" modes.
+- Global shortcuts from local settings.
+- Overlay: on top of everything, frameless, does not take focus, hidden from screen sharing, streaming render and copying. The copy button was later removed (task 19).
+- Result: a key pressed in Meet, a reply appeared in the overlay.
 
-### 24. Проєкти, перейменування й видалення
-- Проєкт це група зустрічей із назвою: усі етапи однієї співбесіди, усі дзвінки з одним клієнтом. Зустріч належить щонайбільше одному проєкту.
-- Бекенд: таблиця `projects`, `Meeting.projectId`, модуль `projects` з `GET`, `POST`, `PATCH` і `DELETE`. `GET /meetings` приймає `projectId`, де `none` означає зустрічі поза всіма проєктами. `PATCH /meetings/:id` перейменовує зустріч і переносить її між проєктами, `DELETE /meetings/:id` видаляє її з транскриптом, відповідями й чатами.
-- Видалення проєкту забирає його зустрічі каскадом, тому застосунок питає підтвердження й називає кількість. Поки зустріч у проєкті триває, і проєкт, і сама зустріч не видаляються: 409.
-- Застосунок: смуга проєктів над списком зустрічей на головному екрані, картка «Без проєкту» першою. Клік по картці звужує список, кидок рядка зустрічі на картку переносить зустріч, кидок на «Без проєкту» виймає її. Перейменування на місці, видалення через діалог.
-- Результат: зустрічі з однієї співбесіди лежать разом, зайве видаляється, назви виправляються без консолі.
+### 14. App: main flow and history
 
-### 25. Матеріали для ШІ: три рівні
-- Ресурс — самостійний обʼєкт користувача: PDF, Markdown або вставлений текст. Рівень задає `scope`: `user` (налаштування), `project` (опис проєкту), `meeting` (матеріали одного дзвінка).
-- Матеріали зустрічі вантажаться **до** того, як зустріч існує: ресурс лежить зі `scope: meeting` і порожнім `meetingId`, а `POST /meetings` приймає `resourceIds` і привласнює їх у тій самій транзакції, що створює рядок. Ніякої зустрічі-чернетки й нового статусу. Непривласнене прибирає `StagedResourcesSweeper` через добу.
-- Оригінали лежать у Cloudflare R2 за інтерфейсом `ObjectStorage`; витягнутий текст і дайджест — у Postgres, бо саме їх читає промпт. Вставлений руками текст обʼєкта в R2 не має.
-- Витягання тексту: `unpdf` для PDF, декодування для Markdown і тексту. Скан без текстового шару стає `failed` із зрозумілим повідомленням, OCR немає. Що не влазить у бюджет рівня — один раз стискається моделлю резюме в `digest`, і витрати йдуть у `UsageRecorder` видом `digest`.
-- `ContextBriefBuilder` збирає три рівні в один текст: `<about-me>`, `<about-project>`, `<about-meeting>` у цьому порядку, огорожі через спільний `common/untrusted`, бюджет по рівнях, і при переповненні ріжеться знизу. Бріф замерзає на старті зустрічі в `Meeting.contextBrief` і в стані Redis — так само, як стиль, щоб системний блок лишався байт у байт тим самим і префікс кешувався.
-- `POST /meetings` приймає ще й `projectId`, бо рівень проєкту треба знати на старті. На панелі старту зʼявляється селектор проєкту; перетягування в історії лишається як було.
-- Застосунок: вкладка «Матеріали» в налаштуваннях, матеріали на екрані проєкту, блок матеріалів із дропзоною на панелі старту, перелік використаних матеріалів на екрані зустрічі.
-- Результат: асистент відповідає з оглядкою на резюме користувача, опис проєкту й матеріали саме цього дзвінка, а суперечності між ними вирішуються передбачувано.
+- Main window: start/stop, choice of profile and language with defaults from the backend, source and connection statuses, live transcript.
+- History: meeting list, transcript and replies of the selected one, cost.
+- Errors in human language: not signed in, no permission, backend unavailable.
+- Result: the full scenario from sign-in to reply without a console.
 
-### 17. Після першої версії
-- Підписка: платіжка, вебхуки, `SubscriptionGuard`, ліміти в Redis, пейвол у застосунку.
-- Збережені знімки екрана в історії зустрічі й пам'ять між зустрічами як нові джерела для `PromptBuilder`.
-- Векторний пошук по матеріалах, коли їх стане більше, ніж влазить у бріф.
-- Діаризація інших учасників, локальний Whisper, Linux і Windows `AudioSource`.
+### 15. Reliability of both parts
+
+- Backend: scheduled cleanup of expired sessions, provider timeouts, request size limits, finishing "stuck" meetings, e2e tests with fake providers.
+- App: `tracing` to a file with rotation, clean shutdown, network retries, a core integration test on recorded audio with a fake backend.
+
+### 16. Build and release
+
+- Backend: Dockerfile, production compose, migrations on deploy.
+- App: icon, entitlements, registration of the `cueline://` scheme, signing and notarization.
+- Checking on a clean system.
+
+### 18. UI from the mockup
+
+- Theme from the design system's `tokens.json` in `desktop/src/shared/theme/tokens.css`, light and dark.
+- Three mockup screens as live components: sign-in (email and password plus Google), main window (profile, language, sources, start, recent meetings), reply overlay.
+- The overlay is transparent with blur, its window level is above full-screen apps, global key ⌥R.
+- The theme follows the system: the mockup has the light token values, macOS Dark mode gets the dark pairs from the same `tokens.json`.
+- No separate onboarding screen: the mockup does not have one, the first screen is sign-in.
+- Result: the app looks like the mockup, the state in components is real.
+
+### 19. Overlay: transparent to the mouse, with the full transcript
+
+- By default the overlay does not catch the mouse at all: clicks pass into the app below. A separate hotkey turns on interaction mode, and only in it can the window be dragged, resized and its transcript scrolled.
+- No buttons in the overlay: copying is text selection, regeneration stays a hotkey.
+- The transcript shows the whole meeting, not the last lines: it sticks to the bottom and scrolls upward in portions.
+
+### 20. Meeting screen and infinite list
+
+- A click on a meeting opens exactly that meeting: on the left a question field to the AI about this meeting, in the centre the transcript and replies, on the right other recent meetings. Task 22 later reshaped this screen.
+- The "All" button disappears from the main screen, the meeting list loads in portions as you scroll.
+- Backend: `GET /meetings` takes a cursor and a limit.
+
+### 21. Meeting chat
+
+- A new endpoint for asking a meeting a question with a streamed answer; the prompt is built from the transcript and summary.
+- Questions and answers are stored next to the meeting, so the chat history is available on the next visit.
+- Tokens go through `UsageRecorder`, like reply generation.
+
+### 22. Meeting screen: chats, separate cards, short overview
+
+- No right-hand list of other meetings on the meeting screen. On the left a list of chats about this meeting with search and a "New chat" button, in the centre separate cards for the overview, transcript, replies and cost.
+- A click on a chat opens it as a separate screen of the same window, styled as a messenger: the question on the right, the answer on the left, the back arrow leads to the meeting. The chat list stands on the left both where the chat was opened from and in the chat itself; an unwanted chat is deleted from the list row with confirmation in a dialog.
+- The overview on screen is at most three sentences about the substance of the meeting, not a retelling of questions and answers. Dense notes stay on the server for the assistant.
+- The chat works the meeting with tools (facts, searching and reading the transcript, list of replies), so it knows the duration and who talked how much. The meeting text reaches the model as material in tags, not as instructions.
+
+### 23. Question with a screenshot
+
+- A separate hotkey (`Alt+S` by default) opens a transparent region-selection window over all displays. Esc or right-click cancels, and then nothing happens.
+- Capture is done by ScreenCaptureKit inside the app, with the same permission as meeting audio. A child `/usr/sbin/screencapture` does not work: macOS checks the permission against the "responsible" process (in development that is WebStorm), and without it silently returns the desktop without windows.
+- The capture is compressed in core to a long side of 1,400 px and JPEG within 400 KB, travels in base64 in the body of `POST /meetings/:id/generate` and reaches the model as a picture next to the transcript.
+- The question is taken from the conversation, as for a normal reply: there is no separate text field.
+- The prompt became a conversation with turns. The picture lives inside the turn it came with, in the turn log in Redis, so "alternative" and follow-ups see it too, while a new question about something else does not drag it along. The log keeps only the newest picture. Postgres keeps only `hasScreenshot`.
+
+### 24. Projects, renaming and deletion
+
+- A project is a named group of meetings: all rounds of one interview, all calls with one client. A meeting belongs to at most one project.
+- Backend: the `projects` table, `Meeting.projectId`, a `projects` module with `GET`, `POST`, `PATCH` and `DELETE`. `GET /meetings` takes `projectId`, where `none` means meetings outside every project. `PATCH /meetings/:id` renames the meeting and moves it between projects, `DELETE /meetings/:id` deletes it with its transcript, replies and chats.
+- Deleting a project takes its meetings with it by cascade, so the app asks for confirmation and names the count. While a meeting in the project is live, neither the project nor the meeting itself can be deleted: 409.
+- App: a projects bar above the meeting list on the main screen, the "No project" card first. A click on a card narrows the list, dropping a meeting row onto a card moves the meeting, dropping onto "No project" takes it out. Renaming in place, deletion through a dialog.
+- Result: meetings from one interview lie together, the unnecessary is deleted, names are fixed without a console.
+
+### 25. Materials for the AI: three levels
+
+- A resource is a standalone user object: PDF, Markdown or pasted text. The level is set by `scope`: `user` (settings), `project` (project description), `meeting` (materials of one call).
+- Meeting materials upload **before** the meeting exists: a resource lies with `scope: meeting` and an empty `meetingId`, and `POST /meetings` takes `resourceIds` and claims them right after creating the row. No draft meeting and no new status. Unclaimed ones are removed by `StagedResourcesSweeper` after a day.
+- Originals lie in Cloudflare R2 behind the `ObjectStorage` interface; the extracted text and digest are in Postgres, because that is what the prompt reads. Hand-pasted text has no object in R2.
+- Text extraction: `unpdf` for PDF, decoding for Markdown and text. A scan without a text layer becomes `failed` with a clear message, there is no OCR. What does not fit the level's budget is compressed once by the summary model into `digest`, and the cost goes to `UsageRecorder` with kind `digest`.
+- `ContextBriefBuilder` assembles the three levels into one text: `<about-me>`, `<about-project>`, `<about-meeting>` in that order, fences through the shared `common/untrusted`, a budget per level, and on overflow it cuts from the bottom. The brief freezes at meeting start in `Meeting.contextBrief` and in the Redis state — just like the style, so the system block stays byte for byte the same and the prefix is cached.
+- `POST /meetings` also takes `projectId`, because the project level has to be known at start. A project selector appears on the start panel; dragging in history stays as it was.
+- App: a "Materials" tab in settings, materials above the meeting list when a project is open, a materials block on the start panel with an "Add file" button and a form for pasted text (no drop zone: native drag-and-drop is off in the main window), the list of used materials on the meeting screen.
+- Result: the assistant answers with regard to the user's résumé, the project description and the materials of this very call, and conflicts between them are resolved predictably.
+
+### 17. After the first version
+
+- Subscription: payments, webhooks, `SubscriptionGuard`, limits in Redis, a paywall in the app.
+- Stored screenshots in meeting history and memory across meetings as new sources for `PromptBuilder`.
+- Vector search over materials, when there are more than fit into the brief.
+- Diarization of other participants, local Whisper, Linux and Windows `AudioSource`.

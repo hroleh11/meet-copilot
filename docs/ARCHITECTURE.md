@@ -1,255 +1,274 @@
-# Архітектура
+# Architecture
 
-## Принципи
+This is the normative specification: the API contract, data model, types, traits and every behavioural detail. The reader-friendly guide to the same material starts at [`docs/README.md`](README.md).
 
-- Бекенд є джерелом істини. Користувачі, зустрічі, транскрипти, резюме, налаштування та промпти живуть на сервері. Застосунок є тонким клієнтом: звук, гарячі клавіші, оверлей, показ.
-- Дві частини, один контракт. Застосунок і бекенд спілкуються лише через API, описаний нижче. Провайдери відомі тільки бекенду.
-- Postgres для того, що має пережити все. Redis для того, що читається на кожен запит під час живої зустрічі, і для короткоживучих кодів.
-- Ядро застосунку не знає про Tauri. `desktop/crates/core` компілюється й тестується без UI та без macOS.
-- Усе платформне або зовнішнє ховається за інтерфейсом. Реалізацію обирає композиційний корінь.
-- Файл робить одну річ і не перевищує приблизно 200 рядків. Модуль зростає розбиттям, а не подовженням.
+## Principles
 
-## Структура репозиторію
+- The backend is the source of truth. Users, meetings, transcripts, summaries, settings and prompts live on the server. The app is a thin client: audio, hotkeys, overlay, display.
+- Two parts, one contract. The app and the backend talk only through the API described below. Providers are known only to the backend.
+- Postgres for what must survive everything. Redis for what is read on every request during a live meeting, and for short-lived codes.
+- The app core does not know about Tauri. `desktop/crates/core` compiles and is tested without a UI and without macOS.
+- Everything platform-specific or external hides behind an interface. The composition root picks the implementation.
+- A file does one thing and stays under roughly 200 lines. A module grows by splitting, not by getting longer.
+
+## Repository layout
 
 ```
-docker-compose.yml             Postgres, Redis для розробки
+docker-compose.yml             Postgres, Redis for development
+docker-compose.prod.yml        production: postgres, redis, migrate, backend
 
 backend/prisma/                schema.prisma, migrations
 backend/src
   main.ts, app.module.ts
   common/
-    config/        env.schema.ts через zod, validateEnv
-    decorators/    Public, GetCurrentUserId, GetCurrentUser
-    dto/           спільні response-класи
-    filters/       глобальний фільтр помилок
+    config/        env.schema.ts with zod, validateEnv
+    decorators/    Public, GetCurrentUserId, GetCurrentUser, GetRefreshSession
+    dto/           shared response classes
+    filters/       global exception filter
     guards/        AtGuard, RtGuard, GoogleGuard, SubscriptionGuard
-    types/         express.d.ts
+    middleware/    RequestIdMiddleware
+    sse/           SseWriter
+    untrusted/     fences for third-party text in prompts
+    types/         express.d.ts, auth types
   infrastructure/
-    prisma/        PrismaService на @prisma/adapter-pg, @Global
-    redis/         RedisService на ioredis, @Global
-    hashing/       HashingService на argon2
+    prisma/        PrismaService on @prisma/adapter-pg, @Global
+    redis/         RedisService on ioredis, @Global
+    hashing/       HashingService on argon2
     llm/           LlmProvider, OpenAiLlmProvider
     stt/           SttProvider, DeepgramSttProvider
     storage/       ObjectStorage, R2ObjectStorage
   modules/
-    auth/          email і пароль, JWT, Google, одноразовий код для застосунку
-    user/          профіль
-    settings/      стиль, мова та профіль за замовчуванням
-    projects/      групи зустрічей
-    resources/     матеріали трьох рівнів, витягання тексту, контекстний бріф
-    meetings/      зустрічі, MeetingStateStore над Redis
-    stt/           WebSocket-шлюз
+    auth/          email and password, JWT, Google, one-time code for the app
+    user/          profile
+    settings/      style, default language and profile
+    projects/      groups of meetings
+    resources/     materials on three levels, text extraction, context brief
+    meetings/      meetings, MeetingStateStore over Redis, overview
+    stt/           WebSocket gateway
     context/       ContextWindow, Summarizer
-    generation/    SSE-генерація, PromptBuilder, prompts
-    chat/          чати по завершеній зустрічі, ChatAgent та інструменти по ній
+    generation/    SSE generation, PromptBuilder, prompts
+    chat/          chats about a finished meeting, ChatAgent and its tools
     usage/         UsageRecorder
     health/
 
 desktop/crates/core/src
-  domain/        Meeting, MeetingScope, Project, Resource, ResourceScope, TranscriptSegment, Speaker, Language, MeetingProfile, Generation, GenerationMode, UserSettings
-  audio/         AudioSource, AudioFrame, resample, level
-  backend/       BackendApi, BackendEndpoint, auth, http, stt_stream, sse
-  session/       Session, SessionState, transcript view
-  screenshot/    ScreenCapture, Screenshot, стиснення знімка
-  settings/      LocalSettings, defaults, SecretStore
-  access/        AccessPolicy, Entitlement, always_allowed
-  error.rs
+  domain/        Meeting, MeetingScope, MeetingStart, Project, Resource, ResourceScope, TranscriptSegment,
+                 Speaker, Language, MeetingProfile, Generation, GenerationMode, UserSettings, SessionState
+  audio/         AudioSource, AudioFrame, MicrophoneSource, MonoResampler, device listing
+  backend/       BackendApi, SttGateway, BackendEndpoint, client/ (BackendClient, transport, sse, speech)
+  session/       Session lifecycle, Lane, AudioSources
+  generation/    Generator, GenerationEvent
+  screenshot/    ScreenCapture, Screenshot, shrink
+  settings/      LocalSettings, LocalSettingsStore, SecretStore
+  access/        AccessPolicy, Entitlement, AlwaysAllowed
+  error.rs, secret.rs, backend_failure.rs
 
 desktop/crates/platform-macos/src
-  capture_kit/   спільне для ScreenCaptureKit: перелік вмісту, ThreadSafe
-  system_audio/  AudioSource на ScreenCaptureKit, делегат, розбір CMSampleBuffer
-  screen_capture/ ScreenCapture на SCScreenshotManager, розбір CGImage
-  permissions/   дозвіл на запис екрана
+  capture_kit/    shared ScreenCaptureKit pieces: content listing, ThreadSafe, capture_allowed
+  system_audio/   AudioSource on ScreenCaptureKit, delegate, CMSampleBuffer parsing
+  screen_capture/ ScreenCapture on SCScreenshotManager, CGImage parsing, region mapping
+  audio_devices/  CoreAudio transport type of each input
+  permissions/    screen recording permission, System Settings panes
 
 desktop/src-tauri/src
-  app/           AppState, композиція ядра, життєвий цикл
-  commands/      тонкі Tauri-команди, по файлу на область
-  events.rs      назви подій та payload-типи
-  windows/       головне вікно, оверлей, content protection
-  hotkeys/       глобальні комбінації
-  deep_link/     обробка cueline://auth
+  app/           AppState, core composition, lifecycle, hotkeys, overlay, selection, macos_window
+  commands/      thin Tauri commands, one file per area
+  events.rs      event names and payload types
+  deep_link.rs   handling of cueline://auth
+  secrets/       Keychain store and debug file store
+  logging.rs     tracing to a rotated file
 
 desktop/src
-  main.tsx, overlay.tsx, selection.tsx   по точці входу на вікно
-  app/           екрани головного вікна та оболонка оверлея
+  main.tsx, overlay.tsx, selection.tsx   one entry point per window
+  app/           main-window screens and the overlay shell
   features/      auth, session, generation, settings, history, projects, resources, chat, access
-  shared/theme/  tokens.css, згенерований із дизайн-системи
+  shared/theme/  tokens.css, generated from the design system
   shared/        ipc, ui, store, lib, i18n
 ```
 
-## Контракт API
+## API contract
 
-Базовий префікс `/api/v1`. Маршрути без `@Public()` вимагають `Authorization: Bearer`. Вебверсії немає, тому немає ні кук, ні CORS: єдиний клієнт це застосунок.
+Base prefix `/api/v1`. Routes without `@Public()` require `Authorization: Bearer`. There is no web version, so there are no cookies and no CORS: the only client is the app.
 
-### Авторизація
+Global guards run in this order: `ThrottlerGuard` (100 requests per minute by default), `AtGuard`, `SubscriptionGuard`.
 
-- `POST /auth/register` `{ email, name, password }` → `{ accessToken, refreshToken, expiresIn }`. Застосунок цей маршрут не викликає: у макеті входу немає поля імені, а бекенд вимагає його.
-- `POST /auth/login` `{ email, password }` → пара токенів
-- `POST /auth/refresh` `{ refreshToken }` → нова пара токенів
-- `POST /auth/logout` → видаляє поточну сесію
-- `GET /auth/google` → відкривається в системному браузері
-- `GET /auth/google/callback` → редірект на `cueline://auth?code=...`
-- `POST /auth/exchange` `{ code }` → пара токенів
+### Authentication
 
-Одноразовий код живе в Redis 60 секунд і згорає при обміні.
+- `POST /auth/register` `{ email, name, password }` → `{ accessToken, refreshToken, expiresIn }`. Throttled to 5 per minute. The app does not call this route: the sign-in mockup has no name field, and the backend requires one.
+- `POST /auth/login` `{ email, password }` → token pair. Throttled to 10 per minute.
+- `POST /auth/refresh` `{ refreshToken }`, checked by `RtGuard` → new token pair
+- `POST /auth/logout` → deletes the current session
+- `GET /auth/google` → opened in the system browser
+- `GET /auth/google/callback` → redirect to `cueline://auth?code=...`
+- `POST /auth/exchange` `{ code }` → token pair
 
-Сесії зберігаються в таблиці `auth_sessions`, по рядку на пристрій, тому вхід із другої машини не вибиває першу. Refresh-токен зберігається лише як argon2-хеш, а ідентифікатор сесії їде в обох токенах. Повторне використання старого refresh-токена трактується як компрометація: сесія видаляється.
+The one-time code lives in Redis for 60 seconds and burns on exchange. The access token lives 15 minutes, the refresh token 15 days.
 
-### Користувач і налаштування
+Sessions are stored in `auth_sessions`, one row per device, so signing in on a second machine does not sign out the first. The refresh token is stored only as an argon2 hash, and the session id travels in both tokens. Reuse of an old refresh token is treated as compromise: the session is deleted.
 
-- `GET /users/me` → профіль
+### User and settings
+
+- `GET /users/me` → profile
 - `GET /settings` → `{ style, defaultLanguage, defaultProfile }`
-- `PUT /settings` з тим самим тілом
+- `PUT /settings` with the same body
 
-### Проєкти
+### Projects
 
-- `GET /projects` → `[{ id, name, meetingCount, createdAt, updatedAt }]`, останній змінений першим
-- `POST /projects` `{ name }` → проєкт
-- `PATCH /projects/:id` `{ name }` → перейменований проєкт
-- `DELETE /projects/:id` → видаляє проєкт разом з усіма зустрічами в ньому
+- `GET /projects` → `[{ id, name, meetingCount, createdAt, updatedAt }]`, most recently changed first
+- `POST /projects` `{ name }` → project
+- `PATCH /projects/:id` `{ name }` → renamed project
+- `DELETE /projects/:id` → deletes the project together with all its meetings
 
-Проєкт це група зустрічей, зроблена руками: усі етапи однієї співбесіди, усі дзвінки з одним клієнтом. Зустріч належить щонайбільше одному проєкту або жодному. Видалення проєкту забирає з собою його зустрічі — це каскад у базі, і застосунок питає підтвердження, називаючи кількість. Поки хоч одна зустріч у проєкті ще триває, видалення відмовляється з 409: рядок, який пишуть прямо зараз, не можна прибрати з-під потоку розпізнавання.
+A project is a hand-made group of meetings: all rounds of one interview, all calls with one client. A meeting belongs to at most one project or to none. Deleting a project takes its meetings with it — a database cascade, and the app asks for confirmation, naming the count. While any meeting in the project is still live, deletion is refused with 409: a row being written right now cannot be pulled out from under the recognition stream.
 
-### Матеріали
+### Materials
 
-- `GET /resources?scope=user|project|meeting&projectId=&meetingId=` → матеріали одного рівня, новіші першими. Без `scope` — нічого: рівень завжди вказується явно
-- `POST /resources` multipart `file` плюс поля `scope`, `name`, `projectId?` → матеріал зі станом `pending`: відповідь приходить, щойно прийнято байти, а читання документа йде позаду. Назва їде окремим полем, а не береться з `filename` у заголовку: його декодують як latin-1, і будь-що поза ASCII перетворюється на кракозябри
-- `POST /resources/text` `{ scope, projectId?, name, text }` → вставлений руками текст, одразу `ready`
-- `GET /resources/:id` → той самий матеріал; сюди дивиться застосунок, поки `status` це `pending`
-- `GET /resources/:id/content` → `{ name, text, digest, chars }`: те, що з матеріалу прочиталось
+- `GET /resources?scope=user|project|meeting&projectId=&meetingId=` → materials of one level, newest first. Without `scope` — nothing: the level is always explicit
+- `POST /resources` multipart `file` plus fields `scope`, `name`, `projectId?` → material with status `pending`: the response arrives as soon as the bytes are accepted, and reading the document happens behind it. The name travels as a separate field instead of coming from `filename` in the header: that one is decoded as latin-1, and anything outside ASCII turns into mojibake
+- `POST /resources/text` `{ scope, projectId?, name, text }` → hand-pasted text, immediately `ready`
+- `GET /resources/:id` → the same material; the app polls this while `status` is `pending`
+- `GET /resources/:id/content` → `{ name, text, digest, chars }`: what was read from the material
 - `GET /resources/limits` → `{ maxBytes, maxTextChars }`
-- `DELETE /resources/:id` → видаляє матеріал і його обʼєкт у сховищі
+- `DELETE /resources/:id` → deletes the material and its object in storage
 
-Значення: `scope` це `user | project | meeting`, `kind` це `pdf | markdown | text`, `status` це `pending | ready | failed`, `failure` це `unreadable | no_text_layer | storage`.
+Values: `scope` is `user | project | meeting`, `kind` is `pdf | markdown | text`, `status` is `pending | ready | failed`, `failure` is `unreadable | no_text_layer | storage`.
 
-Матеріал рівня `meeting`, завантажений до старту, лежить із порожнім `meetingId`. Такий матеріал видно лише тому, хто його завантажив, і він привласнюється зустріччю в `POST /meetings` через `resourceIds`. Чужий або вже привласнений ідентифікатор у списку це 404. Непривласнені старші за добу прибирає `StagedResourcesSweeper`.
+A `meeting`-level material uploaded before start has an empty `meetingId`. Such a material is visible only to its uploader and is claimed by the meeting in `POST /meetings` through `resourceIds`. An id in that list that belongs to someone else or is already claimed is 404. Unclaimed ones older than `STAGED_RESOURCE_TTL_HOURS` are removed by `StagedResourcesSweeper`.
 
-Обмеження: `RESOURCE_MAX_BYTES` (10 МБ) на файл і `RESOURCE_TEXT_MAX_CHARS` (1 000 символів) на вставлений руками текст, і лише `text/plain`, `text/markdown` або `application/pdf`. Застосунок не повторює ці числа, а питає їх у `GET /resources/limits`, щоб вони не розходились. Окремо стоїть `RESOURCE_EXTRACTED_MAX_CHARS` (5 000): це стеля на текст, витягнутий із файлу, а не те, що людина друкує в поле, і різати документ на рівні поля вводу означало б віддавати дайджест від обрізанця. Маршрут завантаження має власну межу тіла через `MulterModule`; `MAX_REQUEST_BODY_BYTES` лишається мірою для JSON.
+Limits: `RESOURCE_MAX_BYTES` (10 MB) per file and `RESOURCE_TEXT_MAX_CHARS` (1,000 characters) per hand-pasted text, and only `text/plain`, `text/markdown` or `application/pdf`. The app does not repeat these numbers but asks `GET /resources/limits`, so they cannot drift apart. Separately there is `RESOURCE_EXTRACTED_MAX_CHARS` (5,000): a ceiling on text extracted from a file, not on what a person types into a field — cutting a document at the input-field level would mean digesting a stump. The upload route has its own body limit through `MulterModule`; `MAX_REQUEST_BODY_BYTES` stays the measure for JSON.
 
-### Зустрічі
+### Meetings
 
 - `POST /meetings` `{ profile, language, replyLanguage?, title?, projectId?, resourceIds? }` → `{ id, status, startedAt }`
 - `POST /meetings/:id/finish` → `{ id, status, endedAt }`
-- `GET /meetings?limit&cursor&projectId` → сторінка списку без транскриптів, новіші першими. Курсор це id останньої зустрічі на екрані, а кінець списку видно з того, що сторінка прийшла коротшою за `limit`, тож окремої обгортки з `hasMore` немає. `projectId` звужує сторінку до одного проєкту, а `projectId=none` — до зустрічей поза всіма проєктами
-- `PATCH /meetings/:id` `{ title?, projectId?, language?, replyLanguage? }` → перейменовує зустріч, переносить її між проєктами і міняє мову. `projectId: null` виймає зустріч із проєкту, чужий проєкт це 404. Мову можна змінити лише поки зустріч триває — на завершеній це 409
-- `DELETE /meetings/:id` → видаляє зустріч із транскриптом, відповідями й чатами. Поки зустріч триває — 409
-- `GET /meetings/:id` → зустріч, `overview`, `segments`, `generations`, `resources`, `usage`
-- `GET /meetings/:id/chats?query=` → чати по цій зустрічі, останній змінений першим. `query` шукає і по назві чату, і по тому, що в ньому питали
-- `POST /meetings/:id/chats` → новий чат по цій зустрічі
-- `GET /meetings/:id/chats/:chatId` → питання й відповіді цього чату, старіші першими
-- `POST /meetings/:id/chats/:chatId` `{ question }` → SSE зі стрімом відповіді, як у генерації
-- `DELETE /meetings/:id/chats/:chatId` → видаляє чат разом з усім, що в ньому питали
+- `GET /meetings?limit&cursor&projectId` → a page of the list without transcripts, newest first, 20 by default. The cursor is the id of the last meeting on screen, and the end of the list shows as a page shorter than `limit`, so there is no wrapper with `hasMore`. `projectId` narrows the page to one project, and `projectId=none` to meetings outside every project
+- `PATCH /meetings/:id` `{ title?, projectId?, language?, replyLanguage? }` → renames the meeting, moves it between projects and changes its language. `projectId: null` takes the meeting out of its project; someone else's project is 404. The language can be changed only while the meeting is live — on a finished one it is 409
+- `DELETE /meetings/:id` → deletes the meeting with its transcript, replies and chats. While live — 409
+- `GET /meetings/:id` → meeting, `overview`, `segments`, `generations`, `resources`, `usage`
+- `GET /meetings/:id/chats?query=` → chats about this meeting, most recently changed first. `query` searches both chat titles and what was asked in them
+- `POST /meetings/:id/chats` → a new chat about this meeting
+- `GET /meetings/:id/chats/:chatId` → the questions and answers of this chat, oldest first
+- `POST /meetings/:id/chats/:chatId` `{ question }` → SSE with the streamed answer, as in generation
+- `DELETE /meetings/:id/chats/:chatId` → deletes the chat with everything asked in it
 
-Бекенд віддає лише спожиті токени й секунди аудіо. Приблизну вартість рахує застосунок у `desktop/src/features/history/cost.ts`: тарифи лежать одним набором констант, бо точні гроші з'являться разом із підпискою і рахуватиме їх бекенд.
+The backend returns only consumed tokens and audio seconds. The approximate cost is computed by the app in `desktop/src/features/history/cost.ts`: the rates are a single set of constants, because exact money will come with the subscription and the backend will compute it.
 
-Значення: `profile` це `daily | interview_candidate | client_call`, `language` це `uk | en | ru`, `mode` це `reply | alternative`, `speaker` це `me | other`. `replyLanguage` це та сама трійка або `null`, і `null` означає «відповідай мовою, якою зараз говорять».
+Values: `profile` is `daily | interview_candidate | client_call`, `language` is `uk | en | ru`, `mode` is `reply | alternative`, `speaker` is `me | other`. `replyLanguage` is the same trio or `null`, and `null` means "answer in the language being spoken right now".
 
-### Мова посеред зустрічі
+### Language mid-meeting
 
-Співбесіда часто починається українською і продовжується англійською. Deepgram уміє змішані мови (`language=multi`), але українська в той набір не входить: nova-3 знає її лише як єдину мову потоку. Тому мова перемикається вручну, і це не обхідний шлях, а єдиний, який працює для української.
+An interview often starts in Ukrainian and continues in English. Deepgram can handle mixed languages (`language=multi`), but Ukrainian is not in that set: nova-3 knows it only as the single language of a stream. So the language is switched by hand, and that is not a workaround but the only way that works for Ukrainian.
 
-`PATCH /meetings/:id` з `language` міняє рядок зустрічі й стан у Redis, а далі все робить сам застосунок: сесія має `watch`-канал, доріжки бачать зміну, закривають сокет і відкривають новий. Мову бекенд читає з рядка зустрічі в момент під'єднання, тому більше нікому нічого знати не треба. Джерела звуку при цьому не зупиняються, а закриття сокета, як завжди, чекає на флаш, тож фраза, яку говорили в мить перемикання, не губиться.
+`PATCH /meetings/:id` with `language` changes the meeting row and the Redis state, and the app does the rest: the session has a `watch` channel, the lanes see the change, close their sockets and open new ones. The backend reads the language from the meeting row at connect time, so nobody else needs to know. The audio sources do not stop, and closing a socket waits for the flush as always, so the phrase spoken at the moment of switching is not lost.
 
-`replyLanguage` окремо від мови розпізнавання тому, що це різні речі: розпізнавати треба те, що звучить, а відповідати — тією мовою, якою до вас звертаються. За замовчуванням він `null`, і тоді промпт каже моделі йти за розмовою.
+`replyLanguage` is separate from the recognition language because they are different things: recognise what is heard, and answer in the language you are being addressed in. It defaults to `null`, and then the prompt tells the model to follow the conversation.
 
 ### WebSocket `/meetings/:id/stt?speaker=me`
 
-Токен передається як `?token=`. Клієнт шле бінарні фрейми PCM 16 kHz mono i16. Бекенд шле JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` або `{ type: "error", message }`. Мова береться зі зустрічі. Коди закриття: 1000 нормальне завершення після запиту клієнта, 4401 невірний токен, 4404 невідома або завершена зустріч чи невідомий спікер, 4500 збій розпізнавання.
+The token is passed as `?token=`. The client sends binary frames of PCM 16 kHz mono i16. The backend sends JSON `{ type: "partial" | "final", id, speaker, text, startMs, durationMs }` or `{ type: "error", message }`. The language comes from the meeting. Close codes: 1000 normal close after the client's request, 4401 invalid token, 4404 unknown or finished meeting or unknown speaker, 4500 recognition failure.
 
-Закінчує розмову клієнт текстовим повідомленням `{ "type": "finish" }`, а не розривом сокета. Deepgram віддає останню репліку лише після флашу, тому бекенд на `finish` закриває потік розпізнавання, дочікує записи фінальних сегментів, надсилає їх клієнту і аж тоді закриває сокет кодом 1000. Клієнт після `finish` читає сокет далі, поки той не закриється, з запобіжником у 5 секунд.
+The client ends the conversation with a text message `{ "type": "finish" }`, not by dropping the socket. Deepgram returns the last phrase only after a flush, so on `finish` the backend closes the recognition stream, waits for the final segments to be written, sends them to the client and only then closes the socket with 1000. After `finish` the client keeps reading the socket until it closes, with a 5-second safeguard.
 
-Це звичайний WebSocket-сервер, приєднаний до події `upgrade` HTTP-сервера, а не шлюз Nest: сирий PCM не має конверта `event`/`data`, якого чекає адаптер Nest, і ідентифікатор зустрічі потрібен у шляху. Deepgram теж викликається прямим WebSocket, без їхнього SDK.
+This is a plain WebSocket server attached to the HTTP server's `upgrade` event, not a Nest gateway: raw PCM has no `event`/`data` envelope that the Nest adapter expects, and the meeting id belongs in the path. Deepgram is also called over a direct WebSocket, without its SDK.
+
+While audio flows, the stream refreshes `meeting:{id}:alive` in Redis with a TTL of `LIVE_MEETING_IDLE_SECONDS`.
 
 ### `POST /meetings/:id/chats/:chatId` → SSE
 
-Питання до завершеної зустрічі. Чатів по одній зустрічі може бути скільки завгодно, кожен зі своєю історією; назву чат отримує з першого питання і більше її не міняє.
+A question to a finished meeting. There can be any number of chats per meeting, each with its own history; a chat gets its title from the first question and never changes it.
 
-Модель не отримує готову витяжку, а сама працює зустріч інструментами: `meeting_facts` (коли почалась і скінчилась, скільки тривала, скільки говорила кожна сторона, скільки реплік і відповідей), `search_transcript`, `read_transcript` і `list_answers`. Через це питання на кшталт «скільки тривала зустріч» має відповідь, а довгий транскрипт не треба запихати в промпт цілком: короткий їде разом із ним, довгий читається інструментами. Цикл живе в `ChatAgent` і має межу в шість ходів; кожен наступний хід продовжує попередній через `previous_response_id`, тому провайдер тримає своє міркування, а назад їдуть лише результати інструментів.
+The model does not receive a ready-made extract; it works the meeting with tools: `meeting_facts` (when it started and ended, how long it lasted, how long each side talked, how many lines and replies), `search_transcript`, `read_transcript` and `list_answers`. That is why a question like "how long was the meeting" has an answer, and a long transcript does not have to be crammed into the prompt: a short one goes along with it, a long one is read with tools. The loop lives in `ChatAgent` with a limit of six turns; each next turn continues the previous one through `previous_response_id`, so the provider keeps its reasoning and only tool results travel back.
 
-Усе, що зустріч наговорила, приходить до моделі в тегах `<notes>`, `<facts>`, `<transcript>`, `<question>` і в результатах інструментів, а системний промпт каже, що це матеріал, а не інструкції: вказівки, ролі й прохання, знайдені всередині, не виконуються. Самі теги вирізаються з вмісту в `chat/untrusted.ts`, щоб текст із зустрічі не міг закрити огорожу й заговорити від нашого імені.
+Everything the meeting said reaches the model inside `<notes>`, `<facts>`, `<transcript>`, `<question>` tags and in tool results, and the system prompt says this is material, not instructions: directions, roles and requests found inside are not followed. The tags themselves are stripped from the content by `common/untrusted`, so text from the meeting cannot close the fence and speak on our behalf.
 
-Обмін зберігається в `chat_messages`, тому історія чату є при наступному відкритті, а токени всіх ходів сумуються і йдуть у `UsageRecorder` з видом `chat`. Формат подій той самий, що в генерації, тільки `done` несе `messageId`, тож розбір SSE у ядрі розділений: спільний `sse::frames` віддає кадри, а кожна фіча читає свій `done`.
+The exchange is stored in `chat_messages`, so the chat history is there on the next visit, and the tokens of all turns are summed and go to `UsageRecorder` with kind `chat`. The event format is the same as in generation, except `done` carries `messageId`, so SSE parsing in core is split: the shared `sse::frames` yields frames, and each feature reads its own `done`.
 
-### Резюме зустрічі
+### Meeting overview
 
-`Meeting.summary` це щільні нотатки, якими живиться асистент під час зустрічі, і читати їх людині нема сенсу. Для екрана є `Meeting.overview`: максимум три речення про те, чим була зустріч, без переказу питань і відповідей. Пише його `MeetingOverviewWriter` у модулі зустрічей моделлю резюме — один раз, після завершення. `finish` запускає його у фоні, `GET /meetings/:id` дочікується, якщо тексту ще немає, а спроба, що вже йде, спільна для обох, тому двічі за нього не платимо. Деталі зустрічі віддають лише `overview`; нотатки лишаються на сервері.
+`Meeting.summary` is dense notes that feed the assistant during the meeting, and there is no point in a person reading them. The screen gets `Meeting.overview`: at most three sentences about what the meeting was, without retelling questions and answers. It is written by `MeetingOverviewWriter` in the meetings module with the summary model — once, after finish. `finish` starts it in the background, `GET /meetings/:id` waits for it if the text is not there yet, and an attempt already running is shared by both, so it is never paid for twice. Meeting details return only `overview`; the notes stay on the server.
 
 ### `POST /meetings/:id/generate` → SSE
 
-Тіло `{ mode, screenshot? }`, де `screenshot` це `{ mimeType, dataBase64 }` для `image/jpeg` або `image/png`. Події: `delta { text }`, `done { generationId, stopReason, usage }`, `error { message }`. Для `alternative` попередня чернетка вже лежить у розмові окремим повідомленням, і нова відповідь заміщає її, а не додається поруч. `usage` тут це лише токени `{ inputTokens, cachedInputTokens, outputTokens }`, без секунд аудіо: вони належать зустрічі, а не одній відповіді.
+Body `{ mode, screenshot? }`, where `screenshot` is `{ mimeType, dataBase64 }` for `image/jpeg` or `image/png`. Events: `delta { text }`, `done { generationId, stopReason, usage }`, `error { message }`. For `alternative` the previous draft is already in the conversation as its own message, and the new reply replaces it rather than being added next to it. `usage` here is only tokens `{ inputTokens, cachedInputTokens, outputTokens }`, without audio seconds: those belong to the meeting, not to one reply.
 
-Знімок екрана їде в тілі тому, що це одна картинка до одного питання: окремий маршрут завантаження додав би сховище й другий круг по мережі рівно нічого не давши. Через це `MAX_REQUEST_BODY_BYTES` це 1 МБ, а не 256 КБ: застосунок тримає картинку в межах 400 КБ, base64 додає третину. Бекенд кладе картинку в той хід розмови, з яким вона прийшла, тож уточнення на кшталт «а чому?» бачать той самий екран, а нове питання про інше бачить його там, де воно й було — позаду, — і не приймає на свій рахунок. TTL для цього не потрібен. У Postgres лишається тільки `Generation.hasScreenshot`: самі зображення не зберігаються.
+The screenshot travels in the body because it is one picture for one question: a separate upload route would add storage and a second network round trip for no gain. That is why `MAX_REQUEST_BODY_BYTES` is 1 MB rather than 256 KB: the app keeps the picture within 400 KB, and base64 adds a third. The backend puts the picture into the conversation turn it came with, so follow-ups like "and why?" see the same screen, and a new question about something else sees it where it was — behind — and does not take it personally. No TTL is needed for this beyond the turn log's own. Postgres keeps only `Generation.hasScreenshot`: the images themselves are not stored.
 
-Це звичайний `POST` із ручним записом кадрів SSE, а не декоратор `@Sse()`: той працює лише на `GET` і не приймає тіло. Перевірка власника й статусу відбувається до відкриття потоку, тому помилка приходить звичайним HTTP-кодом, а не подією всередині стріму. Обрив з'єднання скасовує запит до провайдера, і часткова відповідь усе одно зберігається.
+This is an ordinary `POST` with SSE frames written by hand, not the `@Sse()` decorator: that one works only on `GET` and takes no body. Ownership and status are checked before the stream opens, so an error arrives as a normal HTTP code, not as an event inside the stream. A dropped connection cancels the provider request, and the partial reply is still saved.
 
 ### `GET /health`
 
-Публічний, `{ status, postgres, redis }`.
+Public, `{ status, postgres, redis }`.
 
-## Бекенд
+## Backend
 
-### Межі
+### Boundaries
 
-- `AtGuard` глобальний через `APP_GUARD`, `@Public()` знімає його. Далі `SubscriptionGuard`, який у першій версії пропускає всіх, а потім читає статус підписки. Ніякий інший код не читає заголовки чи куки авторизації.
-- Сервіси містять правила, репозиторії містять усі запити Prisma. Сервіс ніколи не інжектить `PrismaService`.
-- Кожен метод, що працює зі зустріччю, приймає `userId` і шукає `where: { id, userId }`. Промах це `NotFoundException`, не 403.
-- `UsageRecorder` викликається після кожної генерації, резюмування та STT-потоку.
-- `MeetingStateStore` є єдиним місцем, яке знає ключі Redis зустрічей.
-- Модулі імпортують один одного лише через `index.ts`.
+- `AtGuard` is global through `APP_GUARD`; `@Public()` removes it. Then comes `SubscriptionGuard`, which in the first version lets everyone through and later will read the subscription status. No other code reads auth headers or cookies. `ThrottlerGuard` runs before both.
+- Services hold the rules, repositories hold every Prisma query. A service never injects `PrismaService`.
+- Every method working with a meeting takes `userId` and looks up `where: { id, userId }`. A miss is `NotFoundException`, not 403.
+- `UsageRecorder` is called after every generation, rolling summary, overview, chat answer, material digest and STT stream.
+- `MeetingStateStore` is the only place that knows meeting Redis keys.
+- Modules import each other only through `index.ts`.
 
-### Дані
+### Data
 
-Postgres (Prisma, таблиці й колонки в snake_case через `@map`):
+Postgres (Prisma, tables and columns in snake_case via `@map`):
 
 ```
 User            id, email, name, createdAt, updatedAt
 UserCredentials userId, hashedPassword?, googleId?
 AuthSession     id, userId, hashedRt, expiresAt, createdAt
-UserSettings    userId, style?, defaultLanguage, defaultProfile
+UserSettings    userId, style?, defaultLanguage, defaultProfile, updatedAt
 Project         id, userId, name, createdAt, updatedAt
-Meeting         id, userId, projectId?, profile, language, replyLanguage?, title, status, summary?,
+Meeting         id, userId, projectId?, profile, language, replyLanguage?, title?, status, summary?,
                 overview?, contextBrief?, startedAt, endedAt?
 Resource        id, userId, scope, projectId?, meetingId?, kind, name, mimeType, byteSize,
                 storageKey?, status, failure?, text?, digest?, chars, createdAt, updatedAt
 Segment         id, meetingId, speaker, text, startMs, durationMs, createdAt
-Generation      id, meetingId, mode, output, stopReason, inputTokens, cachedInputTokens,
+Generation      id, meetingId, mode, output, stopReason?, inputTokens, cachedInputTokens,
                 outputTokens, hasScreenshot, createdAt
 ChatSession     id, meetingId, title?, createdAt, updatedAt
 ChatMessage     id, sessionId, question, answer, createdAt
-UsageEvent      id, userId, meetingId?, kind, model?, tokens..., audioSeconds?, createdAt
+UsageEvent      id, userId, meetingId?, kind, model?, inputTokens, cachedInputTokens,
+                outputTokens, audioSeconds, createdAt
 ```
+
+`UsageEvent.kind` is `generate | summarize | stt | chat | digest`. `UsageEvent.meetingId` is `SetNull` on delete, so accounting survives the meeting; everything else cascades.
 
 Redis:
 
 ```
 meeting:{id}:state           hash: language, replyLanguage, profile, style, contextBrief, today, spokenUpTo
-meeting:{id}:window          list: свіжі фінальні сегменти як JSON
+meeting:{id}:window          list: fresh final segments as JSON
 meeting:{id}:summary         string
-meeting:{id}:turns           string: останні шість ходів розмови як JSON
-meeting:{id}:summarize:lock  string з TTL
-settings:{userId}            кеш налаштувань
-login:code:{code}            userId, TTL 60 секунд
+meeting:{id}:turns           string: the last six conversation turns as JSON
+meeting:{id}:summarize:lock  string with TTL
+meeting:{id}:alive           string, TTL LIVE_MEETING_IDLE_SECONDS, refreshed while audio flows
+settings:{userId}            settings cache, TTL 5 minutes, dropped on save
+login:code:{code}            userId, TTL 60 seconds
 ```
 
-Усе, що в Redis, відновлюється з Postgres, тому втрата Redis не втрачає дані, а лише живий контекст поточних зустрічей.
+On finish `state`, `window` and `summary` get a TTL of `FINISHED_MEETING_TTL_SECONDS`, while `turns` and `alive` are deleted at once.
 
-### Потік живої зустрічі
+Everything in Redis can be rebuilt from Postgres, so losing Redis loses no data, only the live context of running meetings.
 
-1. `POST /meetings` створює рядок і `state` у Redis зі стилем із налаштувань і контекстним брифом із матеріалів трьох рівнів на момент старту, щоб системний блок промпта не змінювався протягом зустрічі. Статус живе лише в Postgres, щоб не було двох джерел істини.
-2. Кожне WebSocket-з'єднання відкриває потік у `SttProvider`. Фінальні сегменти пишуться в Postgres і у `window`. Проміжні лише повертаються клієнту.
-3. Після кожного фінального сегмента `Summarizer` перевіряє, чи частина поза вікном перевищила поріг. Якщо так і блокування вільне, він фоново стискає її, зливає з резюме, обрізає вікно, оновлює `Meeting.summary`. Розпізнавання на це не чекає. Розпізнавання на це не чекає.
-4. `generate` читає стан, резюме, вікно і журнал ходів, збирає з них розмову, стрімить відповідь, зберігає генерацію і дописує хід.
-5. `finish` закриває активні потоки, ставить статус і TTL на ключі.
+### Live meeting flow
 
-### Матеріали й контекстний бріф
+1. `POST /meetings` creates the row, claims the listed materials, builds the context brief from the three levels of materials as they are at start and stores it in `Meeting.contextBrief`, then writes `state` in Redis with the style from settings, the brief and the day of the meeting, so the system block of the prompt does not change during the meeting. These are sequential steps, not one transaction. Status lives only in Postgres, so there are no two sources of truth.
+2. Each WebSocket connection opens a stream in `SttProvider`. Final segments are written to Postgres and to `window`. Interim ones are only returned to the client.
+3. After each final segment `Summarizer` checks whether the part outside the window exceeded the threshold. If so and the lock is free, it compresses that part in the background, merges it with the summary, trims the window and updates `Meeting.summary`. Recognition does not wait for it.
+4. `generate` reads the state, summary, window and turn log, assembles the conversation from them, streams the reply, saves the generation and appends the turn.
+5. The client closes its lanes with `finish`, then calls `POST /meetings/:id/finish`, which sets the status, puts TTLs on the keys and starts the overview writer.
 
-Матеріал — самостійний обʼєкт користувача, а не частина зустрічі. Інакше й бути не може: рівні `user` і `project` ні до якої зустрічі не привʼязані. Завдяки цьому файли вантажаться, поки людина ще обирає профіль і мову, а «підготувати, потім почати» не вимагає ні зустрічі-чернетки, ні нового статусу в машині зустрічі. Матеріал зустрічі до старту — це рядок зі `scope: meeting` і порожнім `meetingId`; `POST /meetings` в одній транзакції створює зустріч, привласнює перелічені матеріали і складає бріф.
+### Materials and the context brief
 
-`ObjectStorage` ховає Cloudflare R2 за двома методами, `put` і `delete`, і реалізація на `@aws-sdk/client-s3` живе в `infrastructure/storage`. У R2 лежать лише оригінальні байти під ключем `users/{userId}/resources/{id}`: показати файл, віддати назад, перевитягти текст кращим парсером пізніше. Усе, що читає промпт, лежить у Postgres, тому під час зустрічі в сховище ніхто не ходить. Вставлений руками текст обʼєкта в R2 не має.
+A material is a standalone object of the user, not part of a meeting. It cannot be otherwise: the `user` and `project` levels are not tied to any meeting. Thanks to this, files upload while the person is still choosing a profile and language, and "prepare, then start" requires neither a draft meeting nor a new status in the meeting state machine. A meeting material before start is a row with `scope: meeting` and an empty `meetingId`; `POST /meetings` claims the listed materials and builds the brief.
 
-`ResourceExtractor` розбирає файл одразу після завантаження: `unpdf` для PDF, декодування UTF-8 для Markdown і тексту. PDF без текстового шару дає порожній результат — це `no_text_layer`, OCR немає. `ResourceIngestor` спершу читає, потім кладе оригінал у сховище, і кожен крок падає своєю причиною: недоступний R2 це `storage`, а не «не вдалося прочитати файл». Причина зберігається кодом, а не реченням: українською говорить застосунок. `ResourceDigester` стискає моделлю резюме те, що не влазить у бюджет свого рівня, один раз на матеріал, і пише результат у `digest`; витрати йдуть у `UsageRecorder` видом `digest`. Тому великий документ коштує один раз, а не на кожну відповідь.
+`ObjectStorage` hides Cloudflare R2 behind two methods, `put` and `delete`, and the implementation on `@aws-sdk/client-s3` lives in `infrastructure/storage`. R2 holds only the original bytes under the key `users/{userId}/resources/{id}`: to show a file, give it back, or re-extract the text with a better parser later. Everything the prompt reads is in Postgres, so nobody goes to storage during a meeting. Hand-pasted text has no R2 object.
 
-`ContextBriefBuilder` збирає три рівні в один текст:
+`ResourceExtractor` parses the file right after upload: `unpdf` for PDF, UTF-8 decoding for Markdown and text. A PDF without a text layer yields an empty result — that is `no_text_layer`, there is no OCR. `ResourceIngestor` reads first, then puts the original into storage, and each step fails with its own reason: an unavailable R2 is `storage`, not "could not read the file". The reason is stored as a code, not a sentence: the app is the one that speaks Ukrainian. `ResourceDigester` compresses with the summary model whatever does not fit its level's budget, once per material, and writes the result to `digest`; the cost goes to `UsageRecorder` with kind `digest`. So a large document costs once, not on every reply.
+
+`ContextBriefBuilder` assembles the three levels into one text:
 
 ```
 <materials>
@@ -259,61 +278,71 @@ login:code:{code}            userId, TTL 60 секунд
 </materials>
 ```
 
-Матеріали — довідка, а не сценарій. Це довелось сказати прямо: на «привіт, як справи» асистент відповідав викладкою з резюме, бо промпт профілю співбесіди вимагав приклад із досвіду в **кожній** відповіді, а про матеріали ніде не було сказано, коли їх відкривати. Тепер і те, і те залежить від питання: привітання отримує привітання, приклад із досвіду дається тоді, коли питають про досвід, а матеріали відкриваються, лише коли остання репліка їх справді потребує. Третій важіль — сам режим `reply`. Він казав: «якщо нічого не спитали, запропонуй найкорисніше, що користувач може зараз додати», і на власне «привіт» асистент слухняно пропонував найкорисніше — самопрезентацію. Тепер вітання, подяки й світська розмова отримують таку саму репліку у відповідь, а пропозиція по суті лишається тільки тоді, коли на столі справді є питання чи прогалина.
+Budgets are 2,000 characters for `about-me`, 4,000 for `about-project`, 6,000 for `about-meeting`, and 10,000 in total.
 
-Замір на справжньому резюме, по вісім і по два прогони: «привіт, як справи» вісім разів із восьми дає одне речення й повертає питання співрозмовнику, «скільки у вас досвіду» — правильні рік і дев'ять місяців, «розкажіть, що ви робили з відео» — конкретний приклад із резюме, а на «шукаємо людину, яка витягне і бек, і фронт», де питання не прозвучало, відповідь по суті лишається. Один прогін тут нічого не доводить: модель на низькому `effort` має розкид, і перша версія правки давала чисто дев'ять разів поспіль, а в застосунку все одно спіткнулась.
+Materials are reference, not a script. That had to be said outright: on "hi, how are you" the assistant answered with a résumé rundown, because the interview profile prompt demanded an example from experience in **every** answer, and nothing said when to open the materials. Now both depend on the question: a greeting gets a greeting, an example from experience is given when experience is asked about, and the materials are opened only when the last thing said actually needs them. The third lever is the `reply` mode itself. It used to say "if nothing was asked, offer the most useful thing the user could add now", and on its own "hi" the assistant obediently offered the most useful thing — a self-introduction. Now greetings, thanks and small talk get the same kind of line in return, and a substantive contribution remains only when a question or a gap is actually on the table.
 
-Порядок і є механізмом пріоритету: зустріч стоїть останньою, найближче до питання, персона окремим реченням каже, що при суперечності істина це зустріч, потім проєкт, потім користувач, а бюджет по рівнях ріже знизу — спершу `about-me`, зустріч не ріжеться ніколи. Огорожі ставить спільний `common/untrusted`: завантажений PDF це такий самий чужий текст, як транскрипт, і рядок «ignore previous instructions» усередині нього має лишитися матеріалом.
+Measured on a real résumé, eight runs and two runs each: "hi, how are you" eight times out of eight gives one sentence and returns the question to the other side, "how much experience do you have" gives the correct one year and nine months, "tell us what you did with video" gives a concrete example from the résumé, and on "we're looking for someone who can carry both back end and front end", where no question was asked, the substantive answer remains. A single run proves nothing here: the model at low `effort` has spread, and the first version of the fix came out clean nine times in a row and still stumbled in the app.
 
-Разом із брифом у стані замерзає й день зустрічі. Без нього «Feb 2025 — Present» у резюме не має до чого прив'язатись, і модель міряє від власного горизонту: на питання про роки досвіду вона відповіла «близько року» там, де в документі майже два.
+The order itself is the priority mechanism: the meeting stands last, closest to the question, the persona says in a separate sentence that in case of conflict the truth is the meeting, then the project, then the user, and the per-level budget cuts from the bottom — first `about-me`; the meeting is never cut. The fences come from the shared `common/untrusted`: an uploaded PDF is foreign text just like the transcript, and a line "ignore previous instructions" inside it must remain material.
 
-Дата стоїть **поряд із питанням**, в останньому повідомленні біля інструкції режиму, а не в системному тексті. Це не вибір смаку, а замір на справжньому резюме: сама дата в системному блоці дала «приблизно півтора року», дата біля питання — «рік і сім місяців» (порахований лише останній рядок досвіду), і тільки з додачею «склади всі діапазони, відкритий рахуй до сьогодні» вийшов правильний рік і дев'ять місяців. Системний блок від цього не змінюється взагалі, тож кешований префікс лишається недоторканим. Чат по завершеній зустрічі має свій рядок і рахує від дня тієї зустрічі, а не від сьогодні: його матеріали замерзли тоді.
+Together with the brief, the day of the meeting freezes in the state. Without it "Feb 2025 — Present" in a résumé has nothing to anchor to, and the model measures from its own horizon: asked about years of experience it answered "about a year" where the document said almost two.
 
-Бріф замерзає на старті в `Meeting.contextBrief` і в стані Redis, як і стиль. Правка резюме посеред дзвінка не має міняти системний блок запущеної зустрічі, а чат по завершеній читає той самий текст із Postgres і бачить рівно те, що бачив асистент.
+The date stands **next to the question**, in the last message beside the mode instruction, not in the system text. This is not a matter of taste but a measurement on a real résumé: the date alone in the system block gave "about a year and a half", the date next to the question gave "a year and seven months" (only the last line of experience counted), and only with the addition "add up all ranges, count an open one to today" did the correct one year and nine months come out. The system block does not change at all, so the cached prefix stays untouched. The chat about a finished meeting has its own line and counts from the day of that meeting, not from today: its materials froze then.
 
-Векторного пошуку немає навмисно. Резюме, опис вакансії та контекст проєкту — це разом кілька тисяч токенів, які влазять у промпт цілком, а ретрівал на кожне натискання клавіші робив би префікс щоразу іншим і вбивав кеш, який зараз дає найбільшу економію. Місце для нього готове й воно інше: чат по зустрічі вже працює інструментами і затримкою не обмежений.
+The brief freezes at start in `Meeting.contextBrief` and in the Redis state, like the style. Editing the résumé mid-call must not change the system block of a running meeting, and the chat about a finished one reads the same text from Postgres and sees exactly what the assistant saw.
+
+There is no vector search on purpose. A résumé, a job description and project context together are a few thousand tokens that fit the prompt whole, while retrieval on every keypress would make the prefix different each time and kill the cache that currently gives the largest saving. A place for it is ready and it is elsewhere: the meeting chat already works with tools and is not latency-bound.
 
 ### PromptBuilder
 
-Модель отримує не один великий блок, а розмову з ролями. Хід це те, що прозвучало після попередньої чернетки (`user`), і чернетка, яку ми на це дали (`assistant`). Питання, яке зараз питають, є останнім повідомленням, знімок екрана лежить усередині того ходу, з яким прийшов, і більше ніколи не чіпляється до нового питання.
+The model receives not one large block but a conversation with roles. A turn is what was said after the previous draft (`user`) and the draft we gave for it (`assistant`). The question being asked now is the last message; a screenshot sits inside the turn it came with and is never attached to a new question.
 
-Так само влаштовані claude.ai і ChatGPT, і саме тому там уточнення по картинці працюють, а зміна теми не тягне картинку за собою. Поки все злипалося в одне повідомлення `user`, з погляду моделі виглядало, ніби знімок консолі з промісом надіслали **разом** із питанням про React: вона пов'язувала їх не через недогляд, а тому що вони справді прийшли разом. Ніяке формулювання промпта цього не перебиває — межу між ходами має нести сама структура запиту.
+claude.ai and ChatGPT work the same way, and that is exactly why follow-ups about a picture work there while a change of topic does not drag the picture along. While everything was glued into one `user` message, from the model's point of view it looked as if the screenshot of a console with a Promise had been sent **together** with the question about React: it linked them not by oversight but because they really arrived together. No wording of the prompt overrides that — the boundary between turns has to be carried by the structure of the request itself.
 
-Порядок повідомлень: нотатки, далі попередні ходи, далі те, що сказали відтоді, плюс інструкція режиму. Стабільне живе в системному тексті — персона, промпт профілю, стиль, контекстний бріф і мова відповіді зі стану зустрічі, — і не змінюється протягом зустрічі байт у байт, тому автоматичний кеш префікса OpenAI працює: історія тільки дописується в кінець.
+Order of messages: the notes, then previous turns, then what was said since, plus the mode instruction and the date. The stable part lives in the system text — persona, profile prompt, style, context brief and the reply language from the meeting state — and does not change during the meeting byte for byte, so OpenAI's automatic prefix cache works: history is only appended at the end.
 
-Межу між ходами тримає `spokenUpTo` у стані зустрічі — id останнього сегмента, який модель уже бачила. `segmentsAfter` відрізає по ньому те, що прозвучало відтоді; якщо маркер уже зрізав `Summarizer`, за новий хід береться все вікно. `alternative` не додає ще один хід, а переписує відповідь останнього: повторні спроби не мають осідати в історії. Журнал тримає останні шість ходів, і картинка в ньому лишається тільки найновіша; коли питання приносить власний знімок, старий із історії не їде. Один запит ніколи не несе більше одного зображення. Персона, промпти профілів і дефолтний стиль лежать у `modules/generation/prompts/` як файли даних.
+The boundary between turns is held by `spokenUpTo` in the meeting state — the id of the last segment the model has already seen. `segmentsAfter` cuts what was said since; if the marker was already trimmed by `Summarizer`, the whole window counts as the new turn. `alternative` does not add another turn but rewrites the answer of the last one: retries must not settle in history. The log keeps the last six turns, and only the newest picture stays in it; when a question brings its own screenshot, the old one from history is not sent. One request never carries more than one image. The persona, profile prompts and default style live in `modules/generation/prompts/` as data files.
 
-## Застосунок
+## The app
 
-### Ключові типи
+### Key types
 
 ```rust
 enum Speaker { Me, Other }
 enum Language { Uk, En, Ru }
 enum MeetingProfile { Daily, InterviewCandidate, ClientCall }
 enum GenerationMode { Reply, Alternative }
+enum SessionState { Idle, Starting, Listening, Stopping }
+enum MeetingStatus { Live, Finished }
 
 struct AudioFrame { speaker: Speaker, samples: Vec<i16>, captured_at: Instant }
-struct CaptureRect { x: f64, y: f64, width: f64, height: f64, scale: f64 }
+struct CaptureRect { x: f64, y: f64, width: f64, height: f64 }
 struct RawFrame { width: u32, height: u32, stride: usize, bgra: Vec<u8> }
 struct Screenshot { mime_type: String, bytes: Vec<u8> }
 struct TranscriptSegment { id, speaker, text, start_ms, duration_ms }
-struct Meeting { id, profile, language, reply_language, title, status, started_at, ended_at }
-struct MeetingDetails { meeting, summary, segments, generations, resources, usage }
+struct Meeting { id, project_id, profile, language, reply_language, title, status, started_at, ended_at }
+struct MeetingDetails { meeting, overview, segments, generations, resources, usage }
+struct MeetingStart { profile, language, reply_language, project_id: Option<ProjectId>, resource_ids: Vec<ResourceId> }
+enum MeetingScope { All, Outside, Project(ProjectId) }
 enum ResourceScope { User, Project(ProjectId), Meeting(Option<MeetingId>) }
 enum ResourceKind { Pdf, Markdown, Text }
 enum ResourceStatus { Pending, Ready, Failed }
-struct Resource { id, scope, kind, name, byte_size, status, error, created_at }
+enum ResourceFailure { Unreadable, NoTextLayer, Storage }
+struct Resource { id, project_id, meeting_id, kind, name, byte_size, status, failure, created_at }
+struct ResourceContent { name, text, digest, chars }
+struct ResourceLimits { max_bytes, max_text_chars }
 struct NewResourceFile { name, mime_type, bytes }
-struct MeetingStart { profile, language, reply_language, project: Option<ProjectId>, resources: Vec<ResourceId> }
 struct UserSettings { style, default_language, default_profile }
-struct LocalSettings { backend_url, hotkeys, input_device }
+struct LocalSettings { backend_url, input_device, hotkeys }
+struct Hotkeys { reply, alternative, screenshot, hide, interact }
 struct Tokens { access_token, refresh_token, expires_in }
 struct Secret(String)  // Debug prints Secret(***)
-enum Entitlement { Allowed, Denied(DenialReason) }
+enum Entitlement { Allowed, Denied { reason: DenialReason } }
+enum DenialReason { NotSignedIn, NoSubscription }
 ```
 
-### Трейти
+### Traits
 
 ```rust
 trait AudioSource {
@@ -323,6 +352,7 @@ trait AudioSource {
 
 trait BackendApi {
     async fn health(&self) -> Result<Health>;
+    async fn sign_in(&self, email: &str, password: &str) -> Result<Tokens>;
     async fn exchange_code(&self, code: &str) -> Result<Tokens>;
     async fn me(&self) -> Result<Profile>;
     async fn user_settings(&self) -> Result<UserSettings>;
@@ -343,13 +373,15 @@ trait BackendApi {
     async fn add_resource_text(&self, scope: &ResourceScope, name: &str, text: &str)
         -> Result<Resource>;
     async fn resource(&self, id: &ResourceId) -> Result<Resource>;
+    async fn resource_content(&self, id: &ResourceId) -> Result<ResourceContent>;
+    async fn resource_limits(&self) -> Result<ResourceLimits>;
     async fn delete_resource(&self, id: &ResourceId) -> Result<()>;
     async fn list_projects(&self) -> Result<Vec<Project>>;
     async fn create_project(&self, name: &str) -> Result<Project>;
     async fn rename_project(&self, id: &ProjectId, name: &str) -> Result<Project>;
     async fn delete_project(&self, id: &ProjectId) -> Result<()>;
     fn generate(&self, id: &MeetingId, mode: GenerationMode, screenshot: Option<&Screenshot>)
-        -> BoxStream<'_, Result<Delta>>;
+        -> DeltaStream<'_>;
     async fn meeting_chats(&self, id: &MeetingId, query: Option<&str>) -> Result<Vec<ChatSession>>;
     async fn start_meeting_chat(&self, id: &MeetingId) -> Result<ChatSession>;
     async fn chat_messages(&self, id: &MeetingId, chat: &ChatId) -> Result<Vec<ChatMessage>>;
@@ -358,7 +390,7 @@ trait BackendApi {
 }
 
 trait SttGateway {
-    async fn open(&self, id: &MeetingId, speaker: Speaker) -> Result<SttLane>;
+    async fn open(&self, meeting_id: &MeetingId, speaker: Speaker) -> Result<SttLane>;
 }
 
 type SttLane = (Box<dyn SttSink>, Box<dyn SttEvents>);
@@ -371,6 +403,8 @@ trait SttSink {
 trait SttEvents {
     async fn next(&mut self) -> Option<SttEvent>;
 }
+
+enum SttEvent { Partial { speaker, text }, Final { id, speaker, text, start_ms, duration_ms }, Failed { message } }
 
 trait AudioSources {
     fn microphone(&self, device_id: Option<String>) -> Box<dyn AudioSource>;
@@ -386,149 +420,162 @@ trait AccessPolicy {
 }
 
 trait SecretStore {
-    fn get(&self, key: SecretKey) -> Result<Option<SecretString>>;
-    fn set(&self, key: SecretKey, value: SecretString) -> Result<()>;
+    fn get(&self, key: SecretKey) -> Result<Option<Secret>>;
+    fn set(&self, key: SecretKey, value: &Secret) -> Result<()>;
     fn delete(&self, key: SecretKey) -> Result<()>;
 }
+
+enum SecretKey { AccessToken, RefreshToken }
 ```
 
-`BackendApi` і `SttGateway` мають одну спільну реалізацію на `reqwest` і `tokio-tungstenite` та фейки для тестів. Вона сама оновлює access-токен по refresh при 401 і зберігає нову пару в `SecretStore`. Половини лінії розділені, бо доріжка одночасно пише звук і читає транскрипт.
+`BackendApi` and `SttGateway` share one implementation, `BackendClient`, on `reqwest` and `tokio-tungstenite`, plus fakes for tests. It refreshes the access token with the refresh token on 401 by itself and stores the new pair in `SecretStore`. The halves of a lane are separate because a lane writes audio and reads transcript at the same time.
 
-### Сесія
+### Session
 
-`Session` володіє всім, що живе між стартом і стопом: джерелами звуку, STT-потоками, транскриптом для показу. Стан:
+`Session` owns everything that lives between start and stop: audio sources, STT streams, the transcript for display. States:
 
 ```
 Idle → Starting → Listening → Stopping → Idle
 ```
 
-Кожен перехід публікується подією `session:state`. Помилка на етапі `Starting` повертає в `Idle` з описом причини і завершує зустріч на бекенді, якщо вона вже створена. Перед `Starting` викликається `AccessPolicy::check`.
+Each transition is published as a `session:state` event. An error during `Starting` returns to `Idle` with the reason and finishes the meeting on the backend if it was already created. `AccessPolicy::check` is called before `Starting`.
 
-Аудіоконвеєр на кожне джерело: `AudioSource` → ресемплер у 16 kHz mono i16 → фрейми по 100 мс → `SttSink`.
+Audio pipeline per source: `AudioSource` → resampler to 16 kHz mono i16 → 100 ms frames → `SttSink`.
 
-Кожен спікер має свою доріжку. Обрив сокета не завершує зустріч: доріжка перевідкриває лінію з тією ж зустріччю, до п'яти спроб із наростаючою паузою; 4401 і 4404 не повторюються. Якщо джерело звуку замовкає назовсім, доріжка каже про це транскриптом і зупиняється. Відсутній звук співрозмовника не блокує старт: зустріч іде з одним мікрофоном, а причина повертається в `startedSession.systemAudioProblem`.
+Each speaker has its own lane. A dropped socket does not end the meeting: the lane reopens the line with the same meeting, up to five attempts with growing pauses starting at 500 ms; 4401 and 4404 are not retried. If the audio source goes silent for good, the lane says so in the transcript and stops. Missing meeting audio does not block the start: the meeting runs with the microphone alone, and the reason comes back in `startedSession.systemAudioProblem`.
 
-Стоп просить кожну лінію завершитись і дочитує її до кінця, інакше остання репліка втрачається: бекенд віддає її вже після запиту на закриття.
+Stop asks each line to finish and reads it to the end, otherwise the last phrase is lost: the backend sends it only after the close request. Draining a lane is capped at 5 seconds.
 
-### Генерація
+### Generation
 
-`Generator` живе поза сесією і тримає лише поточний запит. Старт скасовує попередній через його токен, перевіряє `AccessPolicy`, відкриває SSE-потік і шле в UI `Started`, далі `Delta` по шматку тексту, наприкінці `Finished` або `Failed`. Скасування просто кидає потік: розрив з'єднання доходить до бекенду, і той зберігає часткову відповідь.
+`Generator` lives outside the session and holds only the current request. Starting cancels the previous one through its token, checks `AccessPolicy`, opens the SSE stream and sends `Started` to the UI, then `Delta` for each chunk of text, and finally `Finished` or `Failed`. Cancelling simply drops the stream: the disconnect reaches the backend, and it saves the partial reply.
 
-HTTP-клієнт для генерації окремий, без загального таймаута: відповідь пишеться стільки, скільки треба, а межа стоїть лише на встановлення з'єднання. Потік закінчується подією `done`; якщо тіло обірвалось раніше, UI лишає написане і показує, що відповідь не дописана.
+The HTTP client for generation is separate and has no overall timeout: the reply takes as long as it takes, and only establishing the connection is bounded. The stream ends with a `done` event; if the body broke off earlier, the UI keeps what was written and shows that the reply is unfinished.
 
-### Знімок екрана
+### Screenshot
 
-Клавіша «знімок» питає модель про те, що на екрані, тим самим питанням, яке щойно прозвучало в розмові: окремого поля для тексту немає, контекст бекенд збирає так само, як для звичайної відповіді.
+The "screenshot" key asks the model about what is on the screen with the same question that just sounded in the conversation: there is no separate text field, and the backend builds the context the same way as for a normal reply.
 
-Дозвіл питається до того, як відкриється виділення: `capture_kit::capture_allowed` питає сам ScreenCaptureKit (прапорець `CGPreflightScreenCaptureAccess` бреше), і без дозволу застосунок каже про це замість того, щоб дати намалювати прямокутник у порожнечу. Той самий виклик відповідає на питання, чи доступний звук зустрічі: обидва захоплення тримаються на одному дозволі.
+Permission is checked before the selection opens: `capture_kit::capture_allowed` asks ScreenCaptureKit itself (the `CGPreflightScreenCaptureAccess` flag lies), and without permission the app says so instead of letting the user draw a rectangle into the void. The same call answers whether meeting audio is available: both captures depend on one permission.
 
-Знімає ScreenCaptureKit усередині нашого ж процесу (`SCScreenshotManager` у `platform-macos/screen_capture`), а не `/usr/sbin/screencapture`. Дочірній процес macOS перевіряє не по нашому застосунку, а по «відповідальному» процесі свого ланцюга — під час розробки це WebStorm, який запустив `tauri dev`. Без дозволу `screencapture` не падає й нічого не пише в stderr: він повертає робочий стіл без жодного вікна, і до моделі їдуть шпалери замість питання. SCK у своєму процесі користується тим самим дозволом, що й звук зустрічі, а відмову віддає помилкою, яку видно.
+Capture is done by ScreenCaptureKit inside our own process (`SCScreenshotManager` in `platform-macos/screen_capture`), not by `/usr/sbin/screencapture`. macOS checks a child process not against our app but against the "responsible" process of its chain — during development that is WebStorm, which launched `tauri dev`. Without permission `screencapture` does not fail and writes nothing to stderr: it returns the desktop without a single window, and the model gets the wallpaper instead of the question. SCK in our own process uses the same permission as meeting audio and returns a refusal as a visible error.
 
-Область користувач обирає сам, бо системне перехрестя свій прямокутник не віддає: `app/selection.rs` відкриває прозоре вікно `selection` на всіх дисплеях одразу (одне вікно розміром з об'єднання їхніх прямокутників), `features/generation/RegionSelector` малює затемнення з вирізом, Esc або права кнопка скасовують. Вікно створюється в головному потоці через `run_on_main_thread`, бо AppKit інших не приймає, а гаряча клавіша живе на воркері tokio. Воно піднімається тим самим кодом, що й оверлей (`app/macos_window.rs`) і, як і оверлей, лишається `NonactivatingPanel`: вікно, яке активує застосунок, тягне користувача на той Space, де застосунок живе, а виділяти область треба там, де зараз браузер. Різниця лише в тому, що вибір стає key-вікном (`makeKeyAndOrderFront`) — нонактивуюча панель має право на клавіатуру й перший клік без активації застосунку. Escape додатково ловиться глобальною комбінацією, зареєстрованою на час вибору, тому скасування працює навіть якщо key-статус не дали. `set_content_protected(true)` тримає саме вікно поза знімком, тому затемнення не потрапляє в кадр, навіть якщо компонувальник ще не встиг його прибрати.
+The user picks the region, because the system crosshair does not give its rectangle back: `app/selection.rs` opens a transparent `selection` window over all displays at once (one window the size of the union of their rectangles), `features/generation/RegionSelector` draws a dim layer with a cut-out, and Esc or right-click cancels. The window is created on the main thread via `run_on_main_thread`, because AppKit accepts no other, while the hotkey lives on a tokio worker. It is raised by the same code as the overlay (`app/macos_window.rs`) and, like the overlay, stays a `NonactivatingPanel`: a window that activates the app drags the user to the Space where the app lives, while the region must be selected where the browser is now. The only difference is that the selection becomes the key window (`makeKeyAndOrderFront`) — a non-activating panel has the right to the keyboard and the first click without activating the app. Escape is additionally caught by a global shortcut registered for the duration of the selection, so cancelling works even if key status was not granted. `set_content_protected(true)` keeps the window itself out of the capture, so the dimming does not end up in the frame even if the compositor has not removed it yet.
 
-Друге натискання, поки екран уже притемнений, нічого не робить: це людина перевіряє, чи спрацювало перше. Вікно при цьому не створюється щоразу заново, а перевикористовується, якщо ще існує: `close()` у Tauri це повідомлення до циклу подій, тому щойно закрите вікно ще тримає свою мітку, і наступна спроба падала б на «webview with label `selection` already exists».
+A second press while the screen is already dimmed does nothing: that is a person checking whether the first one worked. The window is not recreated every time but reused if it still exists: `close()` in Tauri is a message to the event loop, so a just-closed window still holds its label, and the next attempt would fail with "webview with label `selection` already exists".
 
-Вікно на один монітор не годиться: питають зазвичай не про той екран, де стоїть застосунок, а на інших дисплеях не було б на чому малювати.
+A window on one monitor would not do: people usually ask about a screen other than the one the app is on, and on other displays there would be nothing to draw on.
 
-Прямокутник приходить із вебв'ю в CSS-пікселях вікна, `selection.rs` додає початок цього вікна і віддає `CaptureRect` у глобальних точках. `screen_capture` знаходить `SCDisplay`, який містить центр прямокутника, ставить його як `sourceRect` відносно початку цього дисплея, а розмір кадру рахує з його ж щільності (`CGDisplayModeGetPixelWidth` поділити на ширину в точках), тому на Retina знімок виходить у рідній роздільності, а на звичайному сусідньому екрані не роздувається. Прямокутник, розтягнутий на два дисплеї, обрізається до того, на якому лежить його центр.
+The rectangle comes from the webview in the window's CSS pixels; `selection.rs` adds the window's origin and hands over a `CaptureRect` in global points. `screen_capture` finds the `SCDisplay` that contains the centre of the rectangle, sets it as `sourceRect` relative to that display's origin, and computes the frame size from that display's own density (`CGDisplayModeGetPixelWidth` divided by the width in points), so on Retina the capture comes out in native resolution, and on an ordinary neighbouring screen it is not upscaled. A rectangle stretched across two displays is clipped to the one holding its centre.
 
-Стискає картинку ядро, а не платформний крейт: `screenshot::shrink` читає BGRA з урахуванням `stride`, зводить довгу сторону до 1400 px і кодує JPEG, знижуючи якість, доки не влізе в 400 КБ. Зустріч перевіряється до появи виділення: вибирати область, щоб потім почути «зустріч не йде», було б знущанням.
+The picture is compressed by core, not by the platform crate: `screenshot::shrink` reads BGRA respecting `stride`, reduces the long side to 1,400 px and encodes JPEG, lowering quality until it fits in 400 KB. The meeting is checked before the selection appears: selecting a region only to then hear "no meeting is running" would be cruel.
 
-Гарячі клавіші беруться з локальних налаштувань і перереєструються при їх збереженні. Клавіша «відповісти», «інший варіант» і «знімок» різні, ще одна показує або ховає оверлей. За замовчуванням «відповісти» це `Alt+R` (⌥R з макета); підказку в бічній панелі й чип в оверлеї малює той самий рядок із налаштувань, тому вони не розходяться.
+Hotkeys are taken from local settings and re-registered when they are saved. The "reply", "alternative" and "screenshot" keys are different; another one shows or hides the overlay, and one more toggles overlay interaction. Defaults: reply `Alt+R` (⌥R from the mockup), alternative `CommandOrControl+Shift+A`, screenshot `Alt+S`, hide `CommandOrControl+Shift+H`, interact `CommandOrControl+Shift+M`. The hint in the sidebar and the chip in the overlay draw the same string from settings, so they do not drift apart.
 
 ### IPC
 
-Команди UI → Rust: `start_login`, `complete_login`, `logout`, `auth_state`, `session_state`, `start_session`, `stop_session`, `generate`, `cancel_generation`, `finish_selection`, `cancel_selection`, `list_meetings`, `get_meeting`, `rename_meeting`, `move_meeting`, `delete_meeting`, `list_projects`, `create_project`, `rename_project`, `delete_project`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`, `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`, `list_audio_devices`, `start_audio_check`, `stop_audio_check`.
+Commands UI → Rust:
 
-Подія `generation:started` несе `{ mode, withScreenshot }`, тому оверлей і історія кажуть, що відповідь читала екран.
+- auth: `auth_state`, `sign_in`, `start_login`, `complete_login`, `logout`
+- session: `session_state`, `start_session`, `switch_meeting_language`, `stop_session`
+- generation: `generate`, `cancel_generation`
+- screen: `finish_selection`, `cancel_selection`
+- meetings and chat: `list_meetings`, `get_meeting`, `rename_meeting`, `move_meeting`, `delete_meeting`, `meeting_chats`, `start_meeting_chat`, `chat_messages`, `delete_meeting_chat`, `ask_in_chat`
+- projects: `list_projects`, `create_project`, `rename_project`, `delete_project`
+- materials: `list_resources`, `upload_resource`, `add_resource_text`, `get_resource`, `resource_content`, `resource_limits`, `delete_resource`
+- settings: `get_local_settings`, `save_local_settings`, `get_user_settings`, `save_user_settings`, `check_backend`
+- audio: `list_audio_devices`, `start_audio_check`, `stop_audio_check`, `system_audio_allowed`, `open_audio_permission`
 
-Події Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `chat:delta`, `chat:finished`, `chat:failed`, `app:error`. Події чату несуть `chatId`, а не зустріч: екран чату бере лише свої.
+Events Rust → UI: `auth:state`, `session:state`, `audio:level`, `source:status`, `transcript:segment`, `generation:started`, `generation:delta`, `generation:finished`, `generation:failed`, `chat:delta`, `chat:finished`, `chat:failed`, `overlay:interaction`, `app:error`. Chat events carry `chatId`, not the meeting: a chat screen takes only its own.
 
-`source:status` приходить по одній події на джерело одразу після старту зустрічі: `{ speaker, active }`. UI показує з них статуси мікрофона й звуку зустрічі і забуває їх, коли зустріч закінчується. Поки зустрічі немає, статус системного звуку береться з команди `system_audio_allowed`: без неї джерело вічно висіло б «не перевірено», хоча дозвіл уже виданий. Клік по рядку джерела відкриває потрібну панель macOS через `open_audio_permission`, і для звуку зустрічі це «Запис екрана», а не мікрофон.
+The `generation:started` event carries `{ mode, withScreenshot }`, so the overlay and history can say that the reply read the screen.
 
-Помилка з `app:error` показується смугою внизу головного вікна і сама зникає через дванадцять секунд (`shared/lib/useTransientMessage`). Смуга, що висить далі, читається як стан останньої дії: дозвіл уже виданий, а екран досі каже, що його немає.
+`source:status` arrives as one event per source right after the meeting starts: `{ speaker, active }`. The UI shows the microphone and meeting-audio statuses from them and forgets them when the meeting ends. While there is no meeting, the system-audio status comes from the `system_audio_allowed` command: without it the source would hang on "not checked" forever even when permission is already granted. A click on a source row opens the right macOS pane through `open_audio_permission`, and for meeting audio that is "Screen Recording", not the microphone.
 
-Назви подій і форми payload визначені один раз у `desktop/src-tauri/src/events.rs` і продубльовані типами в `desktop/src/shared/ipc/events.ts`.
+An error from `app:error` is shown as a strip at the bottom of the main window and disappears by itself after twelve seconds (`shared/lib/useTransientMessage`). A strip that keeps hanging reads as the state of the last action: the permission is already granted, while the screen still says it is not.
 
-### Вікна
+Event names and payload shapes are defined once in `desktop/src-tauri/src/events.rs` and duplicated as types in `desktop/src/shared/ipc/events.ts`.
 
-- Екран зустрічі відкривається кліком по рядку в списку і показує саме її: ліворуч список чатів по цій зустрічі з пошуком і кнопкою «Новий чат», у центрі картки резюме, транскрипту, відповідей і витрат. Списку інших зустрічей тут немає: по них ходять із головного екрана, де сторінки довантажуються при гортанні.
-- Чат це ще один екран того самого вікна, а не нове вікно: `View` у `app/App.tsx` має варіант `chat` з `meetingId` і `chatId`, а стрілка назад веде зі чату на його зустріч, а не на головний екран. Сам екран виглядає як месенджер: питання праворуч акцентною бульбашкою, відповідь ліворуч, час у куті, тред тримається низу, поки користувач не почав гортати вгору.
-- Той самий список чатів стоїть ліворуч і на екрані зустрічі, і на екрані чату, де відкритий чат підсвічений рамкою: між чатами однієї зустрічі ходять не повертаючись назад. Видалення живе в рядку списку і питає підтвердження діалогом, який називає чат; якщо видалили відкритий чат, застосунок повертається на зустріч.
-- Головне вікно: `titleBarStyle: "Overlay"` і `hiddenTitle`, тому світлофор системний, а свою смугу заголовка малює `app/TitleBar.tsx` із відступом під нього. Ліворуч бічна панель сесії (профіль, мова, джерела звуку, старт), праворуч останні зустрічі. Налаштування й повна історія — окремі види того самого вікна. Налаштування розбиті на чотири вкладки в лівій рейці: «Загальні» (профіль, мова, стиль, акаунт), «Аудіо», «Гарячі клавіші», «Розширені». Вкладка це локальний стан екрана, не маршрут: вікно одне, і назад веде та сама стрілка в шапці. Кожна вкладка зберігає своє, тому кнопка «Зберегти» живе в ній, а не одна на весь екран.
-- Оверлей не ловить мишу: `set_ignore_cursor_events(true)` пропускає кліки в застосунок під ним, тож кнопка в браузері під оверлеєм натискається. Гаряча клавіша (`interact` у налаштуваннях) повертає вікну мишу, і лише в цьому режимі його можна тягнути, міняти розмір і гортати транскрипт; про режим UI дізнається з події `overlay:interaction` і підсвічує рамку. Кнопок в оверлеї немає взагалі, копіювання це виділення тексту в режимі взаємодії.
-- Транскрипт в оверлеї показує всю зустріч: тримається низу, доки користувач не почав гортати, а вгору довантажує по сорок реплік, тому довга зустріч не тримає в DOM тисячі рядків.
-- Оверлей видимий від старту застосунку, а не лише під час відповіді: це «меблі», які показують стан сесії, транскрипт і останню відповідь. Ховає й повертає його гаряча клавіша. З кінцем зустрічі він порожніє: сесія в стані `idle` не тримає ні транскрипт, ні відповідь, а `stop_session` спершу скасовує генерацію, що ще пише, і лише потім зупиняє сесію. Чистити доводиться саме там, бо вікна не діляться пам'яттю: в оверлея власний React-корінь і власні стори, тож виклик у головному вікні до нього не доходить. Вікно оголошене в `tauri.conf.json` як прихованим, має власну точку входу `overlay.html` і власний набір дозволів. Живий транскрипт живе тут, а не в головному вікні: під час зустрічі користувач дивиться на зустріч, а не на застосунок.
-- Оверлей прозорий: `transparent: true` плюс `macOSPrivateApi`, бо без цього `backdrop-filter` малює суцільний прямокутник замість скла з макета. Ціна рішення — App Store відпадає, лишається роздача через DMG з нотаризацією. Системну тінь вимкнено (`shadow: false`), тінь малює CSS, інакше навколо прозорого вікна з'явиться прямокутна рамка.
-- Вікно вибору області живе лише під час вибору: `app/selection.rs` створює його на гарячу клавішу й закриває, щойно прямокутник обрано або вибір скасовано. Воно прозоре, без рамки, ловить мишу й клавіатуру і приховане від знімка.
-- Рівень вікна оверлея піднято до `NSScreenSaverWindowLevel`, а `collectionBehavior` це `CanJoinAllSpaces | FullScreenAuxiliary | Stationary | IgnoresCycle`, плюс `hidesOnDeactivate(false)`. Самого `CanJoinAllSpaces` не досить: вікно застосунку зі значком у Dock лишається на просторі, де його відкрили, хоч би що казала поведінка колекції. На всі простори виходить тільки `NSPanel`, тому в `app/overlay/macos.rs` клас вікна на час виставляння прапорців підмінюється на `NSPanel` (з ним заходить стиль `NonactivatingPanel`), а одразу по тому повертається початковий: залишити вікно панеллю не можна, tao віддає `NSKVONotifying_TaoWindow`, і підміна класу назавжди ламає спостерігачів KVO, які тримає на вікні AppKit — застосунок падає на `removeObserver`. Прапорці виставляються заново при кожному показі й завжди в головному потоці через `run_on_main_thread`. Це єдиний шматок AppKit у `src-tauri`, і він лежить в `app/macos_window.rs`, бо ним користуються обидва вікна поверх усіх: оверлей і вибір області.
-- Позицію оверлей отримує один раз, на моніторі під курсором, і саме після `show()`: tao центрує вікно при першому показі, тому позиція, виставлена раніше, губиться. Далі вікно не рухається саме. Тягне його користувач за шапку, і це власний обробник `pointerdown` з `setPosition`, а не `data-tauri-drag-region`: регіон пропускає натискання, які влучили в дочірній елемент, а в шапці їх майже суцільно.
-- `set_content_protected(true)` прибирає оверлей із демонстрації екрана. Побічний ефект: його не видно і на звичайному знімку екрана, хоча на екрані він є. Перевіряти його наявність інструментами варто через `CGWindowListCopyWindowInfo`, а не через скриншот, а належність до просторів — через приватну `CGSCopySpacesForWindows`: у відповіді мають бути всі простори.
+### Windows
 
-## Безпека та підписка
+- The meeting screen opens with a click on a row in the list and shows exactly that meeting: on the left a list of chats about this meeting with search and a "New chat" button, in the centre cards for the overview, transcript, replies, materials and cost. There is no list of other meetings here: they are browsed from the main screen, where pages load as you scroll.
+- A chat is another screen of the same window, not a new window: `View` in `app/App.tsx` has a `chat` variant with `meetingId` and `chatId`, and the back arrow leads from a chat to its meeting, not to the main screen. The screen itself looks like a messenger: the question on the right in an accent bubble, the answer on the left, the time in the corner, and the thread sticks to the bottom until the user starts scrolling up.
+- The same chat list stands on the left both on the meeting screen and on the chat screen, where the open chat is outlined: you move between chats of one meeting without going back. Deletion lives in the list row and asks for confirmation with a dialog that names the chat; if the open chat was deleted, the app returns to the meeting.
+- Main window: `titleBarStyle: "Overlay"` and `hiddenTitle`, so the traffic lights are native, and `app/TitleBar.tsx` draws its own title strip with room for them. On the left the session sidebar (profile, language, reply language, project, materials, audio sources, start), on the right the projects bar and the meeting list. `View` has four variants: `main`, `meeting`, `chat`, `settings`; there is no separate history view — the meeting list on the main screen is the history. Settings are split into five tabs in the left rail: "General" (profile, language, style, account), "Materials", "Audio", "Hotkeys", "Advanced". A tab is local screen state, not a route: there is one window, and the same arrow in the header leads back. Each tab saves its own, so the "Save" button lives in it rather than one for the whole screen.
+- The overlay does not catch the mouse: `set_ignore_cursor_events(true)` passes clicks to the app below, so a button in the browser under the overlay can be pressed. A hotkey (`interact` in settings) gives the window the mouse back, and only in that mode can it be dragged, resized and its transcript scrolled; the UI learns about the mode from the `overlay:interaction` event and highlights the border. The overlay has no buttons at all; copying is text selection in interaction mode.
+- The transcript in the overlay shows the whole meeting: it sticks to the bottom until the user starts scrolling, and upward it loads forty lines at a time, so a long meeting does not keep thousands of rows in the DOM.
+- The overlay is visible from app start, not only during a reply: it is "furniture" that shows the session state, the transcript and the last reply. A hotkey hides and restores it. When the meeting ends it empties: a session in the `idle` state holds neither transcript nor reply, and `stop_session` first cancels a generation that is still writing, and only then stops the session. Clearing has to happen there, because windows do not share memory: the overlay has its own React root and its own stores, so a call in the main window does not reach it. The window is declared hidden in `tauri.conf.json`, has its own entry point `overlay.html` and its own capability set. The live transcript lives here, not in the main window: during a meeting the user looks at the meeting, not at the app.
+- The overlay is transparent: `transparent: true` plus `macOSPrivateApi`, because without it `backdrop-filter` paints a solid rectangle instead of the glass from the mockup. The price of this decision — the App Store is out, distribution is a notarized DMG. The system shadow is off (`shadow: false`) and CSS draws the shadow, otherwise a rectangular frame appears around the transparent window.
+- The region-selection window lives only during selection: `app/selection.rs` creates it on the hotkey and closes it as soon as the rectangle is chosen or the selection is cancelled. It is transparent, borderless, catches the mouse and keyboard, and is hidden from capture.
+- The overlay window level is raised to `NSScreenSaverWindowLevel`, and `collectionBehavior` is `CanJoinAllSpaces | FullScreenAuxiliary | Stationary | IgnoresCycle`, plus `hidesOnDeactivate(false)`. `CanJoinAllSpaces` alone is not enough: a window of an app with a Dock icon stays on the Space where it was opened, whatever the collection behaviour says. Only an `NSPanel` reaches every Space, so `app/macos_window.rs` swaps the window's class to `NSPanel` while the flags are set (bringing in the `NonactivatingPanel` style) and immediately swaps the original back: the window cannot be left a panel, because tao hands out `NSKVONotifying_TaoWindow`, and a class swap permanently breaks the KVO observers AppKit keeps on the window — the app crashes on `removeObserver`. The flags are set again on every show and always on the main thread via `run_on_main_thread`. This is the only piece of AppKit in `src-tauri`, and it lives in `app/macos_window.rs` because both always-on-top windows use it: the overlay and the region selection.
+- The overlay gets its position once, on the monitor under the cursor, and only after `show()`: tao centres the window on first show, so a position set earlier is lost. After that the window does not move by itself. The user drags it by its header, and that is a custom `pointerdown` handler with `setPosition` (`useOverlayDrag`), not `data-tauri-drag-region`: the region ignores presses that hit a child element, and the header is almost entirely children.
+- `set_content_protected(true)` removes the overlay from screen sharing. Side effect: it is not visible on an ordinary screenshot either, even though it is on screen. Its presence should be checked with `CGWindowListCopyWindowInfo`, not a screenshot, and its Space membership with the private `CGSCopySpacesForWindows`: the answer should list every Space.
 
-Застосунок на диску користувача не є довіреним: будь-що всередині бінарника можна дістати, будь-яку локальну перевірку можна вирізати. Тому:
+## Security and subscription
 
-- Ключі провайдерів існують лише в `.env` бекенду. У застосунку є адреса бекенду й пара токенів: у релізі в Keychain, у debug-збірці у файлі з правами `0600`, бо ad-hoc підпис змінюється з кожною збіркою і Keychain питає пароль щоразу.
-- Уся логіка продукту на бекенді: промпти, контекст, моделі, ліміти. Єдиний спосіб щось згенерувати це генерація для власної зустрічі.
-- Вхід через Google йде через системний браузер і одноразовий код, а не через вбудований webview. Так рекомендує RFC 8252, і Google інакше не дозволяє.
-- Підписка перевіряється на бекенді в `SubscriptionGuard`. `AccessPolicy` у застосунку існує лише для UI, щоб показати пейвол до 403.
-- Транскрипти зберігаються на сервері. Для комерційної версії це вимагає політики приватності та можливості видалити зустріч і акаунт.
+The app on the user's disk is not trusted: anything inside the binary can be extracted, any local check can be cut out. Therefore:
 
-## Надійність
+- Provider keys exist only in the backend `.env`. The app has the backend address and a token pair: in release builds in Keychain, in debug builds in a file with `0600` permissions, because the ad-hoc signature changes with every build and Keychain would ask for a password each time.
+- All product logic is on the backend: prompts, context, models, limits. The only way to generate anything is a generation for your own meeting.
+- Google sign-in goes through the system browser and a one-time code, not through an embedded webview. RFC 8252 recommends this, and Google allows nothing else.
+- The subscription is checked on the backend in `SubscriptionGuard`. `AccessPolicy` in the app exists only for the UI, to show a paywall before a 403.
+- `ThrottlerGuard` limits every client to 100 requests per minute, registration to 5 and login to 10.
+- Transcripts are stored on the server. For a commercial version this requires a privacy policy and a way to delete a meeting and the account.
 
-- Прострочені `auth_sessions` прибирає `ExpiredSessionsCleaner` щогодини, «завислі» зустрічі закриває `StaleMeetingsCloser` кожні пів години. Зустріч вважається завислою, коли її ключ `meeting:{id}:alive` у Redis зник: потік розпізнавання оновлює його, поки йде звук, тому довга, але жива зустріч не обривається. TTL ключа й поріг віку беруться з `LIVE_MEETING_IDLE_SECONDS`.
-- Межі на провайдерів у конфігу: `LLM_TIMEOUT_MS` на запит до OpenAI і `STT_CONNECT_TIMEOUT_MS` на рукостискання з Deepgram. Стрім відповіді не обмежений: таймаут стоїть на встановлення з'єднання.
-- `MAX_REQUEST_BODY_BYTES` обмежує тіло запиту. Помилка парсера тіла має власний статус, тому фільтр віддає її як 413 у тій самій формі помилки, а не як 500.
-- Застосунок пише логи через `tracing` у `app_log_dir` із добовою ротацією і сімома файлами історії. Секрети туди не потрапляють: `Secret` друкується як `Secret(***)`.
-- Вихід із застосунку проходить через `RunEvent::Exit`: він зупиняє перевірку звуку й сесію, тобто завершує зустріч на бекенді, з межею в 5 секунд. Перемикання вкладок у вікні на сесію не впливає.
-- HTTP-транспорт ядра повторює запит тричі з експоненційною паузою, але лише коли це таймаут, збій з'єднання або 5xx. Відмову на кшталт 404 чи 409 не повторюємо.
+## Reliability
 
-## Збірка й запуск
+- Expired `auth_sessions` are removed hourly by `ExpiredSessionsCleaner`, "stuck" meetings are closed every half hour by `StaleMeetingsCloser`, and unclaimed meeting materials are removed hourly by `StagedResourcesSweeper`. A meeting counts as stuck when its `meeting:{id}:alive` key in Redis has disappeared: the recognition stream refreshes it while audio flows, so a long but living meeting is not cut off. The key's TTL and the age threshold come from `LIVE_MEETING_IDLE_SECONDS`.
+- Provider limits in config: `LLM_TIMEOUT_MS` per OpenAI request and `STT_CONNECT_TIMEOUT_MS` for the handshake with Deepgram. The reply stream is not limited: the timeout applies to establishing the connection.
+- `MAX_REQUEST_BODY_BYTES` limits the request body. The body parser error has its own status, so the filter returns it as 413 in the same error shape, not as 500.
+- The app writes logs through `tracing` to `app_log_dir` with daily rotation and seven files of history. Secrets do not get there: `Secret` prints as `Secret(***)`.
+- Quitting the app goes through `RunEvent::Exit`: it stops the audio check and the session, that is, finishes the meeting on the backend, with a 5-second limit. Switching views in the window does not affect the session.
+- The core HTTP transport makes up to three attempts with exponential backoff from 300 ms, but only on a timeout, a connection failure or a 5xx. A refusal such as 404 or 409 is not retried. JSON requests have a 10-second timeout; streams have only a connect timeout.
 
-Покрокові команди в `docs/RELEASE.md`. Рішення такі:
+## Build and run
 
-- Бекенд їде образом з `backend/Dockerfile` і `docker-compose.prod.yml`. Міграції застосовує окремий сервіс `migrate` з етапу `build`, і бекенд стартує лише після його успішного завершення. Робочий образ не містить Prisma CLI: він тягне Studio і pglite, а `--no-optional` відкидає необов'язкові peer-залежності й лишає образ удвічі меншим.
-- Секрети бекенду живуть у `backend/.env.production`, пароль Postgres — у кореневому `.env` для compose. Адреси Postgres і Redis задає сам compose, щоб їх не можна було випадково перевизначити з env-файла.
-- Джерело іконки застосунку — `desktop/src-tauri/icons/icon.svg`; набір розмірів генерується `tauri icon`. Мобільні набори не тримаємо.
-- Схему `cueline://` бандлер сам кладе в `Info.plist` із конфігу плагіна deep-link, тому вручну `CFBundleURLTypes` не пишемо. `LSMinimumSystemVersion` це 13.0, бо захоплення звуку через ScreenCaptureKit молодше.
-- Підпис і нотаризація йдуть змінними оточення Apple, які читає Tauri. Entitlements мінімальні: лише `com.apple.security.device.audio-input`. Дозвіл на запис екрана entitlement не має, його дає користувач.
-- Першим екраном іде вхід із макета. Окремого знайомства немає: адреса сервера, пристрій і гарячі клавіші лежать у налаштуваннях за шестернею, а дозволи macOS просить сама при першій зустрічі.
+Step-by-step commands are in `docs/RELEASE.md`. The decisions:
 
-## Звук і Bluetooth
+- The backend ships as an image from `backend/Dockerfile` and `docker-compose.prod.yml`. Migrations are applied by a separate `migrate` service from the `build` stage, and the backend starts only after it completes successfully. The runtime image does not contain the Prisma CLI: it pulls in Studio and pglite, and `--no-optional` drops optional peer dependencies and leaves the image half the size.
+- Backend secrets live in `backend/.env.production`, the Postgres password in the root `.env` for compose. The Postgres and Redis addresses are set by compose itself, so they cannot be accidentally overridden from the env file.
+- The app icon source is `desktop/src-tauri/icons/icon.svg`; the set of sizes is generated by `tauri icon`. Mobile sets are not kept.
+- The bundler puts the `cueline://` scheme into `Info.plist` itself from the deep-link plugin config, so `CFBundleURLTypes` is not written by hand. `LSMinimumSystemVersion` is 13.0, because audio capture through ScreenCaptureKit is newer than that.
+- Signing and notarization use Apple environment variables that Tauri reads. Entitlements are minimal: only `com.apple.security.device.audio-input`. Screen recording has no entitlement; the user grants it.
+- The first screen is sign-in from the mockup. There is no separate onboarding: the server address, device and hotkeys live in settings behind the gear, and macOS asks for permissions itself at the first meeting.
 
-Щойно застосунок відкриває мікрофон Bluetooth-гарнітури, macOS переводить її з A2DP у профіль розмови: 16 кГц моно, і зустріч у навушниках починає звучати як телефонна трубка. Обійти це з боку застосунку не можна, тому коли мікрофон не обраний вручну, композиційний корінь бере вбудований: `platform-macos/audio_devices` питає CoreAudio про транспорт пристроїв, а `app/microphone_choice.rs` підставляє вбудований замість Bluetooth. У налаштуваннях такі входи позначені як `(Bluetooth)`, і вибір одного з них показує, чим це закінчиться.
+## Audio and Bluetooth
 
-## Тема і компоненти UI
+As soon as the app opens the microphone of a Bluetooth headset, macOS switches it from A2DP to the call profile: 16 kHz mono, and the meeting in the headphones starts to sound like a telephone. This cannot be avoided from the app side, so when no microphone is chosen by hand, the composition root takes the built-in one: `platform-macos/audio_devices` asks CoreAudio for the transport of each device, and `app/microphone_choice.rs` substitutes the built-in microphone for a Bluetooth one. In settings such inputs are marked `(Bluetooth)`, and choosing one of them shows what it will lead to.
 
-Кольори, типографіка, відступи й радіуси приходять із дизайн-системи одним файлом `desktop/src/shared/theme/tokens.css`, згенерованим із її `tokens.json`. Він оголошує токени в `@theme`, тому Tailwind робить із них утиліти (`bg-surface-elevated`, `text-body`, `p-5`, `rounded-lg`), а темна тема це ті самі імена з іншими значеннями під `prefers-color-scheme: dark` і під `[data-theme='dark']`. Компоненти ніколи не пишуть шістнадцяткові кольори: правило дизайн-системи, і воно ж рятує від гілок «якщо темна тема» в коді.
+## Theme and UI components
 
-Екран це набір маленьких компонентів, а не один файл: бічна панель сесії складається з `ProfileSwitcher`, `LanguageSelect`, `AudioSourceStatus` і `StartMeetingButton`, оверлей — із `StatusIndicator`, `LiveTranscript`, `ResponseBlock`, `CopyButton` і `RegenerateButton`. Усі вони приймають дані пропсами, а стан збирають хуки над сторами, тому жоден із них не знає про Tauri.
+Colours, typography, spacing and radii come from the design system as one file, `desktop/src/shared/theme/tokens.css`, generated from its `tokens.json`. It declares tokens in `@theme`, so Tailwind turns them into utilities (`bg-surface-elevated`, `text-body`, `p-5`, `rounded-lg`), and the dark theme is the same names with other values under `prefers-color-scheme: dark` and under `[data-theme='dark']`. Components never write hex colours: a design-system rule, and it also saves the code from "if dark theme" branches.
 
-Стан у цих компонентах справжній: профіль приходить із налаштувань користувача, статуси джерел — із події `source:status`, транскрипт — із `transcript:segment` (проміжний рядок сірий і курсивом, доки не прийде фінальний), текст відповіді накопичується з `generation:delta`. «Записую» замість «Слухаю» вмикається, поки в транскрипті висить незавершена репліка від мікрофона.
+A screen is a set of small components, not one file: the session sidebar is made of `ProfileSwitcher`, `LanguageSelect`, `ReplyLanguageSelect`, `ProjectSelect`, `AudioSourceStatus` and `StartMeetingButton`; the overlay (`ResponseOverlay`) of `StatusIndicator`, `LiveTranscript` and `ResponseBlock`. They all take data through props, and hooks over stores assemble the state, so none of them knows about Tauri.
 
-## Проєкти на головному екрані
+The state in these components is real: the profile comes from user settings, source statuses from the `source:status` event, the transcript from `transcript:segment` (an interim line is grey and italic until the final one arrives), the reply text accumulates from `generation:delta`. "Recording" instead of "Listening" turns on while an unfinished line from the microphone hangs in the transcript.
 
-Праворуч від панелі сесії згори стоїть смуга проєктів (`features/projects/ProjectsBar`), під нею той самий список зустрічей. Картка проєкту показує назву й кількість зустрічей, картка «Без проєкту» стоїть першою. Клік по картці звужує список під нею до цього проєкту, повторний клік повертає всі зустрічі — тому окремого екрана проєкту немає й нікуди не треба ходити, щоб перетягнути зустріч.
+## Projects on the main screen
 
-Зустріч потрапляє до проєкту перетягуванням рядка на картку. Рядок несе свій id під власним типом даних `application/x-cueline-meeting`: вміст перетягування недоступний, поки його не кинули, а список типів доступний, тому картка бачить на `dragover`, що над нею летить саме зустріч, і підсвічується лише тоді. Кидок на «Без проєкту» виймає зустріч із проєкту, тож зворотного шляху окремою кнопкою не потрібно. У головному вікні вимкнено рідне перетягування Tauri (`dragDropEnabled: false`): воно потрібне лише для файлів із системи, а HTML5-перетягування всередині вебв'ю з ним конфліктує.
+To the right of the session panel, at the top, is the projects bar (`features/projects/ProjectsBar`), and under it the same meeting list. A project card shows the name and the number of meetings; the "No project" card stands first. A click on a card narrows the list below to that project, a second click returns all meetings — so there is no separate project screen and nowhere to go to drag a meeting.
 
-Перейменування відбувається на місці: олівець у рядку або на картці міняє назву на поле, Enter зберігає, Esc скасовує, порожнє або незмінене ім'я нічого не зберігає (`shared/lib/useRename`). Видалення проходить через `ConfirmDialog`, і текст діалога для проєкту з зустрічами називає їхню кількість, бо разом із проєктом зникнуть саме вони.
+A meeting goes into a project by dragging its row onto a card. The row carries its id under its own data type `application/x-cueline-meeting`: the drag content is unavailable until dropped, but the list of types is available, so the card sees on `dragover` that a meeting is flying over it and lights up only then. Dropping on "No project" takes the meeting out of its project, so no separate button is needed for the way back. Tauri's native drag-and-drop is disabled in the main window (`dragDropEnabled: false`): it is needed only for files from the system, and HTML5 drag inside the webview conflicts with it.
 
-Обидва списки читаються з бекенду знову після будь-якої зміни: одне число `revision` у `MainWindow` росте на кожній вдалій дії, а `useProjects` і `useMeetings` перечитують себе, коли воно змінилось. Зустріч, яку перетягнули, одночасно зникає з одного списку, з'являється в іншому й міняє два лічильники, тож локальне підправляння рядка все одно розійшлося б із сервером.
+Renaming happens in place: a pencil in the row or on the card turns the name into a field, Enter saves, Esc cancels, an empty or unchanged name saves nothing (`shared/lib/useRename`). Deletion goes through `ConfirmDialog`, and the dialog text for a project with meetings names their count, because exactly those will disappear with the project.
 
-## Матеріали в застосунку
+Both lists are re-read from the backend after any change: a single `revision` number in `MainWindow` grows on every successful action, and `useProjects` and `useMeetings` reload themselves when it changes. A dragged meeting simultaneously disappears from one list, appears in another and changes two counters, so a local row patch would drift from the server anyway.
 
-`features/resources` тримає одну панель на всі три рівні: список матеріалів, кнопка «Додати файл» через `tauri-plugin-dialog` і форма для вставленого тексту. Різниця між рівнями — лише `ResourceScope`, який їде в команду, тож форма скрізь одна. Вибір файлу повертає шлях, а байти читає Rust: тип перевіряється по розширенню ще до звернення до сервера, тому «це не PDF, Markdown чи текст» видно одразу.
+## Materials in the app
 
-Рівень користувача живе вкладкою «Матеріали» в налаштуваннях. Рівень проєкту зʼявляється над списком зустрічей, коли на смузі проєктів відкрито проєкт, — окремого екрана проєкту, як і раніше, немає. Рівень зустрічі стоїть на панелі старту, разом із профілем, мовою і новим селектором проєкту.
+`features/resources` holds one panel for all three levels: a list of materials, an "Add file" button through `tauri-plugin-dialog` and a form for pasted text. The difference between levels is only the `ResourceScope` that goes into the command, so the form is the same everywhere. The file picker returns a path, and Rust reads the bytes: the type is checked by extension before the server is contacted, so "this is not a PDF, Markdown or text" shows at once.
 
-`useResources` дочитує матеріал, поки він `pending`: завантаження відповідає одразу, а читання документа йде на сервері позаду. Опитування це `setInterval`, а не один `setTimeout`: перелік очікуваних ідентифікаторів не міняється, поки їх читають, тож ефект сам себе не перезапустить, і одна спроба лишала панель на «Читаємо…» аж до повторного відкриття екрана. Те саме очікування тримає кнопку старту: поки хоч один матеріал читається, вона зайнята, бо бріф збирається з того, що вже прочитано. Після старту `revision` росте, і список матеріалів зустрічі перечитується вже порожнім — їх забрала зустріч.
+The user level lives in the "Materials" tab in settings. The project level appears above the meeting list when a project is open on the projects bar — there is still no separate project screen. The meeting level stands on the start panel, together with the profile, language and the project selector.
 
-Готовий матеріал відкривається кліком по назві: `ResourceViewer` питає `GET /resources/:id/content` і показує текст, а коли документ не вмістився в бюджет свого рівня — стислу версію, бо саме вона їде до моделі. Так видно, що з файлу насправді прочиталось, а не лише те, що він прийнятий.
+`useResources` polls a material while it is `pending`: the upload responds at once, and reading the document continues on the server behind it. The polling is `setInterval`, not a single `setTimeout`: the list of pending ids does not change while they are being read, so the effect would not restart itself, and a single attempt left the panel on "Reading…" until the screen was reopened. The same wait holds the start button: while any material is being read, it is busy, because the brief is built from what has already been read. After start `revision` grows, and the meeting's material list is re-read already empty — the meeting took them.
 
-Екран завершеної зустрічі показує окремою карткою те, що асистент справді бачив: рядки приходять у `GET /meetings/:id` разом із транскриптом.
+A ready material opens with a click on its name: `ResourceViewer` asks `GET /resources/:id/content` and shows the text, and when the document did not fit its level's budget — the compressed version, because that is what goes to the model. This shows what was actually read from the file, not just that it was accepted.
 
-## Кросплатформність
+The finished-meeting screen shows in a separate card what the assistant actually saw: the rows arrive in `GET /meetings/:id` together with the transcript.
 
-Платформний код застосунку живе в `desktop/crates/platform-*`. Композиційний корінь обирає реалізацію через `cfg(target_os)`. Для Linux і Windows додається новий crate із `AudioSource` для системного звуку і, за потреби, свій модуль дозволів. Решта коду не змінюється.
+## Cross-platform
+
+The app's platform code lives in `desktop/crates/platform-*`. The composition root picks the implementation through `cfg(target_os)`. For Linux and Windows a new crate is added with an `AudioSource` for system audio and, if needed, its own permissions module. The rest of the code does not change.
